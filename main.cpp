@@ -86,5 +86,14 @@ int main(int argc, char* argv[])
     // std::vector<char> file{file_to_vector(__FILE__)};
     // std::cout << "Done. " << file[0] << "\n";
 
-    Trie{"banana"};
+    Trie trie{"banana"};
+    trie.insert("ananas");
+
+    auto* node = trie.find("n");
+
+    if (node != nullptr)
+        for (const auto& r : node->all_results())
+            std::cout << r << "\n";
+    else
+        std::cout << "Not found\n";
 }
