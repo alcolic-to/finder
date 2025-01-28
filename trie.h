@@ -8,6 +8,7 @@
 #include <memory>
 #include <ranges>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // NOLINTBEGIN
@@ -16,15 +17,28 @@ class Trie_node;
 
 class Trie_node_edge {
 public:
+    Trie_node_edge() = default;
+
+    Trie_node_edge(Trie_node* node, std::string suffix) : m_node{node}, m_suffix{std::move(suffix)}
+    {
+    }
+
     Trie_node* m_node;
-    // std::string m_suffix;
-    char m_ch;
+    std::string m_suffix;
+
+    char ch() { return m_suffix[0]; }
+
+    // char m_ch;
 };
 
 // Suffix tree node.
 //
 class Trie_node {
 public:
+    Trie_node() = default;
+
+    Trie_node(Trie_node_edge edge) : m_edges{edge} {}
+
     std::vector<std::string> all_results()
     {
         std::vector<std::string> res;
@@ -44,6 +58,8 @@ public:
 
 class Trie {
 public:
+    Trie() = default;
+
     explicit Trie(const std::string& s) { insert(s); }
 
     void insert(const std::string& s)
@@ -51,10 +67,31 @@ public:
         m_strings.push_back(s);
 
         for (int i = 0; i < s.size(); ++i)
-            insert(&m_root, s, s.c_str() + i);
+            insert(&m_root, s, (char*)(&s[0]) + i);
     }
 
-    void insert(Trie_node* node, const std::string& s, const char* const suffix)
+    void insert(Trie_node_edge* edge, const std::string& s, char* suffix)
+    {
+        char* suf = suffix;
+        char* ed_suf = &edge->m_suffix[0];
+
+        while (*suf && *ed_suf && *suf == *ed_suf)
+            ++suf, ++ed_suf;
+
+        if (!*ed_suf) {
+            if (!*suf) // We already have a full text in edge. Just insert result.
+                return edge->m_node->m_results.push_back(s);
+
+            return insert(edge->m_node, s, suf);
+        }
+
+        edge->m_node = new Trie_node{Trie_node_edge{edge->m_node, ed_suf}};
+        edge->m_suffix = edge->m_suffix.substr(0, ed_suf - &edge->m_suffix[0]);
+
+        insert(edge->m_node, s, suf);
+    }
+
+    void insert(Trie_node* node, const std::string& s, char* suffix)
     {
         const char ch = *suffix;
         if (ch == '\0')
@@ -63,26 +100,45 @@ public:
         auto& edges = node->m_edges;
         auto it = edges.begin();
 
-        for (; it != edges.end() && it->m_ch <= ch; ++it)
-            if (it->m_ch == ch)
-                return insert(it->m_node, s, suffix + 1);
+        for (; it != edges.end() && it->ch() <= ch; ++it)
+            if (it->ch() == ch)
+                return insert(&*it, s, suffix);
 
-        auto new_node_it = edges.insert(it, {.m_node = new Trie_node, .m_ch = ch});
-        insert(new_node_it->m_node, s, suffix + 1);
+        Trie_node* new_node = new Trie_node;
+        new_node->m_results.push_back(s);
+
+        edges.insert(it, {new_node, suffix});
     }
 
-    Trie_node* find(std::string s) { return find(&m_root, s, s.c_str()); }
+    Trie_node* find(std::string s) { return find(&m_root, (char*)(&s[0])); }
 
-    Trie_node* find(Trie_node* node, const std::string& s, const char* const suffix)
+    Trie_node* find(Trie_node_edge* edge, char* suffix)
+    {
+        char* suf = suffix;
+        char* ed_suf = &edge->m_suffix[0];
+
+        while (*suf && *ed_suf && *suf == *ed_suf)
+            ++suf, ++ed_suf;
+
+        if (!*suf)
+            return edge->m_node;
+
+        if (!*ed_suf)
+            return find(edge->m_node, suf);
+
+        return nullptr;
+    }
+
+    Trie_node* find(Trie_node* node, char* suffix)
     {
         const char ch = *suffix;
         if (ch == '\0')
             return node;
 
         auto& edges = node->m_edges;
-        for (auto it = edges.begin(); it != edges.end() && it->m_ch <= ch; ++it)
-            if (it->m_ch == ch)
-                return find(it->m_node, s, suffix + 1);
+        for (auto it = edges.begin(); it != edges.end() && it->ch() <= ch; ++it)
+            if (it->ch() == ch)
+                return find(&*it, suffix);
 
         return nullptr;
     }

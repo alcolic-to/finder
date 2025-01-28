@@ -1,6 +1,8 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <ranges>
@@ -77,6 +79,32 @@ std::vector<char> file_to_vector(const std::string& path)
     return std::vector<char>{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
 }
 
+// Taken from google benchmark.
+//
+// NOLINTBEGIN
+#if defined(__GNUC__) || defined(__clang__)
+#define ALWAYS_INLINE __attribute__((always_inline))
+#elif defined(_MSC_VER) && !defined(__clang__)
+#define ALWAYS_INLINE __forceinline
+#define __func__ __FUNCTION__
+#else
+#define ALWAYS_INLINE
+#endif
+
+// Taken from google benchmark.
+//
+template<class Tp>
+inline ALWAYS_INLINE void dont_optimize(Tp&& value)
+{
+#if defined(__clang__)
+    asm volatile("" : "+r,m"(value) : : "memory");
+#else
+    asm volatile("" : "+m,r"(value) : : "memory");
+#endif
+}
+
+// NOLINTEND
+
 int main(int argc, char* argv[])
 {
     // std::cout << "Hello, new cpp project.\n" << __FILE__;
@@ -86,14 +114,52 @@ int main(int argc, char* argv[])
     // std::vector<char> file{file_to_vector(__FILE__)};
     // std::cout << "Done. " << file[0] << "\n";
 
-    Trie trie{"banana"};
-    trie.insert("ananas");
+    // Trie trie{"banana"};
+    // trie.insert("ananas");
 
-    auto* node = trie.find("n");
+    // auto* node = trie.find("n");
 
-    if (node != nullptr)
-        for (const auto& r : node->all_results())
-            std::cout << r << "\n";
-    else
-        std::cout << "Not found\n";
+    // if (node != nullptr)
+    //     for (const auto& r : node->all_results())
+    //         std::cout << r << "\n";
+    // else
+    //     std::cout << "Not found\n";
+
+    try {
+        Trie trie;
+        std::string path{R"(C:\Users\topac\Development)"};
+        for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path}) {
+            // if (dir_entry.is_regular_file()) {
+            //     std::vector v{file_to_vector(dir_entry.path().string())};
+
+            //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
+            // }
+
+            trie.insert(dir_entry.path().string());
+        }
+
+        {
+            Stopwatch s;
+
+            if (auto* node = trie.find("Dev")) {
+                std::vector<std::string> results{node->all_results()};
+                // dont_optimize(results);
+                // for (const auto& r : results)
+                //     std::cout << r << "\n";
+
+                std::cout << "Results size: " << results.size() << "\n";
+            }
+            else
+                std::cout << "Not found\n";
+        }
+    }
+    catch (const std::filesystem::filesystem_error& ex) {
+        std::cout << "Exception: std::filesystem::filesystem_error" << ex.what() << "\n";
+        std::cout << "Exception: " << ex.code() << "\n";
+        std::cout << "Exception: " << ex.path2() << "\n";
+        std::cout << "Exception: " << ex.path1() << "\n";
+    }
+    catch (const std::exception& ex) {
+        std::cout << "Exception std::exception: " << ex.what() << "\n";
+    }
 }

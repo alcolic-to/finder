@@ -12,7 +12,7 @@
 # Also, on windows, make sure to run program as administrator so tracy can collect stack traces.
 
 cmake_minimum_required(VERSION 3.10)
-project(cpp_test_1)
+project(trie)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -34,6 +34,6 @@ set(CPP_FILES main.cpp)
 set(HPP_FILES )
 set(ALL_FILES ${CPP_FILES} ${HPP_FILES})
 
-add_executable(cpp_test ${CPP_FILES})
+add_executable(trie ${CPP_FILES})
 
 include(CTest)
