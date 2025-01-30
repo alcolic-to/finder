@@ -114,7 +114,8 @@ int main(int argc, char* argv[])
     // std::vector<char> file{file_to_vector(__FILE__)};
     // std::cout << "Done. " << file[0] << "\n";
 
-    // Trie trie{"banana"};
+    // Trie trie;
+    // trie.insert("banana");
     // trie.insert("ananas");
 
     // auto* node = trie.find("n");

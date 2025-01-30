@@ -19,12 +19,14 @@ class Trie_node_edge {
 public:
     Trie_node_edge() = default;
 
-    Trie_node_edge(Trie_node* node, std::string suffix) : m_node{node}, m_suffix{std::move(suffix)}
+    Trie_node_edge(Trie_node* node, std::string_view suffix)
+        : m_node{node}
+        , m_suffix{std::move(suffix)}
     {
     }
 
     Trie_node* m_node;
-    std::string m_suffix;
+    std::string_view m_suffix;
 
     char ch() { return m_suffix[0]; }
 
@@ -38,6 +40,8 @@ public:
     Trie_node() = default;
 
     Trie_node(Trie_node_edge edge) : m_edges{edge} {}
+
+    Trie_node(std::string_view suffix) : m_results{suffix} {}
 
     std::vector<std::string> all_results()
     {
@@ -53,7 +57,7 @@ public:
     }
 
     std::list<Trie_node_edge> m_edges;
-    std::vector<std::string> m_results; // all strings that are in theory represented as $.
+    std::list<std::string_view> m_results; // all strings that are in theory represented as $.
 };
 
 class Trie {
@@ -62,82 +66,74 @@ public:
 
     explicit Trie(const std::string& s) { insert(s); }
 
-    void insert(const std::string& s)
+    void insert(std::string new_suffix)
     {
-        m_strings.push_back(s);
+        m_strings.emplace_back(std::move(new_suffix));
+        auto& suffix{m_strings.back()};
 
-        for (int i = 0; i < s.size(); ++i)
-            insert(&m_root, s, (char*)(&s[0]) + i);
+        for (auto it{suffix.begin()}; it != suffix.end(); ++it)
+            insert(&m_root, suffix, std::string_view{it, suffix.end()});
     }
 
-    void insert(Trie_node_edge* edge, const std::string& s, char* suffix)
+    void insert(Trie_node_edge* edge, const std::string& s, std::string_view suffix)
     {
-        char* suf = suffix;
-        char* ed_suf = &edge->m_suffix[0];
+        std::string_view edge_suf{edge->m_suffix};
+        while (!suffix.empty() && !edge_suf.empty() && suffix[0] == edge_suf[0])
+            suffix.remove_prefix(1), edge_suf.remove_prefix(1);
 
-        while (*suf && *ed_suf && *suf == *ed_suf)
-            ++suf, ++ed_suf;
-
-        if (!*ed_suf) {
-            if (!*suf) // We already have a full text in edge. Just insert result.
+        if (edge_suf.empty()) {
+            if (suffix.empty())
                 return edge->m_node->m_results.push_back(s);
 
-            return insert(edge->m_node, s, suf);
+            return insert(edge->m_node, s, suffix);
         }
 
-        edge->m_node = new Trie_node{Trie_node_edge{edge->m_node, ed_suf}};
-        edge->m_suffix = edge->m_suffix.substr(0, ed_suf - &edge->m_suffix[0]);
+        edge->m_node = new Trie_node{Trie_node_edge{edge->m_node, edge_suf}};
+        edge->m_suffix = std::string_view{edge->m_suffix.begin(), edge_suf.begin()};
 
-        insert(edge->m_node, s, suf);
+        insert(edge->m_node, s, suffix);
     }
 
-    void insert(Trie_node* node, const std::string& s, char* suffix)
+    void insert(Trie_node* node, const std::string& s, std::string_view suffix)
     {
-        const char ch = *suffix;
-        if (ch == '\0')
+        if (suffix.empty())
             return node->m_results.push_back(s);
 
         auto& edges = node->m_edges;
         auto it = edges.begin();
 
-        for (; it != edges.end() && it->ch() <= ch; ++it)
-            if (it->ch() == ch)
+        for (; it != edges.end() && it->ch() <= suffix[0]; ++it)
+            if (it->ch() == suffix[0])
                 return insert(&*it, s, suffix);
 
-        Trie_node* new_node = new Trie_node;
-        new_node->m_results.push_back(s);
-
-        edges.insert(it, {new_node, suffix});
+        edges.insert(it, {new Trie_node{s}, suffix});
     }
 
-    Trie_node* find(std::string s) { return find(&m_root, (char*)(&s[0])); }
+    Trie_node* find(std::string s) { return find(&m_root, s); }
 
-    Trie_node* find(Trie_node_edge* edge, char* suffix)
+    Trie_node* find(Trie_node_edge* edge, std::string_view suffix)
     {
-        char* suf = suffix;
-        char* ed_suf = &edge->m_suffix[0];
+        std::string_view edge_suf{edge->m_suffix};
+        while (!suffix.empty() && !edge_suf.empty() && suffix[0] == edge_suf[0])
+            suffix.remove_prefix(1), edge_suf.remove_prefix(1);
 
-        while (*suf && *ed_suf && *suf == *ed_suf)
-            ++suf, ++ed_suf;
-
-        if (!*suf)
+        if (suffix.empty())
             return edge->m_node;
 
-        if (!*ed_suf)
-            return find(edge->m_node, suf);
+        if (edge_suf.empty())
+            return find(edge->m_node, suffix);
 
         return nullptr;
     }
 
-    Trie_node* find(Trie_node* node, char* suffix)
+    Trie_node* find(Trie_node* node, std::string_view suffix)
     {
-        const char ch = *suffix;
-        if (ch == '\0')
+        if (suffix.empty())
             return node;
 
         auto& edges = node->m_edges;
-        for (auto it = edges.begin(); it != edges.end() && it->ch() <= ch; ++it)
-            if (it->ch() == ch)
+        for (auto it = edges.begin(); it != edges.end() && it->ch() <= suffix[0]; ++it)
+            if (it->ch() == suffix[0])
                 return find(&*it, suffix);
 
         return nullptr;
@@ -145,7 +141,7 @@ public:
 
 public:
     Trie_node m_root;
-    std::vector<std::string> m_strings;
+    std::list<std::string> m_strings;
 };
 
 // NOLINTEND
