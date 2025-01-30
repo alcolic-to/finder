@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
             Stopwatch s;
 
             if (auto* node = trie.find("Dev")) {
-                std::vector<std::string> results{node->all_results()};
+                std::vector<std::string_view> results{node->all_results()};
                 // dont_optimize(results);
                 // for (const auto& r : results)
                 //     std::cout << r << "\n";

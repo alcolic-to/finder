@@ -43,17 +43,20 @@ public:
 
     Trie_node(std::string_view suffix) : m_results{suffix} {}
 
-    std::vector<std::string> all_results()
+    std::vector<std::string_view> all_results()
     {
-        std::vector<std::string> res;
+        std::vector<std::string_view> results;
+        all_results_internal(results);
 
-        for (auto it = m_edges.begin(); it != m_edges.end(); ++it) {
-            std::vector<std::string> partial{it->m_node->all_results()};
-            res.insert(res.end(), partial.begin(), partial.end());
-        }
+        return results;
+    }
 
-        res.insert(res.end(), m_results.begin(), m_results.end());
-        return res;
+    void all_results_internal(std::vector<std::string_view>& results)
+    {
+        results.insert(results.end(), m_results.begin(), m_results.end());
+
+        for (auto it = m_edges.begin(); it != m_edges.end(); ++it)
+            it->m_node->all_results_internal(results);
     }
 
     std::list<Trie_node_edge> m_edges;
