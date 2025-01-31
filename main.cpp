@@ -7,6 +7,7 @@
 #include <iostream>
 #include <ranges>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 #include "trie.h"
@@ -140,7 +141,7 @@ int main(int argc, char* argv[])
         }
 
         {
-            Stopwatch s;
+            Stopwatch<true, microseconds> s;
 
             if (auto* node = trie.find("Dev")) {
                 std::vector<std::string_view> results{node->all_results()};
