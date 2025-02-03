@@ -119,6 +119,9 @@ int main(int argc, char* argv[])
     // trie.insert("banana");
     // trie.insert("ananas");
 
+    // trie.delete_suffix("ananas");
+    // trie.delete_suffix("banana");
+
     // auto* node = trie.find("n");
 
     // if (node != nullptr)
@@ -129,7 +132,7 @@ int main(int argc, char* argv[])
 
     try {
         Trie trie;
-        std::string path{R"(C:\Users\topac\Development)"};
+        std::string path{R"(C:\Users\topac\.vscode)"};
         for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path}) {
             // if (dir_entry.is_regular_file()) {
             //     std::vector v{file_to_vector(dir_entry.path().string())};
@@ -140,19 +143,37 @@ int main(int argc, char* argv[])
             trie.insert(dir_entry.path().string());
         }
 
-        {
-            Stopwatch<true, microseconds> s;
+        std::cout << "All $s: " << trie.m_$s.size() << "\n";
 
-            if (auto* node = trie.find("Dev")) {
-                std::vector<std::string_view> results{node->all_results()};
+        std::string str_for_match;
+
+        {
+            while (true) {
+                std::cin >> str_for_match;
+
+                Trie_node* node = nullptr;
+                std::unordered_set<std::string_view> results;
+
+                {
+                    Stopwatch<true, microseconds> s;
+                    node = trie.find(str_for_match);
+                    if (node != nullptr)
+                        results = node->all_results();
+                }
+
                 // dont_optimize(results);
                 // for (const auto& r : results)
                 //     std::cout << r << "\n";
 
+                // std::ranges::sort(results);
+                // for (const auto& r : results)
+                //     std::cout << r << "\n";
+
                 std::cout << "Results size: " << results.size() << "\n";
+                // std::cout << "Results size: "
+                //           << std::unordered_set(results.begin(), results.end()).size() <<
+                //           "\n";
             }
-            else
-                std::cout << "Not found\n";
         }
     }
     catch (const std::filesystem::filesystem_error& ex) {
@@ -161,6 +182,7 @@ int main(int argc, char* argv[])
         std::cout << "Exception: " << ex.path2() << "\n";
         std::cout << "Exception: " << ex.path1() << "\n";
     }
+
     catch (const std::exception& ex) {
         std::cout << "Exception std::exception: " << ex.what() << "\n";
     }

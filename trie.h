@@ -4,12 +4,12 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <list>
-#include <memory>
 #include <ranges>
 #include <string>
 #include <string_view>
-#include <vector>
+#include <unordered_set>
 
 // NOLINTBEGIN
 
@@ -36,7 +36,7 @@ public:
     }
 
     Trie_node* m_node;
-    std::string_view m_suffix;
+    std::string m_suffix;
 
     char ch() { return m_suffix[0]; }
 };
@@ -49,22 +49,22 @@ public:
 
     Trie_node(Trie_node_edge edge) : m_edges{edge} {}
 
-    Trie_node(std::string_view s) : m_${s} {}
+    Trie_node(std::string_view s) : m_${std::move(s)} {}
 
-    std::vector<std::string_view> all_results()
+    std::unordered_set<std::string_view> all_results()
     {
-        std::vector<std::string_view> results;
+        std::unordered_set<std::string_view> results;
         all_results_internal(results);
 
         return results;
     }
 
-    void all_results_internal(std::vector<std::string_view>& results)
+    void all_results_internal(std::unordered_set<std::string_view>& results)
     {
-        results.insert(results.end(), m_$.begin(), m_$.end());
+        results.insert(m_$.begin(), m_$.end());
 
-        for (auto it = m_edges.begin(); it != m_edges.end(); ++it)
-            it->m_node->all_results_internal(results);
+        for (auto& it : m_edges)
+            it.m_node->all_results_internal(results);
     }
 
     std::list<Trie_node_edge> m_edges;
@@ -79,6 +79,9 @@ public:
 
     void insert(std::string new_string)
     {
+        if (std::ranges::find(m_$s, new_string) != m_$s.end())
+            return;
+
         m_$s.emplace_back(std::move(new_string));
         auto& str{m_$s.back()};
 
@@ -116,6 +119,67 @@ public:
                 return insert(&*it, suffix, full_str);
 
         edges.insert(it, Trie_node_edge{new Trie_node{full_str}, suffix});
+    }
+
+    void delete_suffix(std::string str)
+    {
+        auto $s_iter{std::ranges::find(m_$s, str)};
+        if ($s_iter == m_$s.end())
+            return;
+
+        for (auto it{str.end()}; it >= str.begin(); --it) {
+            delete_suffix(&m_root, std::string_view{it, str.end()}, str);
+
+            if (it == str.begin()) // Avoid assertion in debug build for --it if it <= begin().
+                break;
+        }
+
+        m_$s.erase($s_iter);
+    }
+
+    void delete_suffix(Trie_node_edge* edge, std::string_view suffix, const std::string& full_str)
+    {
+        std::string_view edge_suffix{edge->m_suffix};
+        rm_common_prefix(suffix, edge_suffix);
+
+        if (edge_suffix.empty()) {
+            delete_suffix(edge->m_node, suffix, full_str);
+
+            if (edge->m_node->m_$.empty()) {
+                Trie_node* del_node = edge->m_node;
+                // assert(del_node->m_edges.size() <= 1);
+
+                if (del_node->m_edges.size() == 1) {
+                    edge->m_suffix += del_node->m_edges.front().m_suffix;
+                    edge->m_node = del_node->m_edges.front().m_node;
+                    delete del_node;
+                }
+            }
+        }
+    }
+
+    void delete_suffix(Trie_node* node, std::string_view suffix, const std::string& full_str)
+    {
+        if (suffix.empty()) {
+            node->m_$.remove(full_str);
+            return;
+        }
+
+        auto& edges = node->m_edges;
+        auto it{edges.begin()};
+
+        for (; it != edges.end() && it->ch() <= suffix[0]; ++it) {
+            if (it->ch() == suffix[0]) {
+                delete_suffix(&*it, suffix, full_str);
+
+                if (it->m_node->m_$.empty() && it->m_node->m_edges.empty()) {
+                    delete it->m_node;
+                    edges.erase(it);
+                }
+
+                return;
+            }
+        }
     }
 
     Trie_node* find(std::string s) { return find(&m_root, s); }
