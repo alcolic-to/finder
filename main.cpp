@@ -117,7 +117,11 @@ int main(int argc, char* argv[])
 
     // Trie trie;
     // trie.insert("banana");
+    // trie.insert("BANANA");
     // trie.insert("ananas");
+
+    // for (const auto& it : trie.find<Options::icase>("ban"))
+    //     std::cout << it << "\n";
 
     // trie.delete_suffix("ananas");
     // trie.delete_suffix("banana");
@@ -151,19 +155,16 @@ int main(int argc, char* argv[])
             while (true) {
                 std::cin >> str_for_match;
 
-                Trie_node* node = nullptr;
                 std::unordered_set<std::string_view> results;
 
                 {
                     Stopwatch<true, microseconds> s;
-                    node = trie.find(str_for_match);
-                    if (node != nullptr)
-                        results = node->all_results();
+                    results = trie.find<Options::icase>(str_for_match);
                 }
 
                 // dont_optimize(results);
-                // for (const auto& r : results)
-                //     std::cout << r << "\n";
+                for (const auto& r : results)
+                    std::cout << r << "\n";
 
                 // std::ranges::sort(results);
                 // for (const auto& r : results)
