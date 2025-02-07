@@ -13,11 +13,32 @@
 
 // NOLINTBEGIN
 
+// Options for lexicographical comparison.
+//
+// normal -> compares characters as they are.
+// icase -> compares characters ignoring case.
+//
+enum class Options { normal, icase };
+
+// Returns result of 2 characters comparisson.
+//
+template<Options opt = Options::normal>
+inline bool chcmp(const char ch1, const char ch2)
+{
+    if constexpr (opt == Options::normal)
+        return ch1 == ch2;
+    else if constexpr (opt == Options::icase)
+        return std::tolower(ch1) == std::tolower(ch2);
+}
+
+// Removes common previx of 2 string views.
+//
+template<Options opt = Options::normal>
 void rm_common_prefix(std::string_view& sv1, std::string_view& sv2)
 {
     const size_t min_size = std::min(sv1.size(), sv2.size());
     size_t idx = 0;
-    while (idx < min_size && sv1[idx] == sv2[idx])
+    while (idx < min_size && chcmp<opt>(sv1[idx], sv2[idx]))
         ++idx;
 
     sv1.remove_prefix(idx), sv2.remove_prefix(idx);
@@ -182,27 +203,51 @@ public:
         }
     }
 
-    Trie_node* find(std::string s) { return find(&m_root, s); }
-
-    Trie_node* find(Trie_node_edge* edge, std::string_view suffix)
+    template<Options opt = Options::normal>
+    std::unordered_set<std::string_view> find(std::string s)
     {
-        std::string_view edge_suffix{edge->m_suffix};
-        rm_common_prefix(suffix, edge_suffix);
+        std::unordered_set<std::string_view> results;
+        for (auto& it : find_nodes<opt>(s)) {
+            auto res_from_node{it->all_results()};
+            results.insert(res_from_node.begin(), res_from_node.end());
+        }
 
-        return !suffix.empty() && !edge_suffix.empty() ? nullptr : find(edge->m_node, suffix);
+        return results;
     }
 
-    Trie_node* find(Trie_node* node, std::string_view suffix)
+    template<Options opt>
+    std::vector<Trie_node*> find_nodes(std::string s)
     {
-        if (suffix.empty())
-            return node;
+        std::vector<Trie_node*> results;
+        results.reserve(2);
+
+        find_nodes<opt>(&m_root, s, results);
+
+        return results;
+    }
+
+    template<Options opt>
+    void find_nodes(Trie_node_edge* edge, std::string_view suffix, std::vector<Trie_node*>& results)
+    {
+        std::string_view edge_suffix{edge->m_suffix};
+        rm_common_prefix<opt>(suffix, edge_suffix);
+
+        if (suffix.empty() || edge_suffix.empty())
+            find_nodes<opt>(edge->m_node, suffix, results);
+    }
+
+    template<Options opt>
+    void find_nodes(Trie_node* node, std::string_view suffix, std::vector<Trie_node*>& results)
+    {
+        if (suffix.empty()) {
+            results.emplace_back(node);
+            return;
+        }
 
         auto& edges = node->m_edges;
-        for (auto it{edges.begin()}; it != edges.end() && it->ch() <= suffix[0]; ++it)
-            if (it->ch() == suffix[0])
-                return find(&*it, suffix);
-
-        return nullptr;
+        for (auto it{edges.begin()}; it != edges.end(); ++it)
+            if (chcmp<opt>(it->ch(), suffix[0]))
+                find_nodes<opt>(&*it, suffix, results);
     }
 
 public:
