@@ -115,8 +115,8 @@ int main(int argc, char* argv[])
     // std::vector<char> file{file_to_vector(__FILE__)};
     // std::cout << "Done. " << file[0] << "\n";
 
-    Trie trie;
-    trie.insert("banana");
+    // Trie trie;
+    // trie.insert("banana");
     // trie.insert("BANANA");
     // trie.insert("ananas");
 
@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
     //     std::cout << it << "\n";
 
     // trie.delete_suffix("ananas");
-    trie.delete_suffix("banana");
+    // trie.delete_suffix("banana");
 
     // auto* node = trie.find("n");
 

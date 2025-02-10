@@ -73,9 +73,12 @@ class Trie_node {
 public:
     Trie_node() = default;
 
-    Trie_node(Trie_node_edge edge) { m_edges.emplace_back(std::move(edge)); }
+    Trie_node(Trie_node_edge edge, Trie_node* prev) : m_prev{prev}
+    {
+        m_edges.emplace_back(std::move(edge));
+    }
 
-    Trie_node(std::string_view s) : m_${std::move(s)} {}
+    Trie_node(std::string_view s, Trie_node* prev) : m_${std::move(s)}, m_prev{prev} {}
 
     std::unordered_set<std::string_view> all_results()
     {
@@ -95,6 +98,7 @@ public:
 
     std::list<Trie_node_edge> m_edges;
     std::list<std::string_view> m_$; // all result strings that are in theory represented as $.
+    Trie_node* m_prev = nullptr;     // pointer to the previous node.
 };
 
 // Trie. It is a representation of a compresses suffix tree ->
@@ -141,10 +145,14 @@ public:
         rm_common_prefix(suffix, edge_suffix);
 
         if (!edge_suffix.empty()) {
-            edge.m_node =
-                std::make_unique<Trie_node>(Trie_node_edge{std::move(edge.m_node), edge_suffix});
+            Trie_node* old_edge_node = edge.m_node.get();
+            Trie_node* backptr = old_edge_node->m_prev;
 
+            edge.m_node = std::make_unique<Trie_node>(
+                Trie_node_edge{std::move(edge.m_node), edge_suffix}, backptr);
             edge.m_suffix = edge.m_suffix.substr(0, edge.m_suffix.size() - edge_suffix.size());
+
+            old_edge_node->m_prev = edge.m_node.get();
         }
 
         insert(edge.m_node, suffix, full_str);
@@ -170,7 +178,7 @@ public:
             if (it->ch() == suffix[0])
                 return insert(*it, suffix, full_str);
 
-        edges.insert(it, Trie_node_edge{std::make_unique<Trie_node>(full_str), suffix});
+        edges.insert(it, Trie_node_edge{std::make_unique<Trie_node>(full_str, node.get()), suffix});
     }
 
     // Deletes string (suffix) from a trie.
@@ -207,8 +215,11 @@ public:
             // Merge edges if there are no results in between.
             //
             if (edge.m_node->m_$.empty() && edge.m_node->m_edges.size() == 1) {
+                Trie_node* backptr = edge.m_node->m_prev;
+
                 edge.m_suffix += edge.m_node->m_edges.front().m_suffix;
                 edge.m_node = std::move(edge.m_node->m_edges.front().m_node);
+                edge.m_node->m_prev = backptr;
             }
         }
     }
