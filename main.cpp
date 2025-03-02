@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "art.h"
 #include "trie.h"
 
 using namespace std::chrono;
