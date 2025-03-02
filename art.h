@@ -19,12 +19,35 @@
 
 // NOLINTBEGIN
 
+enum Node_type : uint8_t { Node4_t = 0b00, Node16_t = 0b01, Node48_t = 0b10, Node256_t = 0b11 };
+
+// Node header. It contains flags and compressed key path. First 2 bits in flags represents node
+// type and the 3rd bit represents whether we have compresses path or not.
+//
+struct Node_header {
+    Node_header() = default;
+
+    Node_header(Node_type type, bool comp = false) : m_flags{uint8_t(type | (comp << 2))} {}
+
+    Node_type type() { return Node_type(m_flags & 0b11); }
+
+    void set_type(Node_type type) { m_flags = type | (m_flags & 0b100); }
+
+    bool compressed() { return bool(m_flags & 0b100); }
+
+    void set_compression(bool comp) { m_flags = (m_flags & 0b11) | (comp << 2); }
+
+    uint8_t m_flags = 0; // Node flags. First 2 bits - node type, 3rd bit - compressed or not.
+    uint8_t m_compressed_path[8]; // Contains compressed key path.
+};
+
 // Node4: The smallest node type can store up to 4 child pointers and uses an array of length 4 for
 // keys and another array of the same length for pointers. The keys and pointers are stored at
 // corresponding positions and the keys are sorted.
 //
 class Node4 {
 public:
+    Node_header m_header{Node4_t};
     uint8_t m_keys[4];  // Keys with span of 1 byte.
     uint32_t m_idxs[4]; // Indexes of children (pointers in ART paper).
 };
@@ -36,6 +59,7 @@ public:
 //
 class Node16 {
 public:
+    Node_header m_header{Node16_t};
     uint8_t m_keys[16];  // Keys with span of 1 byte.
     uint32_t m_idxs[16]; // Indexes of children (pointers in ART paper).
 };
@@ -49,6 +73,7 @@ public:
 //
 class Node48 {
 public:
+    Node_header m_header{Node48_t};
     uint8_t m_keys[256]; // Keys with span of 1 byte with value of index for m_idxs array.
     uint32_t m_idxs[48]; // Indexes of children (pointers in ART paper).
 };
@@ -62,7 +87,8 @@ public:
 //
 class Node256 {
 public:
-    uint32_t m_idxs[256]; // Indexes of children where each position represents key value.
+    Node_header m_header{Node256_t};
+    uint32_t m_idxs[256]; // Indexes of children representing keys with 1 byte span.
 };
 
 // Idea: when node type is determined, we can just return an index of a node type and call a
