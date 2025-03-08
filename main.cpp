@@ -109,6 +109,8 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 
 int main(int argc, char* argv[])
 {
+    ART art;
+
     // std::cout << "Hello, new cpp project.\n" << __FILE__;
 
     // Stopwatch<true, microseconds> s;
