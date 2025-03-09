@@ -75,8 +75,8 @@ typedef Node* node_ptr;
 //
 class Node {
 public:
-    virtual node_ptr find_child(uint8_t key) = 0;
-    virtual void grow() = 0;
+    [[nodiscard]] virtual node_ptr find_child(uint8_t key) = 0;
+    [[nodiscard]] virtual node_ptr grow() = 0;
 };
 
 class Inner_node : public Node {
@@ -89,13 +89,12 @@ public:
 // for keys and another array of the same length for pointers. The keys and pointers are stored
 // at corresponding positions and the keys are sorted.
 //
-class Node4 : public Inner_node {
+class Node4 final : public Inner_node {
 public:
     // Node4() : Node(Node4_t, false), m_compressed_path{} {}
 
-    node_ptr find_child(uint8_t key) override;
-
-    void grow() override;
+    [[nodiscard]] node_ptr find_child(uint8_t key) override;
+    [[nodiscard]] node_ptr grow() override;
 
     uint8_t m_keys[4] = {};   // Keys with span of 1 byte.
     node_ptr m_nodes[4] = {}; // Pointers to children nodes.
@@ -106,12 +105,12 @@ public:
 // arrays have space for 16 entries. A key can be found efficiently with binary search or, on
 // modern hardware, with parallel comparisons using SIMD instructions.
 //
-class Node16 : public Inner_node {
+class Node16 final : public Inner_node {
 public:
     // TODO: Check if compiler generates SIMD instructions. If not, insert them manually.
     //
-    node_ptr find_child(uint8_t key) override;
-    void grow() override;
+    [[nodiscard]] node_ptr find_child(uint8_t key) override;
+    [[nodiscard]] node_ptr grow() override;
 
     uint8_t m_keys[16] = {};   // Keys with span of 1 byte.
     node_ptr m_nodes[16] = {}; // Pointers to children nodes.
@@ -124,15 +123,14 @@ public:
 // contains up to 48 pointers. This indirection saves space in comparison to 256 pointers of 8
 // bytes, because the indexes only require 6 bits (we use 1 byte for simplicity).
 //
-class Node48 : Inner_node {
+class Node48 final : public Inner_node {
 public:
     static constexpr uint8_t empty = -1;
 
-    node_ptr find_child(uint8_t key) override;
+    [[nodiscard]] node_ptr find_child(uint8_t key) override;
+    [[nodiscard]] node_ptr grow() override;
 
-    void grow() override;
-
-    uint8_t m_keys[256] = {empty}; // Keys with span of 1 byte with value of index for m_idxs array.
+    uint8_t m_idxs[256] = {empty}; // Keys with span of 1 byte with value of index for m_idxs array.
     node_ptr m_nodes[48] = {};     // Pointers to children nodes.
 };
 
@@ -144,26 +142,25 @@ public:
 // header of constant size (e.g., 16 bytes) stores the node type, the number of children, and
 // the compressed path (cf. Section III-E).
 //
-class Node256 : Inner_node {
+class Node256 final : public Inner_node {
 public:
-    node_ptr find_child(uint8_t key) override;
-
-    void grow() override;
+    [[nodiscard]] node_ptr find_child(uint8_t key) override;
+    [[nodiscard]] node_ptr grow() override;
 
     node_ptr m_nodes[256] = {}; // Pointers to children nodes.
 };
 
-class Leaf256 : Node {
+class Leaf256 final : public Node {
 public:
-    node_ptr find_child(uint8_t key) { return assert(!"Invalid call."), nullptr; };
+    [[nodiscard]] node_ptr find_child(uint8_t key) { return assert(!"Invalid call."), nullptr; };
 
-    void grow() { assert(!"Invalid call."); }
+    [[nodiscard]] node_ptr grow() { return assert(!"Invalid call."), nullptr; }
 
     Node_header m_header{Leaf256_t};
     uint8_t m_data[255] = {};
 };
 
-node_ptr Node4::find_child(uint8_t key)
+[[nodiscard]] node_ptr Node4::find_child(uint8_t key)
 {
     for (int i = 0; i < 4; ++i)
         if (m_keys[i] == key)
@@ -172,14 +169,18 @@ node_ptr Node4::find_child(uint8_t key)
     return nullptr;
 }
 
-void Node4::grow()
+[[nodiscard]] node_ptr Node4::grow()
 {
     Node16* new_node = new Node16{};
-    for (int i = 0; i < 4; ++i) {
-    }
+    memcpy(new_node->m_keys, m_keys, 4);
+    memcpy(new_node->m_nodes, m_nodes, 4);
+    // TODO: Copy prefix.
+
+    delete this;
+    return new_node;
 }
 
-node_ptr Node16::find_child(uint8_t key)
+[[nodiscard]] node_ptr Node16::find_child(uint8_t key)
 {
     for (int i = 0; i < 16; ++i)
         if (m_keys[i] == key)
@@ -188,23 +189,45 @@ node_ptr Node16::find_child(uint8_t key)
     return nullptr;
 }
 
-void Node16::grow() {}
-
-node_ptr Node48::find_child(uint8_t key)
+[[nodiscard]] node_ptr Node16::grow()
 {
-    return m_keys[key] != empty ? m_nodes[m_keys[key]] : nullptr;
+    Node48* new_node = new Node48{};
+    for (int i = 0; i < 16; ++i) {
+        uint8_t key = m_keys[i];
+        node_ptr child = m_nodes[i];
+
+        new_node->m_idxs[key] = i;
+        new_node->m_nodes[i] = child;
+    }
+
+    delete this;
+    return new_node;
 }
 
-void Node48::grow() {}
+[[nodiscard]] node_ptr Node48::find_child(uint8_t key)
+{
+    return m_idxs[key] != empty ? m_nodes[m_idxs[key]] : nullptr;
+}
 
-node_ptr Node256::find_child(uint8_t key)
+[[nodiscard]] node_ptr Node48::grow()
+{
+    Node256* new_node = new Node256{};
+    for (int i = 0; i < 256; ++i)
+        if (m_idxs[i] != empty)
+            new_node->m_nodes[i] = m_nodes[m_idxs[i]];
+
+    delete this;
+    return new_node;
+}
+
+[[nodiscard]] node_ptr Node256::find_child(uint8_t key)
 {
     return m_nodes[key];
 }
 
-void Node256::grow()
+[[nodiscard]] node_ptr Node256::grow()
 {
-    assert(!"Invalid call.");
+    return assert(!"Invalid call."), nullptr;
 }
 
 class ART {
@@ -251,7 +274,7 @@ void ART::insert(node_ptr& node, uint8_t* key, size_t depth)
     // if (node->leaf())
     // lazy_expand();
 
-    node->find_child(*key);
+    // node->find_child(*key);
 }
 
 // Some aditional code that might me used in future:
