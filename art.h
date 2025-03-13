@@ -20,84 +20,183 @@
 
 // NOLINTBEGIN
 
-// clang-format off
+// Helper class that wraps key during tree traversal.
+// It holds pointer to data beeing manipulated, it's size and current depth used for single value
+// comparison on each traversed level. Depth is incresed by 1 for every new level and value at that
+// depth can be accessed with operator*.
+//
+class Key {
+public:
+    Key(uint8_t* data, size_t size) : m_data{data}, m_size{size} {}
 
-enum Node_type : uint8_t {
+    uint8_t operator*()
+    {
+        assert(m_depth < m_size);
+        return m_data[m_depth];
+    }
+
+    Key& operator++()
+    {
+        assert(m_depth < m_size && m_depth < 255);
+        ++m_depth;
+        return *this;
+    }
+
+    uint8_t* m_data;
+    size_t m_size;
+    size_t m_depth = 0;
+};
+
+class Node;
+class Leaf;
+
+// Pointer tagging. We will use last 2 bits for tagging.
+// clang-format off
+static constexpr uintptr_t tag_bits = 0b11;
+
+inline uintptr_t raw(void* ptr) { return uintptr_t(ptr); }
+inline uintptr_t tag(void* ptr) { return raw(ptr) & tag_bits; }
+inline void* clear_tag(void* ptr)  { return (void*)(raw(ptr) & ~tag_bits); }
+inline void* set_tag(void* ptr, uintptr_t tag) { return (void*)(raw(clear_tag(ptr)) | tag); }
+
+class entry_ptr {
+public:
+    entry_ptr() noexcept : m_ptr{nullptr} {}
+    entry_ptr(void* ptr) noexcept : m_ptr{ptr} {}
+    entry_ptr(Node* node) noexcept : m_ptr{node} {}
+    entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
+
+    operator void*() const noexcept { return m_ptr; }
+    operator bool() const noexcept { return m_ptr != nullptr; }
+
+    [[nodiscard]] bool leaf() const noexcept { return tag(m_ptr) == leaf_tag; }
+    [[nodiscard]] bool node() const noexcept { return tag(m_ptr) == node_tag; }
+
+    [[nodiscard]] Node* node_ptr() const noexcept { assert(node()); return (Node*)m_ptr; }
+    [[nodiscard]] Leaf* leaf_ptr() const noexcept { assert(leaf()); return (Leaf*)clear_tag(m_ptr); }
+
+    void to_node_ptr() noexcept { m_ptr = node_ptr(); }
+    void to_leaf_ptr() noexcept { m_ptr = leaf_ptr(); }
+
+private:
+    static constexpr uintptr_t node_tag = 0;
+    static constexpr uintptr_t leaf_tag = 1;
+
+    void* m_ptr;
+};
+
+enum Node_t : uint32_t {
     Node4_t   = 0b000,
     Node16_t  = 0b001,
     Node48_t  = 0b010,
     Node256_t = 0b011,
-    Leaf4_t   = 0b100,
-    Leaf16_t  = 0b101,
-    Leaf48_t  = 0b110,
-    Leaf256_t = 0b111
-};
-
-enum Bits : uint8_t {
-    type =        0b0111,
-    compression = 0b1000,
-    leaf        = 0b0100
+    Leaf_t    = 0b100,
 };
 
 // clang-format on
 
-// Node header. First 3 bits in flags represents node
-// type and the 3rd bit represents whether we have compresses path or not.
-//
-struct Node_header {
-    Node_header() = default;
+// constexpr uint32_t node_t_bits = 0b11100000'00000000'00000000'00000000; // >> 29
+// constexpr uint32_t node_t_bits_offset = std::countr_zero(node_t_bits);
 
-    Node_header(Node_type type, bool comp = false)
-        : m_flags{uint8_t(type | (comp * Bits::compression))}
-    {
-    }
+// constexpr uint32_t num_children_bits = 0b00000000'00000000'00000000'11111111;
+// constexpr uint32_t num_children_bits_offset = std::countr_zero(num_children_bits);
 
-    Node_type type() { return Node_type(m_flags & Bits::type); }
+// constexpr uint32_t prefix_len_bits = 0b00000000'00000000'11111111'00000000;
+// constexpr uint32_t prefix_len_bits_offset = std::countr_zero(prefix_len_bits);
 
-    void set_type(Node_type type) { m_flags = type | (m_flags & ~Bits::type); }
+// constexpr uint32_t key_len_bits = 0b00011111'11111111'11111111'11111111;
+// constexpr uint32_t key_len_bits_offset = std::countr_zero(key_len_bits);
 
-    bool compressed() { return bool(m_flags & Bits::compression); }
+// // clang-format on
 
-    void set_compression(bool comp)
-    {
-        m_flags = (comp * Bits::compression) | (m_flags & ~Bits::compression);
-    }
+// // 4 bytes for header!!!
+// //
 
-    bool leaf() { return m_flags & Bits::leaf; }
+// // Node header.
+// // Contains different info based on node type (inner node or a leaf).
+// // For inner node, we are storring node type, number of children and prefix len.
+// // For leaf node, we are storring node type and key len.
+// //
+// struct Node_header {
+//     uint32_t m_bytes;
+// };
 
-    uint8_t m_flags = 0;
-};
+// struct nh {
+//     uint8_t m_flags;
+//     uint8_t num_childs;
+//     uint8_t m_prefix[14]; // -> 14 bytes for prefix.
+// };
 
-class Node;
+// struct lh {
+//     void* data;
+//     uint32_t key_len;
+//     uint8_t key[];
+// };
+
+// // Node header. First 3 bits in flags represents node
+// // type and the 3rd bit represents whether we have compresses path or not.
+// //
+// struct Node_header {
+//     Node_header() = default;
+
+//     Node_header(Node_t type, bool comp = false)
+//         : m_flags{uint8_t(type | (comp * Bits::compression))}
+//     {
+//     }
+
+//     Node_t type() { return Node_type(m_flags & Bits::type); }
+
+//     void set_type(Node_t type) { m_flags = type | (m_flags & ~Bits::type); }
+
+//     bool compressed() { return bool(m_flags & Bits::compression); }
+
+//     void set_compression(bool comp)
+//     {
+//         m_flags = (comp * Bits::compression) | (m_flags & ~Bits::compression);
+//     }
+
+//     bool leaf() { return m_flags & Bits::leaf; }
+
+//     uint8_t m_flags = 0;
+// };
+
 typedef Node* node_ptr;
 
-// Class that only defines functions used by nodes. It only holds pointer to vtable.
-//
 class Node {
 public:
-    [[nodiscard]] virtual node_ptr find_child(uint8_t key) = 0;
-    [[nodiscard]] virtual node_ptr grow() = 0;
+    uint8_t m_type;
+    uint8_t m_num_children;
+    uint8_t m_prefix_len;
+    uint8_t m_prefix[13];
 };
 
-class Inner_node : public Node {
-public:
-    Node_header m_header;
-    uint8_t m_compressed_path[15] = {}; // Contains compressed key path.
-};
+// // Class that only defines functions used by nodes. It only holds pointer to vtable.
+// //
+// class Node {
+// public:
+//     [[nodiscard]] virtual node_ptr find_child(uint8_t key) = 0;
+//     [[nodiscard]] virtual node_ptr grow() = 0;
+//     [[nodiscard]] virtual bool full() = 0;
+//     virtual void add_child(Key& key) = 0;
+
+//     Node_header m_header;
+// };
 
 // Node4: The smallest node type can store up to 4 child pointers and uses an array of length 4
 // for keys and another array of the same length for pointers. The keys and pointers are stored
 // at corresponding positions and the keys are sorted.
 //
-class Node4 final : public Inner_node {
+class Node4 final : public Node {
 public:
     // Node4() : Node(Node4_t, false), m_compressed_path{} {}
 
-    [[nodiscard]] node_ptr find_child(uint8_t key) override;
-    [[nodiscard]] node_ptr grow() override;
+    [[nodiscard]] entry_ptr find_child(uint8_t key);
+    [[nodiscard]] node_ptr grow();
+    [[nodiscard]] bool full();
+    void add_child(Key& key);
 
-    uint8_t m_keys[4] = {};   // Keys with span of 1 byte.
-    node_ptr m_nodes[4] = {}; // Pointers to children nodes.
+    uint8_t m_keys[4] = {};       // Keys with span of 1 byte.
+    entry_ptr m_children[4] = {}; // Pointers to children nodes.
 };
 
 // Node16: This node type is used for storing between 5 and 16 child pointers. Like the Node4,
@@ -105,15 +204,17 @@ public:
 // arrays have space for 16 entries. A key can be found efficiently with binary search or, on
 // modern hardware, with parallel comparisons using SIMD instructions.
 //
-class Node16 final : public Inner_node {
+class Node16 final : public Node {
 public:
     // TODO: Check if compiler generates SIMD instructions. If not, insert them manually.
     //
-    [[nodiscard]] node_ptr find_child(uint8_t key) override;
-    [[nodiscard]] node_ptr grow() override;
+    [[nodiscard]] entry_ptr find_child(uint8_t key);
+    [[nodiscard]] node_ptr grow();
+    [[nodiscard]] bool full();
+    void add_child(Key& key);
 
-    uint8_t m_keys[16] = {};   // Keys with span of 1 byte.
-    node_ptr m_nodes[16] = {}; // Pointers to children nodes.
+    uint8_t m_keys[16] = {};       // Keys with span of 1 byte.
+    entry_ptr m_children[16] = {}; // Pointers to children nodes.
 };
 
 // Node48: As the number of entries in a node increases, searching the key array becomes
@@ -123,15 +224,18 @@ public:
 // contains up to 48 pointers. This indirection saves space in comparison to 256 pointers of 8
 // bytes, because the indexes only require 6 bits (we use 1 byte for simplicity).
 //
-class Node48 final : public Inner_node {
+class Node48 final : public Node {
 public:
-    static constexpr uint8_t empty = -1;
+    static constexpr uint8_t empty_slot = 255;
 
-    [[nodiscard]] node_ptr find_child(uint8_t key) override;
-    [[nodiscard]] node_ptr grow() override;
+    [[nodiscard]] entry_ptr find_child(uint8_t key);
+    [[nodiscard]] node_ptr grow();
+    [[nodiscard]] bool full();
+    void add_child(Key& key);
 
-    uint8_t m_idxs[256] = {empty}; // Keys with span of 1 byte with value of index for m_idxs array.
-    node_ptr m_nodes[48] = {};     // Pointers to children nodes.
+    // Keys with span of 1 byte with value of index for m_idxs array.
+    uint8_t m_idxs[256] = {empty_slot};
+    entry_ptr m_children[48] = {}; // Pointers to children nodes.
 };
 
 // Node256: The largest node type is simply an array of 256 pointers and is used for storing
@@ -142,87 +246,125 @@ public:
 // header of constant size (e.g., 16 bytes) stores the node type, the number of children, and
 // the compressed path (cf. Section III-E).
 //
-class Node256 final : public Inner_node {
+class Node256 final : public Node {
 public:
-    [[nodiscard]] node_ptr find_child(uint8_t key) override;
-    [[nodiscard]] node_ptr grow() override;
+    [[nodiscard]] entry_ptr find_child(uint8_t key);
+    [[nodiscard]] node_ptr grow();
+    [[nodiscard]] bool full();
+    void add_child(Key& key);
 
-    node_ptr m_nodes[256] = {}; // Pointers to children nodes.
+    entry_ptr m_children[256] = {}; // Pointers to children nodes.
 };
 
-class Leaf256 final : public Node {
+class Leaf final {
 public:
-    [[nodiscard]] node_ptr find_child(uint8_t key) { return assert(!"Invalid call."), nullptr; };
+    // Creates new leaf. All bytes from key at current depth until the key end are copied
+    // to internal m_key buffer.
+    //
+    Leaf(Key& key)
+    {
+        m_key_len = key.m_size - key.m_depth;
+        std::memcpy(m_key, key.m_data, m_key_len);
+    }
 
-    [[nodiscard]] node_ptr grow() { return assert(!"Invalid call."), nullptr; }
-
-    Node_header m_header{Leaf256_t};
-    uint8_t m_data[255] = {};
+private:
+    void* m_data = nullptr;
+    size_t m_key_len;
+    uint8_t m_key[];
 };
 
-[[nodiscard]] node_ptr Node4::find_child(uint8_t key)
+// Creates new leaf from provided key. It allocates memory big enough to fit leaf object and
+// calls constructor on that memory. Allocation size for key is taken as a provided key size and
+// a depth that we are at, because we are only saving partial key from current depth.
+//
+static Leaf* new_leaf(Key& key)
+{
+    void* mem = std::malloc(sizeof(Leaf) + key.m_size - key.m_depth);
+    return new (mem) Leaf{key};
+}
+
+[[nodiscard]] entry_ptr Node4::find_child(uint8_t key)
 {
     for (int i = 0; i < 4; ++i)
         if (m_keys[i] == key)
-            return m_nodes[i];
+            return m_children[i];
 
-    return nullptr;
+    return entry_ptr{};
 }
 
 [[nodiscard]] node_ptr Node4::grow()
 {
     Node16* new_node = new Node16{};
-    memcpy(new_node->m_keys, m_keys, 4);
-    memcpy(new_node->m_nodes, m_nodes, 4);
+    std::memcpy(new_node->m_keys, m_keys, 4);
+    std::memcpy(new_node->m_children, m_children, 4);
     // TODO: Copy prefix.
 
     delete this;
     return new_node;
 }
 
-[[nodiscard]] node_ptr Node16::find_child(uint8_t key)
+[[nodiscard]] bool Node4::full()
+{
+    return m_children[3] != nullptr;
+}
+
+void Node4::add_child(Key& key) {}
+
+[[nodiscard]] entry_ptr Node16::find_child(uint8_t key)
 {
     for (int i = 0; i < 16; ++i)
         if (m_keys[i] == key)
-            return m_nodes[i];
+            return m_children[i];
 
-    return nullptr;
+    return entry_ptr{};
 }
 
 [[nodiscard]] node_ptr Node16::grow()
 {
     Node48* new_node = new Node48{};
-    for (int i = 0; i < 16; ++i) {
-        uint8_t key = m_keys[i];
-        node_ptr child = m_nodes[i];
 
-        new_node->m_idxs[key] = i;
-        new_node->m_nodes[i] = child;
-    }
+    std::memcpy(new_node->m_children, m_children, 16);
+    for (int i = 0; i < 16; ++i)
+        new_node->m_idxs[m_keys[i]] = i;
 
     delete this;
     return new_node;
 }
 
-[[nodiscard]] node_ptr Node48::find_child(uint8_t key)
+[[nodiscard]] bool Node16::full()
 {
-    return m_idxs[key] != empty ? m_nodes[m_idxs[key]] : nullptr;
+    return m_children[15] != nullptr;
+}
+
+void Node16::add_child(Key& key) {}
+
+[[nodiscard]] entry_ptr Node48::find_child(uint8_t key)
+{
+    return m_idxs[key] != empty_slot ? m_children[m_idxs[key]] : entry_ptr{};
 }
 
 [[nodiscard]] node_ptr Node48::grow()
 {
     Node256* new_node = new Node256{};
+
     for (int i = 0; i < 256; ++i)
-        if (m_idxs[i] != empty)
-            new_node->m_nodes[i] = m_nodes[m_idxs[i]];
+        if (m_idxs[i] != empty_slot)
+            new_node->m_children[i] = m_children[m_idxs[i]];
 
     delete this;
     return new_node;
 }
 
-[[nodiscard]] node_ptr Node256::find_child(uint8_t key)
+[[nodiscard]] bool Node48::full()
 {
-    return m_nodes[key];
+    return m_children[47] != nullptr;
+}
+
+void Node48::add_child(Key& key) {}
+
+[[nodiscard]] entry_ptr Node256::find_child(uint8_t key)
+{
+    return m_children[key];
 }
 
 [[nodiscard]] node_ptr Node256::grow()
@@ -230,14 +372,25 @@ public:
     return assert(!"Invalid call."), nullptr;
 }
 
+[[nodiscard]] bool Node256::full()
+{
+    for (int i = 0; i < 255; ++i)
+        if (m_children[i] == nullptr)
+            return false;
+
+    return true;
+}
+
+void Node256::add_child(Key& key) {}
+
 class ART {
 public:
     void insert(uint8_t* data, size_t size);
-    void insert(node_ptr& node, uint8_t* data, size_t depth);
+    void insert(entry_ptr& entry, Key& key);
 
-    bool empty() const noexcept { return m_root != nullptr; }
+    bool empty() const noexcept { return m_root; }
 
-    node_ptr m_root;
+    entry_ptr m_root;
 };
 
 // For insert, this part of code makes new node with 2 children: 1. new key that is beeing inserted
@@ -261,20 +414,19 @@ public:
 
 void ART::insert(uint8_t* data, size_t size)
 {
-    if (m_root == nullptr)
-        m_root = (node_ptr) new Leaf256{};
-    else
-        insert(m_root, data, size);
+    Key key{data, size};
+
+    insert(m_root, key);
 }
 
 void lazy_expand();
 
-void ART::insert(node_ptr& node, uint8_t* key, size_t depth)
+void ART::insert(entry_ptr& entry, Key& key)
 {
-    // if (node->leaf())
-    // lazy_expand();
-
-    // node->find_child(*key);
+    if (!entry) {
+        entry = new_leaf(key);
+        return;
+    }
 }
 
 // Some aditional code that might me used in future:
