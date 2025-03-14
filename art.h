@@ -20,19 +20,28 @@
 
 // NOLINTBEGIN
 
-// Helper class that wraps key during tree traversal.
+// Helper class that wraps key used in art.
 // It holds pointer to data beeing manipulated, it's size and current depth used for single value
 // comparison on each traversed level. Depth is incresed by 1 for every new level and value at that
 // depth can be accessed with operator[0].
 //
+// In order to have multiple entries where one entry is prefix of another, we will insert invisible
+// 0 at the end of a key, and increase it's size by 1. That way, all keys will have unique path
+// through the tree. Typical additional character in theory is $ for suffix trees, but we will use 0
+// for general purpose.
+//
 class Key {
 public:
-    Key(uint8_t* data, size_t size) noexcept : m_data{data}, m_size{size} {}
+    static constexpr uint8_t term_byte = 0;
+
+    Key(uint8_t* data, size_t size) noexcept : m_data{data}, m_size{size + 1} {}
 
     uint8_t operator[](size_t idx) const noexcept
     {
-        assert(m_depth + idx < m_size);
-        return m_data[m_depth + idx];
+        size_t abs_offset = m_depth + idx;
+        assert(abs_offset < m_size);
+
+        return abs_offset == m_size - 1 ? term_byte : m_data[abs_offset];
     }
 
     Key& operator++() noexcept
@@ -42,6 +51,11 @@ public:
         return *this;
     }
 
+    uint8_t* data() const noexcept { return m_data; }
+
+    size_t size() const noexcept { return m_size - m_depth; }
+
+private:
     uint8_t* m_data;
     size_t m_size;
     size_t m_depth = 0;
@@ -282,7 +296,6 @@ public:
     Node256() : Node{Node256_t} {}
 
     [[nodiscard]] entry_ptr find_child(uint8_t key);
-    [[nodiscard]] bool full();
 
     [[nodiscard(
         "Do not discard result, because node can be resized and new pointer value must be taken.")]]
@@ -296,11 +309,7 @@ public:
     // Creates new leaf. All bytes from key at current depth until the key end are copied
     // to internal m_key buffer.
     //
-    Leaf(const Key& key)
-    {
-        m_key_len = key.m_size - key.m_depth;
-        std::memcpy(m_key, key.m_data, m_key_len);
-    }
+    Leaf(const Key& key) { std::memcpy(m_key, key.data(), key.size()); }
 
     void* m_data = nullptr;
     size_t m_key_len;
@@ -313,7 +322,7 @@ public:
 //
 static Leaf* new_leaf(const Key& key)
 {
-    void* mem = std::malloc(sizeof(Leaf) + key.m_size - key.m_depth);
+    void* mem = std::malloc(sizeof(Leaf) + key.size());
     return new (mem) Leaf{key};
 }
 

@@ -24,7 +24,7 @@
 
 [[nodiscard]] bool Node4::full()
 {
-    return m_children[3] != nullptr;
+    return m_num_children == 4;
 }
 
 Node* Node4::add_child(const Key& key)
@@ -76,7 +76,7 @@ Node* Node4::add_child(const Key& key)
 
 [[nodiscard]] bool Node16::full()
 {
-    return m_children[15] != nullptr;
+    return m_num_children == 16;
 }
 
 Node* Node16::add_child(const Key& key)
@@ -123,7 +123,7 @@ Node* Node16::add_child(const Key& key)
 
 [[nodiscard]] bool Node48::full()
 {
-    return m_children[47] != nullptr;
+    return m_num_children == 48;
 }
 
 Node* Node48::add_child(const Key& key)
@@ -143,15 +143,6 @@ Node* Node48::add_child(const Key& key)
 [[nodiscard]] entry_ptr Node256::find_child(uint8_t key)
 {
     return m_children[key];
-}
-
-[[nodiscard]] bool Node256::full()
-{
-    for (int i = 0; i < 255; ++i)
-        if (m_children[i] == nullptr)
-            return false;
-
-    return true;
 }
 
 Node* Node256::add_child(const Key& key)
