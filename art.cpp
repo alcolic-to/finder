@@ -2,7 +2,42 @@
 
 // NOLINTBEGIN
 
-[[nodiscard]] entry_ptr Node4::find_child(uint8_t key)
+Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
+
+entry_ptr::~entry_ptr() noexcept
+{
+    if (*this == nullptr) // invoke operator void* on this.
+        return;
+
+    if (node()) {
+        Node* n = node_ptr();
+
+        switch (n->m_type) {
+        case Node4_t:
+            delete (Node4*)n;
+            break;
+        case Node16_t:
+            delete (Node16*)n;
+            break;
+        case Node48_t:
+            delete (Node48*)n;
+            break;
+        case Node256_t:
+            delete (Node256*)n;
+            break;
+        default:
+            assert(!"Invalid case.");
+            delete n;
+            break;
+        }
+    }
+    else {
+        assert(leaf());
+        delete leaf_ptr();
+    }
+}
+
+[[nodiscard]] entry_ptr Node4::find_child(uint8_t key) const noexcept
 {
     for (int i = 0; i < 4; ++i)
         if (m_keys[i] == key)
@@ -11,37 +46,31 @@
     return entry_ptr{};
 }
 
-[[nodiscard]] Node16* Node4::grow()
+[[nodiscard]] Node16* Node4::grow() noexcept
 {
-    Node16* new_node = new Node16{};
-    std::memcpy(new_node->m_keys, m_keys, 4);
-    std::memcpy(new_node->m_children, m_children, 4);
-    // TODO: Copy prefix.
-
+    Node16* new_node = new Node16{*this};
     delete this;
+
     return new_node;
 }
 
-[[nodiscard]] bool Node4::full()
+[[nodiscard]] bool Node4::full() const noexcept
 {
     return m_num_children == 4;
 }
 
-Node* Node4::add_child(const Key& key)
+Node* Node4::add_child(const Key& key) noexcept
 {
     if (full())
         return grow()->add_child(key);
 
     size_t idx = 0;
-    while (m_keys[idx] && m_keys[idx] < key[0])
+    while (idx < m_num_children && m_keys[idx] < key[0])
         ++idx;
 
-    assert(idx < sizeof(m_keys) && m_keys[idx] != key[0]);
-
-    // Make space for new child. Keep sorted order. // TODO: count from number of children instead
-    // of full array.
+    // Make space for new child. Keep sorted order.
     //
-    for (size_t i = sizeof(m_keys) - 1; i > idx; --i) {
+    for (size_t i = m_num_children - 1; i > idx; --i) {
         m_keys[i] = m_keys[i - 1];
         m_children[i] = m_children[i - 1];
     }
@@ -53,7 +82,7 @@ Node* Node4::add_child(const Key& key)
     return this;
 }
 
-[[nodiscard]] entry_ptr Node16::find_child(uint8_t key)
+[[nodiscard]] entry_ptr Node16::find_child(uint8_t key) const noexcept
 {
     for (int i = 0; i < 16; ++i)
         if (m_keys[i] == key)
@@ -62,7 +91,7 @@ Node* Node4::add_child(const Key& key)
     return entry_ptr{};
 }
 
-[[nodiscard]] Node48* Node16::grow()
+[[nodiscard]] Node48* Node16::grow() noexcept
 {
     Node48* new_node = new Node48{};
 
@@ -74,25 +103,23 @@ Node* Node4::add_child(const Key& key)
     return new_node;
 }
 
-[[nodiscard]] bool Node16::full()
+[[nodiscard]] bool Node16::full() const noexcept
 {
     return m_num_children == 16;
 }
 
-Node* Node16::add_child(const Key& key)
+Node* Node16::add_child(const Key& key) noexcept
 {
     if (full())
         return grow()->add_child(key);
 
     size_t idx = 0;
-    while (m_keys[idx] && m_keys[idx] < key[0])
+    while (idx < m_num_children && m_keys[idx] < key[0])
         ++idx;
-
-    assert(idx < sizeof(m_keys) && m_keys[idx] != key[0]);
 
     // Make space for new child. Keep sorted order.
     //
-    for (size_t i = sizeof(m_keys) - 1; i > idx; --i) {
+    for (size_t i = m_num_children - 1; i > idx; --i) {
         m_keys[i] = m_keys[i - 1];
         m_children[i] = m_children[i - 1];
     }
@@ -104,12 +131,12 @@ Node* Node16::add_child(const Key& key)
     return this;
 }
 
-[[nodiscard]] entry_ptr Node48::find_child(uint8_t key)
+[[nodiscard]] entry_ptr Node48::find_child(uint8_t key) const noexcept
 {
     return m_idxs[key] != empty_slot ? m_children[m_idxs[key]] : entry_ptr{};
 }
 
-[[nodiscard]] Node256* Node48::grow()
+[[nodiscard]] Node256* Node48::grow() noexcept
 {
     Node256* new_node = new Node256{};
 
@@ -121,12 +148,12 @@ Node* Node16::add_child(const Key& key)
     return new_node;
 }
 
-[[nodiscard]] bool Node48::full()
+[[nodiscard]] bool Node48::full() const noexcept
 {
     return m_num_children == 48;
 }
 
-Node* Node48::add_child(const Key& key)
+Node* Node48::add_child(const Key& key) noexcept
 {
     if (full())
         return grow()->add_child(key);
@@ -140,12 +167,12 @@ Node* Node48::add_child(const Key& key)
     return this;
 }
 
-[[nodiscard]] entry_ptr Node256::find_child(uint8_t key)
+[[nodiscard]] entry_ptr Node256::find_child(uint8_t key) const noexcept
 {
     return m_children[key];
 }
 
-Node* Node256::add_child(const Key& key)
+Node* Node256::add_child(const Key& key) noexcept
 {
     assert(m_children[key[0]] == nullptr);
 
@@ -155,7 +182,7 @@ Node* Node256::add_child(const Key& key)
     return this;
 }
 
-[[nodiscard]] entry_ptr Node::find_child(uint8_t key)
+[[nodiscard]] entry_ptr Node::find_child(uint8_t key) noexcept
 {
     switch (m_type) {
     case Node4_t:
@@ -171,7 +198,7 @@ Node* Node256::add_child(const Key& key)
     }
 }
 
-Node* Node::add_child(const Key& key)
+Node* Node::add_child(const Key& key) noexcept
 {
     switch (m_type) {
     case Node4_t:
@@ -187,14 +214,14 @@ Node* Node::add_child(const Key& key)
     }
 }
 
-void ART::insert(uint8_t* data, size_t size)
+void ART::insert(uint8_t* data, size_t size) noexcept
 {
     Key key{data, size};
 
     insert(m_root, key);
 }
 
-void ART::insert(entry_ptr& entry, Key& key)
+void ART::insert(entry_ptr& entry, Key& key) noexcept
 {
     if (!entry) {
         entry = new_leaf(key);
@@ -206,7 +233,7 @@ void ART::insert(entry_ptr& entry, Key& key)
         Node* new_node = new Node4{};
 
         new_node = new_node->add_child(key);
-        new_node = new_node->add_child(Key{leaf->m_key, leaf->m_key_len});
+        new_node = new_node->add_child(Key{*leaf});
 
         delete leaf;
         entry = new_node;
@@ -216,6 +243,8 @@ void ART::insert(entry_ptr& entry, Key& key)
     assert(entry.node());
     Node* node = entry.node_ptr();
     entry_ptr next = node->find_child(key[0]);
+
+    // TODO: Handle case where key is at the end and must create inner node.
 
     insert(next, ++key);
 }
