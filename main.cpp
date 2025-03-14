@@ -111,6 +111,12 @@ int main(int argc, char* argv[])
 {
     ART art;
 
+    std::string s{"banana"};
+    art.insert((uint8_t*)s.data(), s.size());
+
+    s = "anana";
+    art.insert((uint8_t*)s.data(), s.size());
+
     // std::cout << "Hello, new cpp project.\n" << __FILE__;
 
     // Stopwatch<true, microseconds> s;
