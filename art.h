@@ -21,20 +21,20 @@
 // NOLINTBEGIN
 
 // Helper class that wraps key used in art.
-// It holds pointer to data beeing manipulated, it's size and current depth used for single value
-// comparison on each traversed level. Depth is incresed by 1 for every new level and value at that
-// depth can be accessed with operator[0].
+// Data is not physically copied on construction to increase performance. This object just holds
+// pointer to data beeing manipulated, it's size and current depth used for single value comparison
+// on each traversed level. Depth is incresed by 1 for every new level and value at that depth can
+// be accessed with operator[0].
 //
 // In order to have multiple entries where one entry is prefix of another, we will insert invisible
 // 0 at the end of a key, and increase it's size by 1. That way, all keys will have unique path
-// through the tree. Typical additional character in theory is $ for suffix trees, but we will use 0
-// for general purpose.
+// through the tree. Typical additional character is $ for suffix trees, but we will use 0 for
+// general purpose.
 //
-
 class Key {
 public:
-    static constexpr uint8_t term_byte = 0;
     friend class Leaf;
+    static constexpr uint8_t term_byte = 0;
 
     Key(uint8_t* data, size_t size) noexcept : m_data{data}, m_size{size + 1} {}
 
@@ -55,9 +55,19 @@ public:
         return *this;
     }
 
-    [[nodiscard]] bool end() const noexcept { return m_depth == m_size; }
+    [[nodiscard]] bool at_the_end() const noexcept { return m_depth == m_size; }
 
-    void copy_to(uint8_t* dest, size_t len) const noexcept;
+    // Copy key to destination buffer with size len. We must manually copy last 0 byte, since we
+    // don't hold that value in our buffer. User must assure that buffer can hold at least len
+    // bytes.
+    //
+    void copy_to(uint8_t* dest, size_t len) const noexcept
+    {
+        std::memcpy(dest, m_data, std::min(len, m_size - 1));
+
+        if (len >= m_size)
+            dest[m_size - 1] = term_byte;
+    }
 
 private:
     uint8_t* m_data;
@@ -66,7 +76,7 @@ private:
 };
 
 // Pointer tagging. We will use last 2 bits for tag.
-
+//
 static constexpr uintptr_t tag_bits = 0b11;
 
 inline uintptr_t raw(void* ptr) noexcept

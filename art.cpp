@@ -4,18 +4,10 @@
 
 // NOLINTBEGIN
 
-Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
-
-// Copy key to destination buffer with size len. We must manually copy last 0 byte, since we don't
-// hold that value in our buffer. User must assure that buffer can hold at least len bytes.
+// Makes key from leaf node. We don't need to insert terminal byte at the end, because key already
+// holds it.
 //
-void Key::copy_to(uint8_t* dest, size_t len) const noexcept
-{
-    std::memcpy(dest, m_data, std::min(len, m_size - 1));
-
-    if (len >= m_size)
-        dest[m_size - 1] = term_byte;
-}
+Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
 
 entry_ptr::~entry_ptr() noexcept
 {
@@ -83,7 +75,7 @@ Node* Node4::add_child(const Key& key) noexcept
 
     // Make space for new child. Keep sorted order.
     //
-    for (size_t i = m_num_children - 1; i > idx; --i) {
+    for (size_t i = m_num_children; i > idx; --i) {
         m_keys[i] = m_keys[i - 1];
         m_children[i] = m_children[i - 1];
     }
@@ -132,7 +124,7 @@ Node* Node16::add_child(const Key& key) noexcept
 
     // Make space for new child. Keep sorted order.
     //
-    for (size_t i = m_num_children - 1; i > idx; --i) {
+    for (size_t i = m_num_children; i > idx; --i) {
         m_keys[i] = m_keys[i - 1];
         m_children[i] = m_children[i - 1];
     }
@@ -257,7 +249,7 @@ void ART::insert(entry_ptr& entry, Key& key) noexcept
     Node* node = entry.node_ptr();
     entry_ptr next = node->find_child(key[0]);
 
-    // TODO: Handle case where key is at the end and must create inner node.
+    // TODO: Handle case where key is at the end and we must create inner node.
 
     insert(next, ++key);
 }
