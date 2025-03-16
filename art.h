@@ -40,12 +40,10 @@ public:
 
     Key(Leaf& leaf) noexcept;
 
-    uint8_t operator[](size_t idx) const noexcept
+    uint8_t operator*() const noexcept
     {
-        size_t abs_offset = m_depth + idx;
-        assert(abs_offset < m_size);
-
-        return abs_offset == m_size - 1 ? term_byte : m_data[abs_offset];
+        assert(m_depth < m_size);
+        return m_data[m_depth];
     }
 
     Key& operator++() noexcept
@@ -237,15 +235,25 @@ enum Node_t : uint32_t {
 //     uint8_t m_flags = 0;
 // };
 
+// Common node (header) used in all nodes. It holds prefix length, node type, number of children and
+// a prefix. Prefix and prefix length are common for all nodes in a subtree. Prefix length can be
+// greater than max_prefix_len, because we can only store 10 bytes in a prefix array. Because of
+// this, we first need to compare prefix len bytes from prefix array, and if they all match
+// and prefix_len > max_prefix_len, we must go to leaf to compare rest of bytes to
+// ensure that we have a match. Because of this, we always split nodes on real prefix missmatch, not
+// on max_prefix_len that can fit into this header.
+// This is called a hybrid approach in ART - Section: III. ADAPTIVE RADIX TREE, E. Collapsing
+// Inner Nodes
+//
 class Node {
 public:
-    static constexpr uint8_t max_prefix_len = 13;
+    static constexpr uint32_t max_prefix_len = 10;
 
     Node(uint8_t type, uint8_t num_children = 0, uint8_t prefix_len = 0,
          uint8_t* prefix = nullptr) noexcept
-        : m_type{type}
+        : m_prefix_len{prefix_len}
+        , m_type{type}
         , m_num_children{num_children}
-        , m_prefix_len{prefix_len}
     {
         if (prefix != nullptr)
             std::memcpy(m_prefix, prefix, std::min(max_prefix_len, m_prefix_len));
@@ -257,9 +265,9 @@ public:
 
     [[nodiscard]] entry_ptr find_child(uint8_t key) noexcept;
 
+    uint32_t m_prefix_len;
     uint8_t m_type;
     uint8_t m_num_children;
-    uint8_t m_prefix_len;
     uint8_t m_prefix[max_prefix_len];
 };
 
@@ -365,12 +373,9 @@ public:
 };
 
 class Leaf final {
-public:
-    // Creates new leaf. All bytes from key at current depth until the key end are copied
-    // to internal m_key buffer.
-    //
-    Leaf(const Key& key) : m_key_len{key.m_size} { key.copy_to(m_key, key.m_size); }
+    friend class Key;
 
+public:
     // Creates new leaf from provided key. It allocates memory big enough to fit leaf object and
     // calls constructor on that memory. Allocation size for key is taken as a provided key size and
     // a depth that we are at, because we are only saving partial key from current depth.
@@ -381,6 +386,13 @@ public:
         return new (mem) Leaf{key};
     }
 
+private:
+    // Creates new leaf. All bytes from key at current depth until the key end are copied
+    // to internal m_key buffer.
+    //
+    Leaf(const Key& key) : m_key_len{key.m_size} { key.copy_to(m_key, key.m_size); }
+
+private:
     void* m_data = nullptr;
     size_t m_key_len;
     uint8_t m_key[];

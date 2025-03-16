@@ -70,7 +70,7 @@ Node* Node4::add_child(const Key& key) noexcept
         return grow()->add_child(key);
 
     size_t idx = 0;
-    while (idx < m_num_children && m_keys[idx] < key[0])
+    while (idx < m_num_children && m_keys[idx] < *key)
         ++idx;
 
     // Make space for new child. Keep sorted order.
@@ -80,7 +80,7 @@ Node* Node4::add_child(const Key& key) noexcept
         m_children[i] = m_children[i - 1];
     }
 
-    m_keys[idx] = key[0];
+    m_keys[idx] = *key;
     m_children[idx] = Leaf::new_leaf(key);
 
     ++m_num_children;
@@ -119,7 +119,7 @@ Node* Node16::add_child(const Key& key) noexcept
         return grow()->add_child(key);
 
     size_t idx = 0;
-    while (idx < m_num_children && m_keys[idx] < key[0])
+    while (idx < m_num_children && m_keys[idx] < *key)
         ++idx;
 
     // Make space for new child. Keep sorted order.
@@ -129,7 +129,7 @@ Node* Node16::add_child(const Key& key) noexcept
         m_children[i] = m_children[i - 1];
     }
 
-    m_keys[idx] = key[0];
+    m_keys[idx] = *key;
     m_children[idx] = Leaf::new_leaf(key);
 
     ++m_num_children;
@@ -163,9 +163,9 @@ Node* Node48::add_child(const Key& key) noexcept
     if (full())
         return grow()->add_child(key);
 
-    assert(m_idxs[key[0]] == empty_slot);
+    assert(m_idxs[*key] == empty_slot);
 
-    m_idxs[key[0]] = m_num_children;
+    m_idxs[*key] = m_num_children;
     m_children[m_num_children] = Leaf::new_leaf(key);
 
     ++m_num_children;
@@ -179,9 +179,9 @@ Node* Node48::add_child(const Key& key) noexcept
 
 Node* Node256::add_child(const Key& key) noexcept
 {
-    assert(m_children[key[0]] == nullptr);
+    assert(m_children[*key] == nullptr);
 
-    m_children[key[0]] = Leaf::new_leaf(key);
+    m_children[*key] = Leaf::new_leaf(key);
     ++m_num_children;
 
     return this;
@@ -247,7 +247,7 @@ void ART::insert(entry_ptr& entry, Key& key) noexcept
 
     assert(entry.node());
     Node* node = entry.node_ptr();
-    entry_ptr next = node->find_child(key[0]);
+    entry_ptr next = node->find_child(*key);
 
     // TODO: Handle case where key is at the end and we must create inner node.
 

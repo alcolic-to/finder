@@ -146,57 +146,57 @@ int main(int argc, char* argv[])
     // else
     //     std::cout << "Not found\n";
 
-    try {
-        Trie trie;
-        std::string path{R"(C:\Users\topac\.vscode)"};
-        for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path}) {
-            // if (dir_entry.is_regular_file()) {
-            //     std::vector v{file_to_vector(dir_entry.path().string())};
+    // try {
+    //     Trie trie;
+    //     std::string path{R"(C:\Users\topac\.vscode)"};
+    //     for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path}) {
+    //         // if (dir_entry.is_regular_file()) {
+    //         //     std::vector v{file_to_vector(dir_entry.path().string())};
 
-            //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
-            // }
+    //         //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
+    //         // }
 
-            trie.insert(dir_entry.path().string());
-        }
+    //         trie.insert(dir_entry.path().string());
+    //     }
 
-        std::cout << "All $s: " << trie.m_$s.size() << "\n";
+    //     std::cout << "All $s: " << trie.m_$s.size() << "\n";
 
-        std::string str_for_match;
+    //     std::string str_for_match;
 
-        {
-            while (true) {
-                std::cin >> str_for_match;
+    //     {
+    //         while (true) {
+    //             std::cin >> str_for_match;
 
-                std::unordered_set<std::string_view> results;
+    //             std::unordered_set<std::string_view> results;
 
-                {
-                    Stopwatch<true, microseconds> s;
-                    results = trie.find<Options::icase>(str_for_match);
-                }
+    //             {
+    //                 Stopwatch<true, microseconds> s;
+    //                 results = trie.find<Options::icase>(str_for_match);
+    //             }
 
-                // dont_optimize(results);
-                for (const auto& r : results)
-                    std::cout << r << "\n";
+    //             // dont_optimize(results);
+    //             for (const auto& r : results)
+    //                 std::cout << r << "\n";
 
-                // std::ranges::sort(results);
-                // for (const auto& r : results)
-                //     std::cout << r << "\n";
+    //             // std::ranges::sort(results);
+    //             // for (const auto& r : results)
+    //             //     std::cout << r << "\n";
 
-                std::cout << "Results size: " << results.size() << "\n";
-                // std::cout << "Results size: "
-                //           << std::unordered_set(results.begin(), results.end()).size() <<
-                //           "\n";
-            }
-        }
-    }
-    catch (const std::filesystem::filesystem_error& ex) {
-        std::cout << "Exception: std::filesystem::filesystem_error" << ex.what() << "\n";
-        std::cout << "Exception: " << ex.code() << "\n";
-        std::cout << "Exception: " << ex.path2() << "\n";
-        std::cout << "Exception: " << ex.path1() << "\n";
-    }
+    //             std::cout << "Results size: " << results.size() << "\n";
+    //             // std::cout << "Results size: "
+    //             //           << std::unordered_set(results.begin(), results.end()).size() <<
+    //             //           "\n";
+    //         }
+    //     }
+    // }
+    // catch (const std::filesystem::filesystem_error& ex) {
+    //     std::cout << "Exception: std::filesystem::filesystem_error" << ex.what() << "\n";
+    //     std::cout << "Exception: " << ex.code() << "\n";
+    //     std::cout << "Exception: " << ex.path2() << "\n";
+    //     std::cout << "Exception: " << ex.path1() << "\n";
+    // }
 
-    catch (const std::exception& ex) {
-        std::cout << "Exception std::exception: " << ex.what() << "\n";
-    }
+    // catch (const std::exception& ex) {
+    //     std::cout << "Exception std::exception: " << ex.what() << "\n";
+    // }
 }
