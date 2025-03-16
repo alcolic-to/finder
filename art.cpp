@@ -1,8 +1,21 @@
 #include "art.h"
 
+#include <cstring>
+
 // NOLINTBEGIN
 
 Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
+
+// Copy key to destination buffer with size len. We must manually copy last 0 byte, since we don't
+// hold that value in our buffer. User must assure that buffer can hold at least len bytes.
+//
+void Key::copy_to(uint8_t* dest, size_t len) const noexcept
+{
+    std::memcpy(dest, m_data, std::min(len, m_size - 1));
+
+    if (len >= m_size)
+        dest[m_size - 1] = term_byte;
+}
 
 entry_ptr::~entry_ptr() noexcept
 {
@@ -76,7 +89,7 @@ Node* Node4::add_child(const Key& key) noexcept
     }
 
     m_keys[idx] = key[0];
-    m_children[idx] = new_leaf(key);
+    m_children[idx] = Leaf::new_leaf(key);
 
     ++m_num_children;
     return this;
@@ -125,7 +138,7 @@ Node* Node16::add_child(const Key& key) noexcept
     }
 
     m_keys[idx] = key[0];
-    m_children[idx] = new_leaf(key);
+    m_children[idx] = Leaf::new_leaf(key);
 
     ++m_num_children;
     return this;
@@ -161,7 +174,7 @@ Node* Node48::add_child(const Key& key) noexcept
     assert(m_idxs[key[0]] == empty_slot);
 
     m_idxs[key[0]] = m_num_children;
-    m_children[m_num_children] = new_leaf(key);
+    m_children[m_num_children] = Leaf::new_leaf(key);
 
     ++m_num_children;
     return this;
@@ -176,7 +189,7 @@ Node* Node256::add_child(const Key& key) noexcept
 {
     assert(m_children[key[0]] == nullptr);
 
-    m_children[key[0]] = new_leaf(key);
+    m_children[key[0]] = Leaf::new_leaf(key);
     ++m_num_children;
 
     return this;
@@ -224,7 +237,7 @@ void ART::insert(uint8_t* data, size_t size) noexcept
 void ART::insert(entry_ptr& entry, Key& key) noexcept
 {
     if (!entry) {
-        entry = new_leaf(key);
+        entry = Leaf::new_leaf(key);
         return;
     }
 

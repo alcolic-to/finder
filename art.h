@@ -34,10 +34,11 @@
 class Key {
 public:
     static constexpr uint8_t term_byte = 0;
+    friend class Leaf;
 
     Key(uint8_t* data, size_t size) noexcept : m_data{data}, m_size{size + 1} {}
 
-    Key(class Leaf& leaf) noexcept;
+    Key(Leaf& leaf) noexcept;
 
     uint8_t operator[](size_t idx) const noexcept
     {
@@ -54,9 +55,9 @@ public:
         return *this;
     }
 
-    uint8_t* data() const noexcept { return m_data; }
+    [[nodiscard]] bool end() const noexcept { return m_depth == m_size; }
 
-    size_t size() const noexcept { return m_size - m_depth; }
+    void copy_to(uint8_t* dest, size_t len) const noexcept;
 
 private:
     uint8_t* m_data;
@@ -358,22 +359,22 @@ public:
     // Creates new leaf. All bytes from key at current depth until the key end are copied
     // to internal m_key buffer.
     //
-    Leaf(const Key& key) : m_key_len{key.size()} { std::memcpy(m_key, key.data(), key.size()); }
+    Leaf(const Key& key) : m_key_len{key.m_size} { key.copy_to(m_key, key.m_size); }
+
+    // Creates new leaf from provided key. It allocates memory big enough to fit leaf object and
+    // calls constructor on that memory. Allocation size for key is taken as a provided key size and
+    // a depth that we are at, because we are only saving partial key from current depth.
+    //
+    static Leaf* new_leaf(const Key& key)
+    {
+        void* mem = std::malloc(sizeof(Leaf) + key.m_size);
+        return new (mem) Leaf{key};
+    }
 
     void* m_data = nullptr;
     size_t m_key_len;
     uint8_t m_key[];
 };
-
-// Creates new leaf from provided key. It allocates memory big enough to fit leaf object and
-// calls constructor on that memory. Allocation size for key is taken as a provided key size and
-// a depth that we are at, because we are only saving partial key from current depth.
-//
-static Leaf* new_leaf(const Key& key)
-{
-    void* mem = std::malloc(sizeof(Leaf) + key.size());
-    return new (mem) Leaf{key};
-}
 
 class ART final {
 public:
