@@ -44,6 +44,47 @@ Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
 //     }
 // }
 
+// Creates new node4 as a parent for key(future leaf node) and leaf. New node will have 2
+// children with common prefix extracted from them.
+//
+Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
+{
+    size_t offset = depth;
+    size_t bytes_copied = 0;
+
+    while (key[offset] == leaf->m_key[offset]) {
+        m_prefix[bytes_copied] = key[offset];
+        ++offset, ++bytes_copied;
+    }
+
+    m_prefix_len = bytes_copied;
+    depth += bytes_copied;
+
+    add_child(key[depth], Leaf::new_leaf(key));
+    add_child(leaf->m_key[depth], leaf);
+}
+
+// Creates new node4 as a parent for key(future leaf node) and node. New node will have 2
+// children with common prefix extracted from them. We must also delete taken prefix from child
+// node, plus we must take one additional byte from prefix as a key for child node.
+//
+Node4::Node4(const Key& key, size_t depth, Node* node) : Node{Node4_t}
+{
+    size_t cp_len = node->common_prefix(key, depth);
+
+    std::memcpy(m_prefix, node->m_prefix, cp_len);
+    m_prefix_len = cp_len;
+
+    uint8_t node_key_byte = node->m_prefix[cp_len];
+    size_t copy_bytes = node->m_prefix_len - cp_len - 1;
+
+    std::memmove(node->m_prefix, node->m_prefix + cp_len + 1, copy_bytes);
+    node->m_prefix_len = copy_bytes;
+
+    add_child(key[depth + cp_len], Leaf::new_leaf(key));
+    add_child(node_key_byte, node);
+}
+
 [[nodiscard]] entry_ptr Node::find_child(uint8_t key) const noexcept
 {
     switch (m_type) {
@@ -60,6 +101,34 @@ Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
     }
 }
 
+[[nodiscard]] entry_ptr Node4::find_child(uint8_t key) const noexcept
+{
+    for (int i = 0; i < m_num_children; ++i)
+        if (m_keys[i] == key)
+            return m_children[i];
+
+    return entry_ptr{};
+}
+
+[[nodiscard]] entry_ptr Node16::find_child(uint8_t key) const noexcept
+{
+    for (int i = 0; i < m_num_children; ++i)
+        if (m_keys[i] == key)
+            return m_children[i];
+
+    return entry_ptr{};
+}
+
+[[nodiscard]] entry_ptr Node48::find_child(uint8_t key) const noexcept
+{
+    return m_idxs[key] != empty_slot ? m_children[m_idxs[key]] : entry_ptr{};
+}
+
+[[nodiscard]] entry_ptr Node256::find_child(uint8_t key) const noexcept
+{
+    return m_children[key];
+}
+
 void Node::add_child(const uint8_t key, entry_ptr child) noexcept
 {
     switch (m_type) {
@@ -74,6 +143,68 @@ void Node::add_child(const uint8_t key, entry_ptr child) noexcept
     default:
         return assert(!"Invalid case.");
     }
+}
+
+void Node4::add_child(const uint8_t key, entry_ptr child) noexcept
+{
+    assert(m_num_children < 4);
+
+    size_t idx = 0;
+    while (idx < m_num_children && m_keys[idx] < key)
+        ++idx;
+
+    // Make space for new child. Keep sorted order.
+    //
+    for (size_t i = m_num_children; i > idx; --i) {
+        m_keys[i] = m_keys[i - 1];
+        m_children[i] = m_children[i - 1];
+    }
+
+    m_keys[idx] = key;
+    m_children[idx] = child;
+
+    ++m_num_children;
+}
+
+void Node16::add_child(const uint8_t key, entry_ptr child) noexcept
+{
+    assert(m_num_children < 16);
+
+    size_t idx = 0;
+    while (idx < m_num_children && m_keys[idx] < key)
+        ++idx;
+
+    // Make space for new child. Keep sorted order.
+    //
+    for (size_t i = m_num_children; i > idx; --i) {
+        m_keys[i] = m_keys[i - 1];
+        m_children[i] = m_children[i - 1];
+    }
+
+    m_keys[idx] = key;
+    m_children[idx] = child;
+
+    ++m_num_children;
+}
+
+void Node48::add_child(const uint8_t key, entry_ptr child) noexcept
+{
+    assert(m_num_children < 48);
+    assert(m_idxs[key] == empty_slot);
+
+    m_idxs[key] = m_num_children;
+    m_children[m_num_children] = child;
+
+    ++m_num_children;
+}
+
+void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
+{
+    assert(m_num_children < 255);
+    assert(m_children[key] == nullptr);
+
+    m_children[key] = child;
+    ++m_num_children;
 }
 
 [[nodiscard]] bool Node::full() const noexcept
@@ -106,56 +237,6 @@ void Node::add_child(const uint8_t key, entry_ptr child) noexcept
     }
 }
 
-// Creates new node4 as a parent for key(future leaf node) and leaf. New node will have 2
-// children with common prefix extracted from them.
-//
-Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
-{
-    size_t offset = depth;
-    size_t bytes_copied = 0;
-
-    while (key[offset] == leaf->m_key[offset]) {
-        m_prefix[bytes_copied] = key[offset];
-        ++offset, ++bytes_copied;
-    }
-
-    m_prefix_len = bytes_copied;
-    depth += bytes_copied;
-
-    add_child(key[depth], Leaf::new_leaf(key));
-    add_child(leaf->m_key[depth], leaf);
-}
-
-// Creates new node4 as a parent for key(future leaf node) and node. New node will have 2
-// children with common prefix extracted from them. We must also shrink taken prefix from child
-// node, plus we must take one additional byte from prefix as a key for child node.
-//
-Node4::Node4(const Key& key, size_t depth, Node* node) : Node{Node4_t}
-{
-    size_t cp_len = node->common_prefix(key, depth);
-
-    std::memcpy(m_prefix, node->m_prefix, cp_len);
-    m_prefix_len = cp_len;
-
-    uint8_t node_key_byte = node->m_prefix[cp_len];
-    size_t copy_bytes = node->m_prefix_len - cp_len - 1;
-
-    std::memmove(node->m_prefix, node->m_prefix + cp_len + 1, copy_bytes);
-    node->m_prefix_len = copy_bytes;
-
-    add_child(key[depth + cp_len], Leaf::new_leaf(key));
-    add_child(node_key_byte, node);
-}
-
-[[nodiscard]] entry_ptr Node4::find_child(uint8_t key) const noexcept
-{
-    for (int i = 0; i < m_num_children; ++i)
-        if (m_keys[i] == key)
-            return m_children[i];
-
-    return entry_ptr{};
-}
-
 [[nodiscard]] Node16* Node4::grow() noexcept
 {
     Node16* new_node = new Node16{*this};
@@ -164,68 +245,12 @@ Node4::Node4(const Key& key, size_t depth, Node* node) : Node{Node4_t}
     return new_node;
 }
 
-void Node4::add_child(const uint8_t key, entry_ptr child) noexcept
-{
-    assert(m_num_children < 4);
-
-    size_t idx = 0;
-    while (idx < m_num_children && m_keys[idx] < key)
-        ++idx;
-
-    // Make space for new child. Keep sorted order.
-    //
-    for (size_t i = m_num_children; i > idx; --i) {
-        m_keys[i] = m_keys[i - 1];
-        m_children[i] = m_children[i - 1];
-    }
-
-    m_keys[idx] = key;
-    m_children[idx] = child;
-
-    ++m_num_children;
-}
-
-[[nodiscard]] entry_ptr Node16::find_child(uint8_t key) const noexcept
-{
-    for (int i = 0; i < m_num_children; ++i)
-        if (m_keys[i] == key)
-            return m_children[i];
-
-    return entry_ptr{};
-}
-
 [[nodiscard]] Node48* Node16::grow() noexcept
 {
     Node48* new_node = new Node48{*this};
 
     delete this;
     return new_node;
-}
-
-void Node16::add_child(const uint8_t key, entry_ptr child) noexcept
-{
-    assert(m_num_children < 16);
-
-    size_t idx = 0;
-    while (idx < m_num_children && m_keys[idx] < key)
-        ++idx;
-
-    // Make space for new child. Keep sorted order.
-    //
-    for (size_t i = m_num_children; i > idx; --i) {
-        m_keys[i] = m_keys[i - 1];
-        m_children[i] = m_children[i - 1];
-    }
-
-    m_keys[idx] = key;
-    m_children[idx] = child;
-
-    ++m_num_children;
-}
-
-[[nodiscard]] entry_ptr Node48::find_child(uint8_t key) const noexcept
-{
-    return m_idxs[key] != empty_slot ? m_children[m_idxs[key]] : entry_ptr{};
 }
 
 [[nodiscard]] Node256* Node48::grow() noexcept
@@ -238,31 +263,6 @@ void Node16::add_child(const uint8_t key, entry_ptr child) noexcept
 
     delete this;
     return new_node;
-}
-
-void Node48::add_child(const uint8_t key, entry_ptr child) noexcept
-{
-    assert(m_num_children < 48);
-    assert(m_idxs[key] == empty_slot);
-
-    m_idxs[key] = m_num_children;
-    m_children[m_num_children] = child;
-
-    ++m_num_children;
-}
-
-[[nodiscard]] entry_ptr Node256::find_child(uint8_t key) const noexcept
-{
-    return m_children[key];
-}
-
-void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
-{
-    assert(m_num_children < 255);
-    assert(m_children[key] == nullptr);
-
-    m_children[key] = child;
-    ++m_num_children;
 }
 
 void ART::insert(uint8_t* data, size_t size) noexcept

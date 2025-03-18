@@ -114,10 +114,10 @@ int main(int argc, char* argv[])
     std::string s{"banana"};
     art.insert((uint8_t*)s.data(), s.size());
 
-    s = "anana";
+    s = "ana";
     art.insert((uint8_t*)s.data(), s.size());
 
-    s = "ana";
+    s = "anana";
     art.insert((uint8_t*)s.data(), s.size());
 
     // std::cout << "Hello, new cpp project.\n" << __FILE__;
