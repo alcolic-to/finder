@@ -95,26 +95,33 @@ public:
 
     entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
 
-    // Not smart for now.
     // Copy, move, delete.
     //
-    // entry_ptr(const entry_ptr& other) noexcept : m_ptr{other.m_ptr} {};
+    entry_ptr(const entry_ptr& other) noexcept : m_ptr{other.m_ptr} {}
 
-    // entry_ptr& operator=(const entry_ptr& other) noexcept
-    // {
-    //     m_ptr = other.m_ptr;
-    //     return *this;
-    // };
+    entry_ptr& operator=(const entry_ptr& other) noexcept
+    {
+        m_ptr = other.m_ptr;
+        return *this;
+    };
 
-    // entry_ptr(entry_ptr&& other) noexcept : m_ptr{other.m_ptr} { other.m_ptr = nullptr; };
+    entry_ptr(entry_ptr&& other) noexcept : m_ptr{other.m_ptr}
+    {
+        // Not smart for now.
+        // other.m_ptr = nullptr;
+    }
 
-    // entry_ptr& operator=(entry_ptr&& other) noexcept
-    // {
-    //     m_ptr = other.m_ptr;
-    //     other.m_ptr = nullptr;
-    //     return *this;
-    // };
+    entry_ptr& operator=(entry_ptr&& other) noexcept
+    {
+        m_ptr = other.m_ptr;
 
+        // Not smart for now.
+        // other.m_ptr = nullptr;
+
+        return *this;
+    };
+
+    // Not smart for now.
     // ~entry_ptr() noexcept;
 
     operator void*() const noexcept { return clear_tag(m_ptr); }
@@ -221,15 +228,14 @@ enum Node_t : uint8_t {
 //     uint8_t m_flags = 0;
 // };
 
-// Common node (header) used in all nodes. It holds prefix length, node type, number of children and
-// a prefix. Prefix and prefix length are common for all nodes in a subtree. Prefix length can be
-// greater than max_prefix_len, because we can only store 10 bytes in a prefix array. Because of
-// this, we first need to compare prefix len bytes from prefix array, and if they all match
-// and prefix_len > max_prefix_len, we must go to leaf to compare rest of bytes to
-// ensure that we have a match. Because of this, we always split nodes on real prefix missmatch, not
-// on max_prefix_len that can fit into this header.
-// This is called a hybrid approach in ART - Section: III. ADAPTIVE RADIX TREE, E. Collapsing
-// Inner Nodes
+// Common node (header) used in all nodes. It holds prefix length, node type, number of children
+// and a prefix. Prefix and prefix length are common for all nodes in a subtree. Prefix length
+// can be greater than max_prefix_len, because we can only store 10 bytes in a prefix array.
+// Because of this, we first need to compare prefix len bytes from prefix array, and if they all
+// match and prefix_len > max_prefix_len, we must go to leaf to compare rest of bytes to ensure
+// that we have a match. Because of this, we always split nodes on real prefix missmatch, not on
+// max_prefix_len that can fit into this header. This is called a hybrid approach in ART -
+// Section: III. ADAPTIVE RADIX TREE, E. Collapsing Inner Nodes
 //
 class Node {
 public:
@@ -250,7 +256,7 @@ public:
 
     [[nodiscard]] bool full() const noexcept;
 
-    [[nodiscard]] entry_ptr find_child(uint8_t key) const noexcept;
+    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
 
     [[nodiscard]] Node* grow() noexcept;
 
@@ -285,7 +291,7 @@ public:
     Node4(const Key& key, size_t depth, Leaf* leaf);
     Node4(const Key& key, size_t depth, Node* node);
 
-    [[nodiscard]] entry_ptr find_child(uint8_t key) const noexcept;
+    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node16* grow() noexcept;
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 4; }
@@ -312,7 +318,7 @@ public:
 
     // TODO: Check if compiler generates SIMD instructions. If not, insert them manually.
     //
-    [[nodiscard]] entry_ptr find_child(uint8_t key) const noexcept;
+    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node48* grow() noexcept;
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 16; }
@@ -342,7 +348,7 @@ public:
             m_idxs[old_node.m_keys[i]] = i;
     }
 
-    [[nodiscard]] entry_ptr find_child(uint8_t key) const noexcept;
+    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node256* grow() noexcept;
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 48; }
@@ -372,7 +378,7 @@ public:
                 m_children[i] = old_node.m_children[old_node.m_idxs[i]];
     }
 
-    [[nodiscard]] entry_ptr find_child(uint8_t key) const noexcept;
+    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
 
@@ -382,8 +388,8 @@ public:
 class Leaf final {
 public:
     // Creates new leaf from provided key. It allocates memory big enough to fit leaf object and
-    // calls constructor on that memory. Allocation size for key is taken as a provided key size and
-    // a depth that we are at, because we are only saving partial key from current depth.
+    // calls constructor on that memory. Allocation size for key is taken as a provided key size
+    // and a depth that we are at, because we are only saving partial key from current depth.
     //
     static Leaf* new_leaf(const Key& key)
     {
@@ -413,10 +419,10 @@ private:
     entry_ptr m_root;
 };
 
-// For insert, this part of code makes new node with 2 children: 1. new key that is beeing inserted
-// and the second which is an existing node. Because we are holding prefix in every node, common
-// prefix is extracted from both nodes and inserted into prefix array. This way we are always
-// getting inner node with two child nodes.
+// For insert, this part of code makes new node with 2 children: 1. new key that is beeing
+// inserted and the second which is an existing node. Because we are holding prefix in every
+// node, common prefix is extracted from both nodes and inserted into prefix array. This way we
+// are always getting inner node with two child nodes.
 
 /*
  4 if isLeaf(node) //expandnode

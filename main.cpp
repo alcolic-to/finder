@@ -120,6 +120,9 @@ int main(int argc, char* argv[])
     s = "anana";
     art.insert((uint8_t*)s.data(), s.size());
 
+    s = "ananas";
+    art.insert((uint8_t*)s.data(), s.size());
+
     // std::cout << "Hello, new cpp project.\n" << __FILE__;
 
     // Stopwatch<true, microseconds> s;

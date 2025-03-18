@@ -85,48 +85,48 @@ Node4::Node4(const Key& key, size_t depth, Node* node) : Node{Node4_t}
     add_child(node_key_byte, node);
 }
 
-[[nodiscard]] entry_ptr Node::find_child(uint8_t key) const noexcept
+[[nodiscard]] entry_ptr* Node::find_child(uint8_t key) noexcept
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<const Node4*>(this)->find_child(key);
+        return static_cast<Node4*>(this)->find_child(key);
     case Node16_t:
-        return static_cast<const Node16*>(this)->find_child(key);
+        return static_cast<Node16*>(this)->find_child(key);
     case Node48_t:
-        return static_cast<const Node48*>(this)->find_child(key);
+        return static_cast<Node48*>(this)->find_child(key);
     case Node256_t:
-        return static_cast<const Node256*>(this)->find_child(key);
+        return static_cast<Node256*>(this)->find_child(key);
     default:
-        return assert(!"Invalid case."), entry_ptr{};
+        return assert(!"Invalid case."), nullptr;
     }
 }
 
-[[nodiscard]] entry_ptr Node4::find_child(uint8_t key) const noexcept
+[[nodiscard]] entry_ptr* Node4::find_child(uint8_t key) noexcept
 {
     for (int i = 0; i < m_num_children; ++i)
         if (m_keys[i] == key)
-            return m_children[i];
+            return &m_children[i];
 
-    return entry_ptr{};
+    return nullptr;
 }
 
-[[nodiscard]] entry_ptr Node16::find_child(uint8_t key) const noexcept
+[[nodiscard]] entry_ptr* Node16::find_child(uint8_t key) noexcept
 {
     for (int i = 0; i < m_num_children; ++i)
         if (m_keys[i] == key)
-            return m_children[i];
+            return &m_children[i];
 
-    return entry_ptr{};
+    return nullptr;
 }
 
-[[nodiscard]] entry_ptr Node48::find_child(uint8_t key) const noexcept
+[[nodiscard]] entry_ptr* Node48::find_child(uint8_t key) noexcept
 {
-    return m_idxs[key] != empty_slot ? m_children[m_idxs[key]] : entry_ptr{};
+    return m_idxs[key] != empty_slot ? &m_children[m_idxs[key]] : nullptr;
 }
 
-[[nodiscard]] entry_ptr Node256::find_child(uint8_t key) const noexcept
+[[nodiscard]] entry_ptr* Node256::find_child(uint8_t key) noexcept
 {
-    return m_children[key];
+    return &m_children[key];
 }
 
 void Node::add_child(const uint8_t key, entry_ptr child) noexcept
@@ -296,9 +296,9 @@ void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
     assert(cp_len == node->m_prefix_len);
     depth += node->m_prefix_len;
 
-    entry_ptr next = node->find_child(key[depth]);
+    entry_ptr* next = node->find_child(key[depth]);
     if (next)
-        return insert(next, key, depth + 1);
+        return insert(*next, key, depth + 1);
 
     if (node->full())
         node = node->grow();
