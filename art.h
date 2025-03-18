@@ -40,20 +40,13 @@ public:
 
     Key(Leaf& leaf) noexcept;
 
-    uint8_t operator*() const noexcept
+    uint8_t operator[](size_t idx) const noexcept
     {
-        assert(m_depth < m_size);
-        return m_data[m_depth];
+        assert(idx < m_size);
+        return m_data[idx];
     }
 
-    Key& operator++() noexcept
-    {
-        assert(m_depth < m_size);
-        ++m_depth;
-        return *this;
-    }
-
-    [[nodiscard]] bool at_the_end() const noexcept { return m_depth == m_size; }
+    size_t size() const noexcept { return m_size; }
 
     // Copy key to destination buffer with size len. We must manually copy last 0 byte, since we
     // don't hold that value in our buffer. User must assure that buffer can hold at least len
@@ -70,7 +63,6 @@ public:
 private:
     uint8_t* m_data;
     size_t m_size;
-    size_t m_depth = 0;
 };
 
 // Pointer tagging. We will use last 2 bits for tag.
@@ -142,13 +134,13 @@ public:
     [[nodiscard]] Node* node_ptr() const noexcept
     {
         assert(node());
-        return (Node*)m_ptr;
+        return static_cast<Node*>(m_ptr);
     }
 
     [[nodiscard]] Leaf* leaf_ptr() const noexcept
     {
         assert(leaf());
-        return (Leaf*)clear_tag(m_ptr);
+        return static_cast<Leaf*>(clear_tag(m_ptr));
     }
 
 private:
@@ -261,9 +253,22 @@ public:
 
     [[nodiscard("Do not discard result, because node can be resized and new pointer value must "
                 "be taken.")]]
-    Node* add_child(const Key& key) noexcept;
+    Node* add_child(const uint8_t key, const entry_ptr& child) noexcept;
 
     [[nodiscard]] entry_ptr find_child(uint8_t key) noexcept;
+
+    // Returns length of the longest common prefix for a key at depth.
+    //
+    [[nodiscard]] size_t common_prefix(const Key& key, size_t depth)
+    {
+        size_t cmp_size = std::min(key.size() - depth, (size_t)m_prefix_len);
+
+        size_t i = 0;
+        while (i < cmp_size && key[depth + i] == m_prefix[i])
+            ++i;
+
+        return i;
+    }
 
     uint32_t m_prefix_len;
     uint8_t m_type;
@@ -283,13 +288,21 @@ class Node4 final : public Node {
 public:
     Node4() : Node{Node4_t} {}
 
+    // Creates new node from an existing node and a new leaf.
+    // Each node that is created must have at least 2 children.
+    //
+    // Node4(const Key& key, Node4& node, Leaf& leaf)
+    // {
+
+    // }
+
     [[nodiscard]] entry_ptr find_child(uint8_t key) const noexcept;
     [[nodiscard]] Node16* grow() noexcept;
     [[nodiscard]] bool full() const noexcept;
 
     [[nodiscard(
         "Do not discard result, because node can be resized and new pointer value must be taken.")]]
-    Node* add_child(const Key& key) noexcept;
+    Node* add_child(const uint8_t key, const entry_ptr& child) noexcept;
 
     uint8_t m_keys[4] = {};       // Keys with span of 1 byte.
     entry_ptr m_children[4] = {}; // Pointers to children nodes.
@@ -319,7 +332,7 @@ public:
 
     [[nodiscard(
         "Do not discard result, because node can be resized and new pointer value must be taken.")]]
-    Node* add_child(const Key& key) noexcept;
+    Node* add_child(const uint8_t key, const entry_ptr& child) noexcept;
 
     uint8_t m_keys[16] = {};       // Keys with span of 1 byte.
     entry_ptr m_children[16] = {}; // Pointers to children nodes.
@@ -344,7 +357,7 @@ public:
 
     [[nodiscard(
         "Do not discard result, because node can be resized and new pointer value must be taken.")]]
-    Node* add_child(const Key& key) noexcept;
+    Node* add_child(const uint8_t key, const entry_ptr& child) noexcept;
 
     // Keys with span of 1 byte with value of index for m_idxs array.
     uint8_t m_idxs[256] = {empty_slot};
@@ -367,7 +380,7 @@ public:
 
     [[nodiscard(
         "Do not discard result, because node can be resized and new pointer value must be taken.")]]
-    Node* add_child(const Key& key) noexcept;
+    Node* add_child(const uint8_t key, const entry_ptr& child) noexcept;
 
     entry_ptr m_children[256] = {}; // Pointers to children nodes.
 };
@@ -392,7 +405,7 @@ private:
     //
     Leaf(const Key& key) : m_key_len{key.m_size} { key.copy_to(m_key, key.m_size); }
 
-private:
+public:
     void* m_data = nullptr;
     size_t m_key_len;
     uint8_t m_key[];
@@ -403,7 +416,7 @@ public:
     void insert(uint8_t* data, size_t size) noexcept;
 
 private:
-    void insert(entry_ptr& entry, Key& key) noexcept;
+    void insert(entry_ptr& entry, Key& key, size_t depth) noexcept;
 
     bool empty() const noexcept { return m_root; }
 
