@@ -111,16 +111,28 @@ int main(int argc, char* argv[])
 {
     ART art;
 
-    std::string s{"banana"};
+    // std::string s{"banana"};
+    // art.insert((uint8_t*)s.data(), s.size());
+
+    // s = "ana";
+    // art.insert((uint8_t*)s.data(), s.size());
+
+    // s = "anana";
+    // art.insert((uint8_t*)s.data(), s.size());
+
+    // s = "ananas";
+    // art.insert((uint8_t*)s.data(), s.size());
+
+    std::string s{"aaaaaa"};
     art.insert((uint8_t*)s.data(), s.size());
 
-    s = "ana";
+    s = "aaaaa";
     art.insert((uint8_t*)s.data(), s.size());
 
-    s = "anana";
+    s = "a";
     art.insert((uint8_t*)s.data(), s.size());
 
-    s = "ananas";
+    s = "aaaaaaaa";
     art.insert((uint8_t*)s.data(), s.size());
 
     // std::cout << "Hello, new cpp project.\n" << __FILE__;

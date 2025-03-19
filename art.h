@@ -260,7 +260,7 @@ public:
 
     [[nodiscard]] Node* grow() noexcept;
 
-    // Returns length of the longest common prefix for a key at depth.
+    // Returns common prefix length of our prefix and a key at provided depth.
     //
     [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept
     {
