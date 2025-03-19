@@ -30,7 +30,7 @@ include(cmake/project_config.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/compiler_options.cmake)
 
-set(CPP_FILES main.cpp)
+set(CPP_FILES main.cpp art.cpp)
 set(HPP_FILES )
 set(ALL_FILES ${CPP_FILES} ${HPP_FILES})
 
