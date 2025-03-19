@@ -401,6 +401,17 @@ public:
         return leaf;
     }
 
+    // Returns whether internal key and provided key matches. Since internal key already holds
+    // terminal byte at the end and key doesn't, we must memcmp all except last byte.
+    //
+    bool match(const Key& key) const noexcept
+    {
+        if (m_key_len != key.size())
+            return false;
+
+        return std::memcmp(m_key, key.m_data, m_key_len - 1);
+    }
+
 public:
     void* m_data = nullptr;
     size_t m_key_len;
@@ -410,9 +421,11 @@ public:
 class ART final {
 public:
     void insert(uint8_t* data, size_t size) noexcept;
+    Leaf* search(uint8_t* data, size_t size) noexcept;
 
 private:
     void insert(entry_ptr& entry, const Key& key, size_t depth) noexcept;
+    Leaf* search(entry_ptr& entry, const Key& key, size_t depth) noexcept;
 
     bool empty() const noexcept { return m_root; }
 

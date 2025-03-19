@@ -306,4 +306,41 @@ void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
     node->add_child(key[depth], Leaf::new_leaf(key));
 }
 
+Leaf* ART::search(uint8_t* data, size_t size) noexcept
+{
+    Key key{data, size};
+
+    if (!m_root)
+        return nullptr;
+
+    return search(m_root, key, 0);
+}
+
+Leaf* ART::search(entry_ptr& entry, const Key& key, size_t depth) noexcept
+{
+    if (entry.leaf()) {
+        Leaf* leaf = entry.leaf_ptr();
+        if (leaf->match(key))
+            return leaf;
+
+        return nullptr;
+    }
+
+    assert(entry.node());
+    Node* node = entry.node_ptr();
+
+    size_t cp_len = node->common_prefix(key, depth);
+    if (cp_len < node->m_prefix_len)
+        return nullptr;
+
+    assert(cp_len == node->m_prefix_len);
+    depth += node->m_prefix_len;
+
+    entry_ptr* next = node->find_child(key[depth]);
+    if (next)
+        search(*next, key, depth + 1);
+
+    return nullptr;
+}
+
 // NOLINTEND
