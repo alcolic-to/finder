@@ -53,3 +53,28 @@ TEST(art_tests, multiple_insertions)
     s = "aaaaaa", leaf = art.search(s);
     ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
 }
+
+TEST(art_tests, long_keys_insertion)
+{
+    ART art;
+
+    // clang-format off
+    std::string full     {"abcdefghijklmnopqrstuvwxyz"};
+    std::string partial_1{"abcdefghijklmnopqrstuvwxy"};
+    std::string partial_2{"abcdefghijklmnopqrstuvwxyza"};
+    // clang-format on
+
+    // art.insert(full);
+
+    // s = "aaaaa";
+    // art.insert(s);
+
+    // s = "a";
+    // art.insert(s);
+
+    // s = "aaaaaaaa";
+    // art.insert(s);
+
+    // Leaf* leaf = art.search(s);
+    // ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+}

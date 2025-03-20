@@ -261,17 +261,9 @@ public:
 
     [[nodiscard]] Node* grow() noexcept;
 
-    // Returns common prefix length of our prefix and a key at provided depth.
-    //
-    [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept
-    {
-        size_t max_cmp = std::min(key.size() - depth, (size_t)m_prefix_len);
-        size_t i = 0;
-        while (i < max_cmp && key[depth + i] == m_prefix[i])
-            ++i;
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
-        return i;
-    }
+    [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept;
 
     uint32_t m_prefix_len = 0;
     uint16_t m_num_children = 0;
@@ -299,6 +291,8 @@ public:
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
 
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
+
     uint8_t m_keys[4] = {};       // Keys with span of 1 byte.
     entry_ptr m_children[4] = {}; // Pointers to children nodes.
 };
@@ -325,6 +319,8 @@ public:
     [[nodiscard]] bool full() const noexcept { return m_num_children == 16; }
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
     uint8_t m_keys[16] = {};       // Keys with span of 1 byte.
     entry_ptr m_children[16] = {}; // Pointers to children nodes.
@@ -356,6 +352,8 @@ public:
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
 
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
+
     // Keys with span of 1 byte with value of index for m_idxs array.
     uint8_t m_idxs[256] = {empty_slot};
     entry_ptr m_children[48] = {}; // Pointers to children nodes.
@@ -382,6 +380,8 @@ public:
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
     entry_ptr m_children[256] = {}; // Pointers to children nodes.
 };
@@ -414,6 +414,8 @@ public:
     }
 
     std::string key_to_string() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
+
+    // Key key_to_key() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
 
 public:
     void* m_data = nullptr;

@@ -75,14 +75,14 @@ Node4::Node4(const Key& key, size_t depth, Node* node) : Node{Node4_t}
     std::memcpy(m_prefix, node->m_prefix, cp_len);
     m_prefix_len = cp_len;
 
-    uint8_t node_key_byte = node->m_prefix[cp_len];
+    uint8_t node_key = node->m_prefix[cp_len];
     size_t copy_bytes = node->m_prefix_len - cp_len - 1;
 
     std::memmove(node->m_prefix, node->m_prefix + cp_len + 1, copy_bytes);
     node->m_prefix_len = copy_bytes;
 
     add_child(key[depth + cp_len], Leaf::new_leaf(key));
-    add_child(node_key_byte, node);
+    add_child(node_key, node);
 }
 
 [[nodiscard]] entry_ptr* Node::find_child(uint8_t key) noexcept
@@ -265,6 +265,86 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
     return new_node;
 }
 
+[[nodiscard]] const Leaf& Node::next_leaf() const noexcept
+{
+    switch (m_type) {
+    case Node4_t:
+        return static_cast<const Node4*>(this)->next_leaf();
+    case Node16_t:
+        return static_cast<const Node16*>(this)->next_leaf();
+    case Node48_t:
+        return static_cast<const Node48*>(this)->next_leaf();
+    case Node256_t:
+        return static_cast<const Node256*>(this)->next_leaf();
+    default:
+        return assert(!"Invalid case."), *Leaf::new_leaf(Key{nullptr, 0});
+    }
+}
+
+[[nodiscard]] const Leaf& Node4::next_leaf() const noexcept
+{
+    entry_ptr entry = m_children[0];
+    return entry.leaf() ? *entry.leaf_ptr() : entry.node_ptr()->next_leaf();
+}
+
+[[nodiscard]] const Leaf& Node16::next_leaf() const noexcept
+{
+    entry_ptr entry = m_children[0];
+    return entry.leaf() ? *entry.leaf_ptr() : entry.node_ptr()->next_leaf();
+}
+
+[[nodiscard]] const Leaf& Node48::next_leaf() const noexcept
+{
+    for (int i = 0; i < 256; ++i) {
+        if (m_idxs[i] != empty_slot) {
+            entry_ptr entry = m_children[m_idxs[i]];
+            return entry.leaf() ? *entry.leaf_ptr() : entry.node_ptr()->next_leaf();
+        }
+    }
+
+    assert(false);
+    return *Leaf::new_leaf(Key{nullptr, 0});
+}
+
+[[nodiscard]] const Leaf& Node256::next_leaf() const noexcept
+{
+    for (int i = 0; i < 256; ++i) {
+        entry_ptr entry = m_children[i];
+        if (entry)
+            return entry.leaf() ? *entry.leaf_ptr() : entry.node_ptr()->next_leaf();
+    }
+
+    assert(false);
+    return *Leaf::new_leaf(Key{nullptr, 0});
+}
+
+// Returns common prefix length from this node to the leaf and a key at provided depth.
+// It is not important which leaf we take, because all of them have at least m_prefix_len common
+// bytes.
+//
+[[nodiscard]] size_t Node::common_prefix(const Key& key, size_t depth) const noexcept
+{
+    size_t max_cmp =
+        std::min(std::min(key.size() - depth, (size_t)m_prefix_len), (size_t)max_prefix_len);
+    size_t cp_len = 0;
+
+    while (cp_len < max_cmp && key[depth + cp_len] == m_prefix[cp_len])
+        ++cp_len;
+
+    // If prefix of a node is max_prefix_len and we matched whole prefix stored in this node, we
+    // need to find leaf to keep comparing.
+    //
+    if (cp_len == max_prefix_len) {
+        const Leaf& leaf = next_leaf();
+        max_cmp = std::min(key.size() - depth - cp_len, (size_t)m_prefix_len);
+
+        while (cp_len < max_cmp && key[depth + cp_len] == leaf.m_key[depth + cp_len])
+            ++cp_len;
+    }
+
+    return cp_len;
+}
+
 void ART::insert(const std::string& s) noexcept
 {
     const Key key{(const uint8_t* const)s.data(), s.size()};
@@ -287,6 +367,8 @@ void ART::insert(const Key& key) noexcept
         insert(m_root, key, 0);
 }
 
+// Inserts new key into the tree.
+//
 void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
 {
     assert(entry);
