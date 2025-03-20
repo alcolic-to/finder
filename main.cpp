@@ -147,6 +147,8 @@ int main(int argc, char* argv[])
     s = "aaaaaa", l = art.search((uint8_t*)s.data(), s.size());
     std::cout << l->m_key << "\n";
 
+    std::cout << "Added tests and benchmark.\n";
+
     // std::cout << "Hello, new cpp project.\n" << __FILE__;
 
     // Stopwatch<true, microseconds> s;

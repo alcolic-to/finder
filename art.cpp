@@ -265,10 +265,22 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
     return new_node;
 }
 
-void ART::insert(uint8_t* data, size_t size) noexcept
+void ART::insert(const std::string& s) noexcept
 {
-    Key key{data, size};
+    const Key key{(const uint8_t* const)s.data(), s.size()};
+    insert(key);
+}
 
+void ART::insert(const uint8_t* const data, size_t size) noexcept
+{
+    const Key key{data, size};
+    insert(key);
+}
+
+// Insert new key into the tree.
+//
+void ART::insert(const Key& key) noexcept
+{
     if (!m_root)
         m_root = Leaf::new_leaf(key);
     else
@@ -306,10 +318,20 @@ void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
     node->add_child(key[depth], Leaf::new_leaf(key));
 }
 
-Leaf* ART::search(uint8_t* data, size_t size) noexcept
+Leaf* ART::search(const std::string& s) noexcept
 {
-    Key key{data, size};
+    const Key key{(const uint8_t* const)s.data(), s.size()};
+    return search(key);
+}
 
+Leaf* ART::search(const uint8_t* const data, size_t size) noexcept
+{
+    const Key key{data, size};
+    return search(key);
+}
+
+Leaf* ART::search(const Key& key) noexcept
+{
     if (!m_root)
         return nullptr;
 
