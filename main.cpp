@@ -135,6 +135,18 @@ int main(int argc, char* argv[])
     s = "aaaaaaaa";
     art.insert((uint8_t*)s.data(), s.size());
 
+    Leaf* l = art.search((uint8_t*)s.data(), s.size());
+    std::cout << l->m_key << "\n";
+
+    s = "a", l = art.search((uint8_t*)s.data(), s.size());
+    std::cout << l->m_key << "\n";
+
+    s = "aaaaa", l = art.search((uint8_t*)s.data(), s.size());
+    std::cout << l->m_key << "\n";
+
+    s = "aaaaaa", l = art.search((uint8_t*)s.data(), s.size());
+    std::cout << l->m_key << "\n";
+
     // std::cout << "Hello, new cpp project.\n" << __FILE__;
 
     // Stopwatch<true, microseconds> s;

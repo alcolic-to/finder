@@ -409,7 +409,7 @@ public:
         if (m_key_len != key.size())
             return false;
 
-        return std::memcmp(m_key, key.m_data, m_key_len - 1);
+        return !std::memcmp(m_key, key.m_data, m_key_len - 1);
     }
 
 public:

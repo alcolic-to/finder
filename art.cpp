@@ -338,7 +338,7 @@ Leaf* ART::search(entry_ptr& entry, const Key& key, size_t depth) noexcept
 
     entry_ptr* next = node->find_child(key[depth]);
     if (next)
-        search(*next, key, depth + 1);
+        return search(*next, key, depth + 1);
 
     return nullptr;
 }
