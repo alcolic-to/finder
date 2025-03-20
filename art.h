@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <string>
 
 // NOLINTBEGIN
 
@@ -29,7 +30,7 @@ public:
     friend class Leaf;
     static constexpr uint8_t term_byte = 0;
 
-    Key(uint8_t* data, size_t size) noexcept : m_data{data}, m_size{size + 1} {}
+    Key(const uint8_t* const data, size_t size) noexcept : m_data{data}, m_size{size + 1} {}
 
     Key(Leaf& leaf) noexcept;
 
@@ -54,7 +55,7 @@ public:
     }
 
 private:
-    uint8_t* m_data;
+    const uint8_t* const m_data;
     size_t m_size;
 };
 
@@ -412,6 +413,8 @@ public:
         return !std::memcmp(m_key, key.m_data, m_key_len - 1);
     }
 
+    std::string key_to_string() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
+
 public:
     void* m_data = nullptr;
     size_t m_key_len;
@@ -420,11 +423,15 @@ public:
 
 class ART final {
 public:
-    void insert(uint8_t* data, size_t size) noexcept;
-    Leaf* search(uint8_t* data, size_t size) noexcept;
+    void insert(const std::string& s) noexcept;
+    void insert(const uint8_t* const data, size_t size) noexcept;
+    Leaf* search(const std::string& s) noexcept;
+    Leaf* search(const uint8_t* const data, size_t size) noexcept;
 
 private:
+    void insert(const Key& key) noexcept;
     void insert(entry_ptr& entry, const Key& key, size_t depth) noexcept;
+    Leaf* search(const Key& key) noexcept;
     Leaf* search(entry_ptr& entry, const Key& key, size_t depth) noexcept;
 
     bool empty() const noexcept { return m_root; }
