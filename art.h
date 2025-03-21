@@ -37,7 +37,7 @@ public:
     uint8_t operator[](size_t idx) const noexcept
     {
         assert(idx < m_size);
-        return m_data[idx];
+        return idx == m_size - 1 ? term_byte : m_data[idx];
     }
 
     size_t size() const noexcept { return m_size; }
@@ -240,7 +240,7 @@ enum Node_t : uint8_t {
 //
 class Node {
 public:
-    static constexpr uint32_t max_prefix_len = 9;
+    static constexpr uint32_t max_prefix_len = 2;
 
     Node(uint8_t type, uint16_t num_children, const uint8_t* prefix, uint32_t prefix_len) noexcept
         : m_prefix_len{prefix_len}
@@ -264,6 +264,7 @@ public:
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
     [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept;
+    [[nodiscard]] size_t common_header_prefix(const Key& key, size_t depth) const noexcept;
 
     uint32_t m_prefix_len = 0;
     uint16_t m_num_children = 0;
@@ -282,7 +283,7 @@ class Node256;
 class Node4 final : public Node {
 public:
     Node4(const Key& key, size_t depth, Leaf* leaf);
-    Node4(const Key& key, size_t depth, Node* node);
+    Node4(const Key& key, size_t depth, Node* node, size_t cp_len);
 
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node16* grow() noexcept;
@@ -401,6 +402,14 @@ public:
 
         return leaf;
     }
+
+    const uint8_t& operator[](size_t idx) const noexcept
+    {
+        assert(idx < m_key_len);
+        return m_key[idx];
+    }
+
+    size_t size() const noexcept { return m_key_len; }
 
     // Returns whether internal key and provided key matches. Since internal key already holds
     // terminal byte at the end and key doesn't, we must memcmp all except last byte.
