@@ -311,7 +311,7 @@ public:
         : Node{Node16_t, old_node.m_num_children, old_node.m_prefix, old_node.m_prefix_len}
     {
         std::memcpy(m_keys, old_node.m_keys, 4);
-        std::memcpy(m_children, old_node.m_children, 4);
+        std::memcpy(m_children, old_node.m_children, 4 * sizeof(entry_ptr));
     }
 
     // TODO: Check if compiler generates SIMD instructions. If not, insert them manually.
@@ -343,7 +343,7 @@ public:
     Node48(Node16& old_node) noexcept
         : Node{Node48_t, old_node.m_num_children, old_node.m_prefix, old_node.m_prefix_len}
     {
-        std::memcpy(m_children, old_node.m_children, 16);
+        std::memcpy(m_children, old_node.m_children, 16 * sizeof(entry_ptr));
         for (int i = 0; i < 16; ++i)
             m_idxs[old_node.m_keys[i]] = i;
     }
@@ -436,10 +436,29 @@ public:
 
 class ART final {
 public:
-    void insert(const std::string& s) noexcept;
-    void insert(const uint8_t* const data, size_t size) noexcept;
-    Leaf* search(const std::string& s) noexcept;
-    Leaf* search(const uint8_t* const data, size_t size) noexcept;
+    void insert(const std::string& s) noexcept
+    {
+        const Key key{(const uint8_t* const)s.data(), s.size()};
+        insert(key);
+    }
+
+    void insert(const uint8_t* const data, size_t size) noexcept
+    {
+        const Key key{data, size};
+        insert(key);
+    }
+
+    Leaf* search(const std::string& s) noexcept
+    {
+        const Key key{(const uint8_t* const)s.data(), s.size()};
+        return search(key);
+    }
+
+    Leaf* search(const uint8_t* const data, size_t size) noexcept
+    {
+        const Key key{data, size};
+        return search(key);
+    }
 
 private:
     void insert(const Key& key) noexcept;
@@ -448,6 +467,7 @@ private:
     Leaf* search(entry_ptr& entry, const Key& key, size_t depth) noexcept;
 
     void insert_at_leaf(entry_ptr& entry, const Key& key, size_t depth) noexcept;
+    void insert_at_node(entry_ptr& entry, const Key& key, size_t depth, size_t cp_len) noexcept;
 
     bool empty() const noexcept { return m_root; }
 
