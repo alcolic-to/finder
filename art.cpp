@@ -78,6 +78,7 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
     m_prefix_len = cp_len;
     std::memcpy(m_prefix, node->m_prefix, std::min(cp_len, (size_t)max_prefix_len));
 
+    assert(node->m_prefix_len >= cp_len + 1);
     node->m_prefix_len -= (cp_len + 1); // Additional byte for mapping.
     size_t header_bytes = std::min(node->m_prefix_len, max_prefix_len);
 
@@ -366,39 +367,36 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
     return cp_len;
 }
 
-void ART::insert(const std::string& s) noexcept
-{
-    const Key key{(const uint8_t* const)s.data(), s.size()};
-    insert(key);
-}
-
-void ART::insert(const uint8_t* const data, size_t size) noexcept
-{
-    const Key key{data, size};
-    insert(key);
-}
-
-// Insert new key into the tree.
-//
-void ART::insert(const Key& key) noexcept
-{
-    if (!m_root)
-        m_root = Leaf::new_leaf(key);
-    else
-        insert(m_root, key, 0);
-}
-
 // Handles insertion when we reached leaf node. With current implementation, we will only insert new
 // key if it differs from an exitisting leaf.
 // TODO: Maybe implement substitution of the old entry.
 //
 void ART::insert_at_leaf(entry_ptr& entry, const Key& key, size_t depth) noexcept
 {
-    assert(entry.leaf());
     Leaf* leaf = entry.leaf_ptr();
-
     if (!leaf->match(key))
         entry = new Node4{key, depth, leaf};
+}
+
+// Handles insertion when we reached innder node and key at provided depth did not match full node
+// prefix.
+//
+void ART::insert_at_node(entry_ptr& entry, const Key& key, size_t depth, size_t cp_len) noexcept
+{
+    Node* node = entry.node_ptr();
+    assert(cp_len != node->m_prefix_len);
+
+    entry = new Node4{key, depth, node, cp_len};
+}
+
+// Insert new key into the tree.
+//
+void ART::insert(const Key& key) noexcept
+{
+    if (m_root)
+        return insert(m_root, key, 0);
+
+    m_root = Leaf::new_leaf(key);
 }
 
 // Inserts new key into the tree.
@@ -410,14 +408,11 @@ void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
     if (entry.leaf())
         return insert_at_leaf(entry, key, depth);
 
-    assert(entry.node());
     Node* node = entry.node_ptr();
-
     size_t cp_len = node->common_prefix(key, depth);
-    if (cp_len != node->m_prefix_len) {
-        entry = new Node4{key, depth, node, cp_len};
-        return;
-    }
+
+    if (cp_len != node->m_prefix_len)
+        return insert_at_node(entry, key, depth, cp_len);
 
     assert(cp_len == node->m_prefix_len);
     depth += node->m_prefix_len;
@@ -427,29 +422,17 @@ void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
         return insert(*next, key, depth + 1);
 
     if (node->full())
-        node = node->grow();
+        entry = node = node->grow();
 
     node->add_child(key[depth], Leaf::new_leaf(key));
 }
 
-Leaf* ART::search(const std::string& s) noexcept
-{
-    const Key key{(const uint8_t* const)s.data(), s.size()};
-    return search(key);
-}
-
-Leaf* ART::search(const uint8_t* const data, size_t size) noexcept
-{
-    const Key key{data, size};
-    return search(key);
-}
-
 Leaf* ART::search(const Key& key) noexcept
 {
-    if (!m_root)
-        return nullptr;
+    if (m_root)
+        return search(m_root, key, 0);
 
-    return search(m_root, key, 0);
+    return nullptr;
 }
 
 Leaf* ART::search(entry_ptr& entry, const Key& key, size_t depth) noexcept
@@ -462,10 +445,9 @@ Leaf* ART::search(entry_ptr& entry, const Key& key, size_t depth) noexcept
         return nullptr;
     }
 
-    assert(entry.node());
     Node* node = entry.node_ptr();
-
     size_t cp_len = node->common_header_prefix(key, depth);
+
     if (cp_len != std::min(node->m_prefix_len, Node::max_prefix_len))
         return nullptr;
 

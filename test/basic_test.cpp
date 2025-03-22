@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <gtest/gtest.h>
 
 #include "art.h"
@@ -25,23 +26,30 @@ TEST(art_tests, sanity_test)
     assert_failed_search(art, "");
     assert_failed_search(art, "aa");
     assert_failed_search(art, "b");
+
+    art.insert("");
+
+    assert_search(art, "");
+
+    assert_failed_search(art, "aa");
+    assert_failed_search(art, "b");
 }
 
 TEST(art_tests, multiple_insertions)
 {
     ART art;
 
-    art.insert("aaaaaa");
-    art.insert("aaaaa");
+    art.insert("abcdef");
+    art.insert("abcde");
     art.insert("a");
-    art.insert("aaaaaaaa");
+    art.insert("abcdefgh");
 
-    assert_search(art, "aaaaaaaa");
+    assert_search(art, "abcdefgh");
     assert_search(art, "a");
-    assert_search(art, "aaaaa");
-    assert_search(art, "aaaaaaaa");
+    assert_search(art, "abcde");
+    assert_search(art, "abcdefgh");
 
-    assert_failed_search(art, "aaaaaaaaa");
+    assert_failed_search(art, "abcdefghi");
 }
 
 TEST(art_tests, similar_keys_insertion)
@@ -66,59 +74,118 @@ TEST(art_tests, similar_keys_insertion)
     assert_failed_search(art, "aaa");
 }
 
+TEST(art_tests, similar_keys_insertion_2)
+{
+    ART art;
+
+    art.insert("a");
+    art.insert("aa");
+    art.insert("aaa");
+    art.insert("aaaa");
+    art.insert("aaaaa");
+    art.insert("aaaaaa");
+    art.insert("aaaaaaa");
+
+    assert_search(art, "a");
+    assert_search(art, "aa");
+    assert_search(art, "aaa");
+    assert_search(art, "aaaa");
+    assert_search(art, "aaaaa");
+    assert_search(art, "aaaaaa");
+    assert_search(art, "aaaaaaa");
+
+    assert_failed_search(art, "");
+    assert_failed_search(art, "aaaaaaaa");
+    assert_failed_search(art, "b");
+    assert_failed_search(art, "ab");
+    assert_failed_search(art, "aab");
+    assert_failed_search(art, "aaab");
+    assert_failed_search(art, "aaaab");
+    assert_failed_search(art, "aaaaab");
+    assert_failed_search(art, "aaaaaab");
+    assert_failed_search(art, "aaaaaaab");
+}
+
+TEST(art_tests, similar_prefix_insertions)
+{
+    ART art;
+
+    art.insert("aaaaaaaaa");
+
+    assert_search(art, "aaaaaaaaa");
+    assert_failed_search(art, "aaaaaaaaaa");
+    assert_failed_search(art, "aaaaaaaab");
+    assert_failed_search(art, "aaaaaaaaab");
+
+    art.insert("aaaaaaaaaa");
+
+    assert_search(art, "aaaaaaaaa");
+    assert_search(art, "aaaaaaaaaa");
+    assert_failed_search(art, "aaaaaaaab");
+    assert_failed_search(art, "aaaaaaaaab");
+
+    art.insert("aaaaaaaab");
+
+    assert_search(art, "aaaaaaaaa");
+    assert_search(art, "aaaaaaaaaa");
+    assert_search(art, "aaaaaaaab");
+    assert_failed_search(art, "aaaaaaaaab");
+
+    art.insert("aaaaaaaaab");
+
+    assert_search(art, "aaaaaaaaa");
+    assert_search(art, "aaaaaaaaaa");
+    assert_search(art, "aaaaaaaab");
+    assert_search(art, "aaaaaaaaab");
+}
+
+TEST(art_tests, medium_sizes_keys_insertion)
+{
+    ART art;
+
+    art.insert("abcdefghijklmnopqrstuvwxyz");
+
+    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
+
+    assert_failed_search(art, "abcdefghijklmnopqrstuvwxy");
+    assert_failed_search(art, "abcdefghijklmnopqrstuvwxyzz");
+
+    art.insert("abcdefghijklmnopqrstuvwxy");
+
+    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
+    assert_search(art, "abcdefghijklmnopqrstuvwxy");
+
+    assert_failed_search(art, "abcdefghijklmnopqrstuvwxyzz");
+
+    art.insert("abcdefghijklmnopqrstuvwxyzz");
+
+    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
+    assert_search(art, "abcdefghijklmnopqrstuvwxy");
+    assert_search(art, "abcdefghijklmnopqrstuvwxyzz");
+}
+
 TEST(art_tests, long_keys_insertion)
 {
     ART art;
 
-    // art.insert("a");
-    // art.insert("aa");
-    // art.insert("aaa");
-    // art.insert("aaaa");
+    constexpr size_t str_len = 1024ULL * 1024;
+    const std::string long_str(str_len, '!');
 
-    art.insert("aaaa");
-    art.insert("aaaaa");
-    art.insert("a");
-    art.insert("aaaaaaaaaa");
-    art.insert("aaba");
-    art.insert("aa");
-    // art.insert("a");
+    art.insert(long_str);
+    assert_search(art, long_str);
+    assert_failed_search(art, "a" + long_str);
 
-    // clang-format off
-    // std::string full     {"abcdefghijklmnopqrstuvwxyz"};
-    // std::string partial_1{"abcdefghijklmnopqrstuvwxy"};
-    // std::string partial_2{"abcdefghijklmnopqrstuvwxyza"};
-    // std::string partial_3{"abcdefghiaaaaaapqrstuvwxyza"};
-    // std::string partial_4{"abcdefghijaaaaapqrstuvwxyza"};
+    art.insert("a" + long_str);
+    art.insert("b" + long_str);
+    art.insert("c" + long_str);
+    art.insert("d" + long_str);
+    art.insert("e" + long_str);
 
-    // clang-format on
-
-    // art.insert(full);
-    // art.insert(partial_1);
-    // art.insert(partial_3);
-
-    // Leaf* leaf = art.search(full);
-    // ASSERT_TRUE(leaf != nullptr && full == leaf->key_to_string());
-
-    // leaf = art.search(partial_1);
-    // ASSERT_TRUE(leaf != nullptr && partial_1 == leaf->key_to_string());
-
-    // leaf = art.search(partial_3);
-    // ASSERT_TRUE(leaf != nullptr && partial_3 == leaf->key_to_string());
-
-    // art.insert("aaaaaaaaa");
-    // art.insert("aaaaaaaaaa");
-    // art.insert("aaaaaaaab");
-    // art.insert("aaaaaaaaab");
-
-    // s = "aaaaa";
-    // art.insert(s);
-
-    // s = "a";
-    // art.insert(s);
-
-    // s = "aaaaaaaa";
-    // art.insert(s);
-
-    // Leaf* leaf = art.search(s);
-    // ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+    assert_search(art, long_str);
+    assert_search(art, "a" + long_str);
+    assert_search(art, "b" + long_str);
+    assert_search(art, "c" + long_str);
+    assert_search(art, "d" + long_str);
+    assert_search(art, "e" + long_str);
+    assert_failed_search(art, "f" + long_str);
 }
