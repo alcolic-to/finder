@@ -37,7 +37,7 @@ public:
     uint8_t operator[](size_t idx) const noexcept
     {
         assert(idx < m_size);
-        return m_data[idx];
+        return idx == m_size - 1 ? term_byte : m_data[idx];
     }
 
     size_t size() const noexcept { return m_size; }
@@ -261,23 +261,18 @@ public:
 
     [[nodiscard]] Node* grow() noexcept;
 
-    // Returns common prefix length of our prefix and a key at provided depth.
-    //
-    [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept
-    {
-        size_t max_cmp = std::min(key.size() - depth, (size_t)m_prefix_len);
-        size_t i = 0;
-        while (i < max_cmp && key[depth + i] == m_prefix[i])
-            ++i;
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
-        return i;
-    }
+    [[nodiscard]] size_t common_header_prefix(const Key& key, size_t depth) const noexcept;
+    [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept;
 
     uint32_t m_prefix_len = 0;
     uint16_t m_num_children = 0;
     uint8_t m_type;
     uint8_t m_prefix[max_prefix_len];
 };
+
+static_assert(sizeof(Node) == 16);
 
 class Node16;
 class Node48;
@@ -290,7 +285,7 @@ class Node256;
 class Node4 final : public Node {
 public:
     Node4(const Key& key, size_t depth, Leaf* leaf);
-    Node4(const Key& key, size_t depth, Node* node);
+    Node4(const Key& key, size_t depth, Node* node, size_t cp_len);
 
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node16* grow() noexcept;
@@ -298,6 +293,8 @@ public:
     [[nodiscard]] bool full() const noexcept { return m_num_children == 4; }
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
     uint8_t m_keys[4] = {};       // Keys with span of 1 byte.
     entry_ptr m_children[4] = {}; // Pointers to children nodes.
@@ -325,6 +322,8 @@ public:
     [[nodiscard]] bool full() const noexcept { return m_num_children == 16; }
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
     uint8_t m_keys[16] = {};       // Keys with span of 1 byte.
     entry_ptr m_children[16] = {}; // Pointers to children nodes.
@@ -356,6 +355,8 @@ public:
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
 
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
+
     // Keys with span of 1 byte with value of index for m_idxs array.
     uint8_t m_idxs[256] = {empty_slot};
     entry_ptr m_children[48] = {}; // Pointers to children nodes.
@@ -383,6 +384,8 @@ public:
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
 
+    [[nodiscard]] const Leaf& next_leaf() const noexcept;
+
     entry_ptr m_children[256] = {}; // Pointers to children nodes.
 };
 
@@ -402,6 +405,14 @@ public:
         return leaf;
     }
 
+    const uint8_t& operator[](size_t idx) const noexcept
+    {
+        assert(idx < m_key_len);
+        return m_key[idx];
+    }
+
+    size_t size() const noexcept { return m_key_len; }
+
     // Returns whether internal key and provided key matches. Since internal key already holds
     // terminal byte at the end and key doesn't, we must memcmp all except last byte.
     //
@@ -414,6 +425,8 @@ public:
     }
 
     std::string key_to_string() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
+
+    // Key key_to_key() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
 
 public:
     void* m_data = nullptr;
@@ -433,6 +446,8 @@ private:
     void insert(entry_ptr& entry, const Key& key, size_t depth) noexcept;
     Leaf* search(const Key& key) noexcept;
     Leaf* search(entry_ptr& entry, const Key& key, size_t depth) noexcept;
+
+    void insert_at_leaf(entry_ptr& entry, const Key& key, size_t depth) noexcept;
 
     bool empty() const noexcept { return m_root; }
 
