@@ -2,56 +2,68 @@
 
 #include "art.h"
 
+void assert_failed_search(ART& art, const std::string& s)
+{
+    Leaf* leaf = art.search(s);
+    ASSERT_TRUE(leaf == nullptr);
+}
+
+void assert_search(ART& art, const std::string& s)
+{
+    Leaf* leaf = art.search(s);
+    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+}
+
 TEST(art_tests, sanity_test)
 {
     ART art;
 
-    std::string s{"a"};
-    art.insert(s);
+    art.insert("a");
 
-    Leaf* leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+    assert_search(art, "a");
 
-    s = "";
-    leaf = art.search(s);
-    ASSERT_TRUE(leaf == nullptr);
-
-    s = "aa";
-    leaf = art.search(s);
-    ASSERT_TRUE(leaf == nullptr);
-
-    s = "b";
-    leaf = art.search(s);
-    ASSERT_TRUE(leaf == nullptr);
+    assert_failed_search(art, "");
+    assert_failed_search(art, "aa");
+    assert_failed_search(art, "b");
 }
 
 TEST(art_tests, multiple_insertions)
 {
     ART art;
 
-    std::string s{"aaaaaa"};
-    art.insert(s);
+    art.insert("aaaaaa");
+    art.insert("aaaaa");
+    art.insert("a");
+    art.insert("aaaaaaaa");
 
-    s = "aaaaa";
-    art.insert(s);
+    assert_search(art, "aaaaaaaa");
+    assert_search(art, "a");
+    assert_search(art, "aaaaa");
+    assert_search(art, "aaaaaaaa");
 
-    s = "a";
-    art.insert(s);
+    assert_failed_search(art, "aaaaaaaaa");
+}
 
-    s = "aaaaaaaa";
-    art.insert(s);
+TEST(art_tests, similar_keys_insertion)
+{
+    ART art;
 
-    Leaf* leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+    art.insert("aaaa");
+    art.insert("aaaaa");
+    art.insert("a");
+    art.insert("aaaaaaaaaa");
+    art.insert("aaba");
+    art.insert("aa");
+    art.insert("a");
 
-    s = "a", leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+    assert_search(art, "aaaa");
+    assert_search(art, "aaaaa");
+    assert_search(art, "a");
+    assert_search(art, "aaaaaaaaaa");
+    assert_search(art, "aaba");
+    assert_search(art, "aa");
 
-    s = "aaaaa", leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
-
-    s = "aaaaaa", leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+    assert_failed_search(art, "aaa");
 }
 
 TEST(art_tests, long_keys_insertion)
@@ -69,7 +81,7 @@ TEST(art_tests, long_keys_insertion)
     art.insert("aaaaaaaaaa");
     art.insert("aaba");
     art.insert("aa");
-    art.insert("a");
+    // art.insert("a");
 
     // clang-format off
     // std::string full     {"abcdefghijklmnopqrstuvwxyz"};

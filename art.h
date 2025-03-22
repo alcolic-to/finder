@@ -240,7 +240,7 @@ enum Node_t : uint8_t {
 //
 class Node {
 public:
-    static constexpr uint32_t max_prefix_len = 2;
+    static constexpr uint32_t max_prefix_len = 9;
 
     Node(uint8_t type, uint16_t num_children, const uint8_t* prefix, uint32_t prefix_len) noexcept
         : m_prefix_len{prefix_len}
@@ -263,14 +263,16 @@ public:
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
-    [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept;
     [[nodiscard]] size_t common_header_prefix(const Key& key, size_t depth) const noexcept;
+    [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept;
 
     uint32_t m_prefix_len = 0;
     uint16_t m_num_children = 0;
     uint8_t m_type;
     uint8_t m_prefix[max_prefix_len];
 };
+
+static_assert(sizeof(Node) == 16);
 
 class Node16;
 class Node48;
@@ -444,6 +446,8 @@ private:
     void insert(entry_ptr& entry, const Key& key, size_t depth) noexcept;
     Leaf* search(const Key& key) noexcept;
     Leaf* search(entry_ptr& entry, const Key& key, size_t depth) noexcept;
+
+    void insert_at_leaf(entry_ptr& entry, const Key& key, size_t depth) noexcept;
 
     bool empty() const noexcept { return m_root; }
 

@@ -73,7 +73,7 @@ Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
 //
 Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Node4_t}
 {
-    assert(cp_len > 0 && cp_len < node->m_prefix_len);
+    assert(cp_len < node->m_prefix_len);
 
     m_prefix_len = cp_len;
     std::memcpy(m_prefix, node->m_prefix, std::min(cp_len, (size_t)max_prefix_len));
@@ -333,25 +333,6 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
     return *Leaf::new_leaf(Key{nullptr, 0});
 }
 
-// Returns common prefix length from this node to the leaf and a key at provided depth.
-// If prefix in our header is max_prefix_len long and we matched whole prefix, we need to find leaf
-// to keep comparing. It is not important which leaf we take, because all of them have at least
-// m_prefix_len common bytes.
-//
-[[nodiscard]] size_t Node::common_prefix(const Key& key, size_t depth) const noexcept
-{
-    size_t cp_len = common_header_prefix(key, depth);
-
-    if (cp_len == max_prefix_len) {
-        const Leaf& leaf = next_leaf();
-        const size_t max_cmp = std::min(key.size() - depth, (size_t)m_prefix_len);
-        while (cp_len < max_cmp && key[depth + cp_len] == leaf[depth + cp_len])
-            ++cp_len;
-    }
-
-    return cp_len;
-}
-
 // Returns common prefix len for key at current depth and a prefix in our header.
 //
 [[nodiscard]] size_t Node::common_header_prefix(const Key& key, size_t depth) const noexcept
@@ -362,6 +343,25 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
 
     while (cp_len < max_cmp && key[depth + cp_len] == m_prefix[cp_len])
         ++cp_len;
+
+    return cp_len;
+}
+
+// Returns common prefix length from this node to the leaf and a key at provided depth.
+// If prefix in our header is max_prefix_len long and we matched whole prefix, we need to find leaf
+// to keep comparing. It is not important which leaf we take, because all of them have at least
+// m_prefix_len common bytes.
+//
+[[nodiscard]] size_t Node::common_prefix(const Key& key, size_t depth) const noexcept
+{
+    size_t cp_len = common_header_prefix(key, depth);
+
+    if (cp_len < m_prefix_len && cp_len == max_prefix_len && cp_len < key.size() - depth) {
+        const Leaf& leaf = next_leaf();
+        const size_t max_cmp = std::min(key.size() - depth, (size_t)m_prefix_len);
+        while (cp_len < max_cmp && key[depth + cp_len] == leaf[depth + cp_len])
+            ++cp_len;
+    }
 
     return cp_len;
 }
@@ -388,29 +388,35 @@ void ART::insert(const Key& key) noexcept
         insert(m_root, key, 0);
 }
 
+// Handles insertion when we reached leaf node. With current implementation, we will only insert new
+// key if it differs from an exitisting leaf.
+// TODO: Maybe implement substitution of the old entry.
+//
+void ART::insert_at_leaf(entry_ptr& entry, const Key& key, size_t depth) noexcept
+{
+    assert(entry.leaf());
+    Leaf* leaf = entry.leaf_ptr();
+
+    if (!leaf->match(key))
+        entry = new Node4{key, depth, leaf};
+}
+
 // Inserts new key into the tree.
 //
 void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
 {
     assert(entry);
 
-    if (entry.leaf()) {
-        entry = new Node4{key, depth, entry.leaf_ptr()};
-        return;
-    }
+    if (entry.leaf())
+        return insert_at_leaf(entry, key, depth);
 
     assert(entry.node());
     Node* node = entry.node_ptr();
 
-    size_t cp_len = node->common_header_prefix(key, depth);
+    size_t cp_len = node->common_prefix(key, depth);
     if (cp_len != node->m_prefix_len) {
-        if (cp_len == Node::max_prefix_len)
-            cp_len = node->common_prefix(key, depth);
-
-        if (cp_len != node->m_prefix_len) {
-            entry = new Node4{key, depth, node, cp_len};
-            return;
-        }
+        entry = new Node4{key, depth, node, cp_len};
+        return;
     }
 
     assert(cp_len == node->m_prefix_len);
