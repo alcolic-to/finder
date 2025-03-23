@@ -54,7 +54,7 @@ Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
 Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
 {
     m_prefix_len = 0;
-    size_t max_depth = std::min(key.size(), leaf->m_key_len);
+    size_t max_depth = std::min(key.size() - 1, leaf->m_key_len - 1);
 
     while (depth < max_depth && key[depth] == leaf->m_key[depth]) {
         if (m_prefix_len < max_prefix_len)
@@ -62,6 +62,9 @@ Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
 
         ++m_prefix_len, ++depth;
     }
+
+    assert(depth < key.size() && depth < leaf->m_key_len);
+    assert(key[depth] != leaf->m_key[depth]);
 
     add_child(key[depth], Leaf::new_leaf(key));
     add_child(leaf->m_key[depth], leaf);
@@ -89,12 +92,14 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
         uint8_t node_key = node->m_prefix[cp_len];
         std::memmove(node->m_prefix, node->m_prefix + cp_len + 1, header_bytes);
 
+        assert(node_key != key[depth + cp_len]);
         add_child(node_key, node);
     }
     else {
         const Leaf& leaf = node->next_leaf();
         std::memcpy(node->m_prefix, &leaf[depth + cp_len + 1], header_bytes);
 
+        assert(leaf[depth + cp_len] != key[depth + cp_len]);
         add_child(leaf[depth + cp_len], node);
     }
 
@@ -398,8 +403,7 @@ void ART::insert(const Key& key) noexcept
 //
 void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
 {
-    if (!entry)
-        assert(entry);
+    assert(entry);
 
     if (entry.leaf())
         return insert_at_leaf(entry, key, depth);
