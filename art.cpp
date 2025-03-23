@@ -142,7 +142,7 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
 
 [[nodiscard]] entry_ptr* Node256::find_child(uint8_t key) noexcept
 {
-    return &m_children[key];
+    return m_children[key] ? &m_children[key] : nullptr;
 }
 
 void Node::add_child(const uint8_t key, entry_ptr child) noexcept
@@ -216,7 +216,6 @@ void Node48::add_child(const uint8_t key, entry_ptr child) noexcept
 
 void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
 {
-    assert(m_num_children < 255);
     assert(m_children[key] == nullptr);
 
     m_children[key] = child;
@@ -256,8 +255,8 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
 [[nodiscard]] Node16* Node4::grow() noexcept
 {
     Node16* new_node = new Node16{*this};
-    delete this;
 
+    delete this;
     return new_node;
 }
 
@@ -272,10 +271,6 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
 [[nodiscard]] Node256* Node48::grow() noexcept
 {
     Node256* new_node = new Node256{*this};
-
-    for (int i = 0; i < 256; ++i)
-        if (m_idxs[i] != empty_slot)
-            new_node->m_children[i] = m_children[m_idxs[i]];
 
     delete this;
     return new_node;
@@ -403,7 +398,8 @@ void ART::insert(const Key& key) noexcept
 //
 void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
 {
-    assert(entry);
+    if (!entry)
+        assert(entry);
 
     if (entry.leaf())
         return insert_at_leaf(entry, key, depth);

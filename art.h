@@ -152,17 +152,12 @@ private:
     void* m_ptr;
 };
 
-// clang-format off
-
 enum Node_t : uint8_t {
-    Node4_t   = 0b000,
-    Node16_t  = 0b001,
-    Node48_t  = 0b010,
-    Node256_t = 0b011,
-    Leaf_t    = 0b100,
+    Node4_t,
+    Node16_t,
+    Node48_t,
+    Node256_t,
 };
-
-// clang-format on
 
 // constexpr uint32_t node_t_bits = 0b11100000'00000000'00000000'00000000; // >> 29
 // constexpr uint32_t node_t_bits_offset = std::countr_zero(node_t_bits);
@@ -247,8 +242,10 @@ public:
         , m_num_children{num_children}
         , m_type{type}
     {
-        if (prefix != nullptr)
+        if (prefix_len > 0) {
+            assert(prefix != nullptr);
             std::memcpy(m_prefix, prefix, std::min(max_prefix_len, prefix_len));
+        }
     }
 
     Node(uint8_t type) noexcept : m_type{type} {}
@@ -296,8 +293,8 @@ public:
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
-    uint8_t m_keys[4] = {};       // Keys with span of 1 byte.
-    entry_ptr m_children[4] = {}; // Pointers to children nodes.
+    uint8_t m_keys[4]{};       // Keys with span of 1 byte.
+    entry_ptr m_children[4]{}; // Pointers to children nodes.
 };
 
 // Node16: This node type is used for storing between 5 and 16 child pointers. Like the Node4,
@@ -325,8 +322,8 @@ public:
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
-    uint8_t m_keys[16] = {};       // Keys with span of 1 byte.
-    entry_ptr m_children[16] = {}; // Pointers to children nodes.
+    uint8_t m_keys[16]{};       // Keys with span of 1 byte.
+    entry_ptr m_children[16]{}; // Pointers to children nodes.
 };
 
 // Node48: As the number of entries in a node increases, searching the key array becomes
@@ -343,6 +340,7 @@ public:
     Node48(Node16& old_node) noexcept
         : Node{Node48_t, old_node.m_num_children, old_node.m_prefix, old_node.m_prefix_len}
     {
+        std::memset(m_idxs, empty_slot, 256);
         std::memcpy(m_children, old_node.m_children, 16 * sizeof(entry_ptr));
         for (int i = 0; i < 16; ++i)
             m_idxs[old_node.m_keys[i]] = i;
@@ -358,8 +356,8 @@ public:
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
     // Keys with span of 1 byte with value of index for m_idxs array.
-    uint8_t m_idxs[256] = {empty_slot};
-    entry_ptr m_children[48] = {}; // Pointers to children nodes.
+    uint8_t m_idxs[256];
+    entry_ptr m_children[48]{}; // Pointers to children nodes.
 };
 
 // Node256: The largest node type is simply an array of 256 pointers and is used for storing
@@ -382,11 +380,13 @@ public:
 
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
 
+    [[nodiscard]] bool full() const noexcept { return m_num_children == 256; }
+
     void add_child(const uint8_t key, entry_ptr child) noexcept;
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
-    entry_ptr m_children[256] = {}; // Pointers to children nodes.
+    entry_ptr m_children[256]{}; // Pointers to children nodes.
 };
 
 class Leaf final {

@@ -189,3 +189,19 @@ TEST(art_tests, long_keys_insertion)
     assert_search(art, "e" + long_str);
     assert_failed_search(art, "f" + long_str);
 }
+
+TEST(art_tests, growing_nodes)
+{
+    ART art;
+
+    constexpr size_t str_len = 1024ULL * 1024;
+    const std::string long_str(str_len, '!');
+
+    // Grow to 256 node.
+    //
+    for (int i = 0; i < 256; ++i)
+        art.insert(char(i) + long_str);
+
+    for (int i = 0; i < 256; ++i)
+        assert_search(art, char(i) + long_str);
+}
