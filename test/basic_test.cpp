@@ -3,6 +3,8 @@
 
 #include "art.h"
 
+// NOLINTBEGIN
+
 void assert_failed_search(ART& art, const std::string& s)
 {
     Leaf* leaf = art.search(s);
@@ -13,6 +15,12 @@ void assert_search(ART& art, const std::string& s)
 {
     Leaf* leaf = art.search(s);
     ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+}
+
+void assert_search(ART& art, const uint8_t* data, size_t size)
+{
+    Leaf* leaf = art.search(data, size);
+    ASSERT_TRUE(leaf != nullptr && leaf->match(Key{data, size}));
 }
 
 TEST(art_tests, sanity_test)
@@ -199,9 +207,92 @@ TEST(art_tests, growing_nodes)
 
     // Grow to 256 node.
     //
-    for (int i = 0; i < 256; ++i)
+    for (int i = 1; i < 256; ++i)
         art.insert(char(i) + long_str);
 
-    for (int i = 0; i < 256; ++i)
+    for (int i = 1; i < 256; ++i)
         assert_search(art, char(i) + long_str);
 }
+
+TEST(art_tests, growing_nodes_2)
+{
+    ART art;
+
+    constexpr size_t str_len = 1024ULL;
+    const std::string long_str(str_len, '!');
+
+    char buf[256]{};
+    std::memset(buf, 1, 256);
+
+    for (int i = 0; i < 256; ++i) {
+        for (int j = 1; j < 256; ++j) {
+            buf[i] = j;
+            art.insert((const uint8_t*)buf, 256);
+            art.insert(std::string(buf, buf + 255) + long_str);
+            art.insert(long_str + std::string(buf, buf + 255));
+        }
+    }
+
+    std::memset(buf, 1, 256);
+
+    for (int i = 0; i < 256; ++i) {
+        for (int j = 1; j < 256; ++j) {
+            buf[i] = j;
+            assert_search(art, (const uint8_t*)buf, 256);
+            assert_search(art, std::string(buf, buf + 255) + long_str);
+            assert_search(art, long_str + std::string(buf, buf + 255));
+        }
+    }
+}
+
+TEST(art_tests, growing_nodes_3)
+{
+    ART art;
+
+    constexpr size_t key_size = 1024;
+    std::vector<uint8_t> v(key_size, 1); // Fill vector with 1s.
+
+    for (int i = 0; i < key_size; ++i) {
+        for (int j = 1; j < 256; ++j) {
+            v[i] = j;
+            art.insert((const uint8_t*)v.data(), key_size);
+        }
+    }
+
+    for (auto& it : v)
+        it = 1;
+
+    for (int i = 0; i < key_size; ++i) {
+        for (int j = 1; j < 256; ++j) {
+            v[i] = j;
+            assert_search(art, (const uint8_t*)v.data(), key_size);
+        }
+    }
+}
+
+TEST(art_tests, different_key_sizes)
+{
+    ART art;
+
+    constexpr size_t key_max_size = 1024;
+    std::vector<uint8_t> v(key_max_size, 1); // Fill vector with 1s.
+
+    for (int i = 0; i < key_max_size; ++i) {
+        for (int j = 1; j < 256; ++j) {
+            v[i] = j;
+            art.insert((const uint8_t*)v.data(), i + 1);
+        }
+    }
+
+    for (auto& it : v)
+        it = 1;
+
+    for (int i = 0; i < key_max_size; ++i) {
+        for (int j = 1; j < 256; ++j) {
+            v[i] = j;
+            assert_search(art, (const uint8_t*)v.data(), i + 1);
+        }
+    }
+}
+
+// NOLINTEND
