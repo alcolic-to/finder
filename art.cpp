@@ -297,26 +297,31 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
     }
 }
 
+// Returns next leaf from current entry. If current entry is leaf, it returns it. Otherwise, it
+// calls next_leaf() on a node which will recurse down one level based on node type an call us
+// again.
+//
+[[nodiscard]] inline const Leaf& entry_ptr::next_leaf() const noexcept
+{
+    assert(*this != nullptr);
+    return leaf() ? *leaf_ptr() : node_ptr()->next_leaf();
+}
+
 [[nodiscard]] const Leaf& Node4::next_leaf() const noexcept
 {
-    entry_ptr entry = m_children[0];
-    return entry.leaf() ? *entry.leaf_ptr() : entry.node_ptr()->next_leaf();
+    return m_children[0].next_leaf();
 }
 
 [[nodiscard]] const Leaf& Node16::next_leaf() const noexcept
 {
-    entry_ptr entry = m_children[0];
-    return entry.leaf() ? *entry.leaf_ptr() : entry.node_ptr()->next_leaf();
+    return m_children[0].next_leaf();
 }
 
 [[nodiscard]] const Leaf& Node48::next_leaf() const noexcept
 {
-    for (int i = 0; i < 256; ++i) {
-        if (m_idxs[i] != empty_slot) {
-            entry_ptr entry = m_children[m_idxs[i]];
-            return entry.leaf() ? *entry.leaf_ptr() : entry.node_ptr()->next_leaf();
-        }
-    }
+    for (int i = 0; i < 256; ++i)
+        if (m_idxs[i] != empty_slot)
+            return m_children[m_idxs[i]].next_leaf();
 
     assert(false);
     return *Leaf::new_leaf(Key{nullptr, 0});
@@ -324,11 +329,9 @@ void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
 
 [[nodiscard]] const Leaf& Node256::next_leaf() const noexcept
 {
-    for (int i = 0; i < 256; ++i) {
-        entry_ptr entry = m_children[i];
-        if (entry)
-            return entry.leaf() ? *entry.leaf_ptr() : entry.node_ptr()->next_leaf();
-    }
+    for (int i = 0; i < 256; ++i)
+        if (m_children[i])
+            return m_children[i].next_leaf();
 
     assert(false);
     return *Leaf::new_leaf(Key{nullptr, 0});
