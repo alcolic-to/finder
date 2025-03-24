@@ -8,6 +8,7 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <string>
@@ -18,7 +19,7 @@
 // Data is not physically copied on construction to increase performance. This object just holds
 // pointer to data beeing manipulated, it's size and current depth used for single value comparison
 // on each traversed level. Depth is incresed by 1 for every new level and value at that depth can
-// be accessed with operator[0].
+// be accessed with operator[].
 //
 // In order to have multiple entries where one entry is prefix of another, we will insert invisible
 // 0 at the end of a key, and increase it's size by 1. That way, all keys will have unique path
@@ -59,13 +60,16 @@ private:
     size_t m_size;
 };
 
-// Pointer tagging. We will use last 2 bits for tag.
+// Pointer tagging.
+// Since malloc's returned address is guaranteed to be aligned at least as std::max_align_t, we will
+// use unused last bits in pointer to store additonal info. This can be used to simulate base class
+// and virtual method calls.
 //
-static constexpr uintptr_t tag_bits = 0b11;
+static constexpr uintptr_t tag_bits = alignof(std::max_align_t) - 1;
 
 inline uintptr_t raw(void* ptr) noexcept
 {
-    return uintptr_t(ptr);
+    return std::bit_cast<uintptr_t>(ptr);
 }
 
 inline uintptr_t tag(void* ptr) noexcept
@@ -75,12 +79,12 @@ inline uintptr_t tag(void* ptr) noexcept
 
 inline void* clear_tag(void* ptr) noexcept
 {
-    return (void*)(raw(ptr) & ~tag_bits);
+    return std::bit_cast<void*>(raw(ptr) & ~tag_bits);
 }
 
 inline void* set_tag(void* ptr, uintptr_t tag) noexcept
 {
-    return (void*)(raw(clear_tag(ptr)) | tag);
+    return std::bit_cast<void*>(raw(clear_tag(ptr)) | tag);
 }
 
 class Node;
@@ -89,6 +93,11 @@ class Leaf;
 // Wrapper class that holds either pointer to node or pointer to leaf.
 //
 class entry_ptr {
+private:
+    static constexpr uintptr_t node_tag = 0;
+    static constexpr uintptr_t leaf_tag = 1;
+    static_assert(leaf_tag <= tag_bits);
+
 public:
     entry_ptr() noexcept : m_ptr{nullptr} {}
 
@@ -127,7 +136,7 @@ public:
 
     operator void*() const noexcept { return clear_tag(m_ptr); }
 
-    operator bool() const noexcept { return bool(clear_tag(m_ptr)); }
+    operator bool() const noexcept { return static_cast<bool>(clear_tag(m_ptr)); }
 
     [[nodiscard]] bool leaf() const noexcept { return tag(m_ptr) == leaf_tag; }
 
@@ -145,10 +154,9 @@ public:
         return static_cast<Leaf*>(clear_tag(m_ptr));
     }
 
-private:
-    static constexpr uintptr_t node_tag = 0;
-    static constexpr uintptr_t leaf_tag = 1;
+    [[nodiscard]] inline const Leaf& next_leaf() const noexcept;
 
+private:
     void* m_ptr;
 };
 
