@@ -1,4 +1,6 @@
+#include <array>
 #include <cstddef>
+#include <fstream>
 #include <gtest/gtest.h>
 
 #include "art.h"
@@ -293,6 +295,38 @@ TEST(art_tests, different_key_sizes)
             assert_search(art, (const uint8_t*)v.data(), i + 1);
         }
     }
+}
+
+// Reads all filesystem paths from provided input file, inserts them into ART and search for them 1
+// by 1 while verifying searches.
+//
+void test_filesystem_paths(const std::string& file_name)
+{
+    ART art;
+
+    std::ifstream in_file_stream{"test/input_files/" + file_name};
+    std::vector<std::string> paths;
+
+    for (std::string file_path; std::getline(in_file_stream, file_path);) {
+        paths.push_back(file_path);
+        art.insert(paths.back());
+    }
+
+    for (auto& it : paths)
+        assert_search(art, it);
+}
+
+TEST(art_tests, file_system_paths)
+{
+    std::array<std::string, 4> file_names{
+        "windows_paths.txt",
+        "windows_paths_sorted.txt",
+        "windows_paths_extended.txt",
+        "windows_paths_vscode.txt",
+    };
+
+    for (const auto& file_name : file_names)
+        test_filesystem_paths(file_name);
 }
 
 // NOLINTEND
