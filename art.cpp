@@ -108,36 +108,37 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
 
 // Collapses node4 by replacing it with child entry (which is the only child in this node). This
 // process is reverse of Node4 creation from 2 children entries.
-// If child entry is node, all bytes that can fit in child's header are copied (key for mapping
-// first and prefix in our header after). We must use prefix bytes from our header first, so we will
-// fill our buffer with missing bytes from child header and copy it to child header, because our
-// node will get destroyed anyway.
-// If child is leaf, there is nothing to do - we will just return it.
+// If child entry is a node, all bytes that can fit in child's header are copied (key for mapping
+// first and header prefix after). Since we must use prefix bytes from our header as first bytes in
+// new header, so we will fill our header buffer with missing bytes from child header and copy it to
+// child header, because our node will get destroyed anyway.
+// If child is a leaf, there is nothing to do - we will just return it.
 //
 [[nodiscard]] entry_ptr Node4::collapse() noexcept
 {
     assert(m_num_children == 1);
+    assert(m_children[0]);
 
-    uint8_t key = m_keys[0];
-    entry_ptr entry{m_children[0]};
+    uint8_t child_key = m_keys[0];
+    entry_ptr child_entry{m_children[0]};
 
-    assert(entry);
-    if (entry.node()) {
-        Node* node = entry.node_ptr();
+    if (child_entry.node()) {
+        Node* child_node = child_entry.node_ptr();
+        uint32_t hdr_pref_len = m_prefix_len;
 
-        if (m_prefix_len < max_prefix_len)
-            m_prefix[m_prefix_len++] = key;
+        if (hdr_pref_len < max_prefix_len)
+            m_prefix[hdr_pref_len++] = child_key;
 
-        if (m_prefix_len < max_prefix_len)
-            std::memcpy(m_prefix + m_prefix_len, node->m_prefix,
-                        std::min(max_prefix_len - m_prefix_len, node->m_prefix_len));
+        if (hdr_pref_len < max_prefix_len)
+            std::memcpy(m_prefix + hdr_pref_len, child_node->m_prefix,
+                        std::min(max_prefix_len - hdr_pref_len, child_node->m_prefix_len));
 
-        std::memcpy(node->m_prefix, m_prefix, std::min(m_prefix_len, max_prefix_len));
-        node->m_prefix_len += m_prefix_len + 1;
+        std::memcpy(child_node->m_prefix, m_prefix, std::min(hdr_pref_len, max_prefix_len));
+        child_node->m_prefix_len += m_prefix_len + 1;
     }
 
     delete this;
-    return entry;
+    return child_entry;
 }
 
 Node4::Node4(Node16& old_node) noexcept : Node{old_node, Node4_t}
@@ -438,7 +439,7 @@ void Node256::remove_child(const uint8_t key) noexcept
 
 [[nodiscard]] bool Node::should_collapse() const noexcept
 {
-    return m_type == Node4_t && static_cast<const Node4*>(this)->m_num_children == 1;
+    return m_type == Node4_t && m_num_children == 1;
 }
 
 [[nodiscard]] Node* Node::grow() noexcept
@@ -678,11 +679,23 @@ void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
 
 void ART::erase(const Key& key) noexcept
 {
-    if (m_root)
-        erase(m_root, key, 0);
+    if (!m_root)
+        return;
+
+    if (m_root.node())
+        return erase(m_root, key, 0);
+
+    Leaf* leaf = m_root.leaf_ptr();
+    if (!leaf->match(key))
+        return;
+
+    delete leaf;
+    m_root = entry_ptr{};
 }
 
-// Erases leaf node and adjusts headers properly.
+// Erases leaf node.
+// If remaining children are below some treshold we will shrink node to save space.
+// If we have only 1 child left in node, we will replace node with it's child (collapse it).
 //
 void ART::erase_leaf(entry_ptr& entry, Leaf* leaf, const Key& key, size_t depth) noexcept
 {
@@ -706,9 +719,6 @@ void ART::erase_leaf(entry_ptr& entry, Leaf* leaf, const Key& key, size_t depth)
 //
 void ART::erase(entry_ptr& entry, const Key& key, size_t depth) noexcept
 {
-    if (entry.leaf())
-        return;
-
     Node* node = entry.node_ptr();
     size_t cp_len = node->common_header_prefix(key, depth);
 
@@ -721,10 +731,10 @@ void ART::erase(entry_ptr& entry, const Key& key, size_t depth) noexcept
     if (!next)
         return;
 
-    if (next->leaf())
-        return erase_leaf(entry, next->leaf_ptr(), key, depth);
+    if (next->node())
+        return erase(*next, key, depth + 1);
 
-    erase(entry, key, depth + 1);
+    erase_leaf(entry, next->leaf_ptr(), key, depth);
 }
 
 Leaf* ART::search(const Key& key) noexcept
