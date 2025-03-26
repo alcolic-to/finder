@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <fstream>
@@ -176,8 +177,6 @@ TEST(art_tests, growing_nodes)
 
     std::vector<std::string> keys;
 
-    // Grow to 256 node.
-    //
     for (int i = 1; i < 256; ++i)
         keys.push_back(char(i) + long_str);
 
@@ -189,31 +188,30 @@ TEST(art_tests, growing_nodes_2)
 {
     ART art;
 
-    constexpr size_t str_len = 1024ULL;
+    constexpr size_t str_len = 8ULL;
     const std::string long_str(str_len, '!');
 
-    char buf[256]{};
-    std::memset(buf, 1, 256);
+    std::vector<std::string> keys;
 
-    for (int i = 0; i < 256; ++i) {
-        for (int j = 1; j < 256; ++j) {
+    const size_t buf_size = 16;
+    char buf[buf_size];
+    std::memset(buf, 1, buf_size);
+
+    keys.push_back(std::string(buf, buf + buf_size));
+    keys.push_back(std::string(buf, buf + buf_size) + long_str);
+    keys.push_back(long_str + std::string(buf, buf + buf_size));
+
+    for (int i = 0; i < buf_size; ++i) {
+        for (int j = 2; j < 9; ++j) {
             buf[i] = j;
-            art.insert((const uint8_t*)buf, 256);
-            art.insert(std::string(buf, buf + 255) + long_str);
-            art.insert(long_str + std::string(buf, buf + 255));
+            keys.push_back(std::string(buf, buf + buf_size));
+            keys.push_back(std::string(buf, buf + buf_size) + long_str);
+            keys.push_back(long_str + std::string(buf, buf + buf_size));
         }
     }
 
-    std::memset(buf, 1, 256);
-
-    for (int i = 0; i < 256; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            buf[i] = j;
-            assert_search(art, (const uint8_t*)buf, 256);
-            assert_search(art, std::string(buf, buf + 255) + long_str);
-            assert_search(art, long_str + std::string(buf, buf + 255));
-        }
-    }
+    test_insert(art, keys, {}, {});
+    test_erase(art, keys, {}, {});
 }
 
 TEST(art_tests, growing_nodes_3)

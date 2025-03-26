@@ -124,16 +124,21 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
 
     if (child_entry.node()) {
         Node* child_node = child_entry.node_ptr();
-        uint32_t hdr_pref_len = m_prefix_len;
+        uint32_t hdr_pref_len = std::min(m_prefix_len, max_prefix_len);
 
-        if (hdr_pref_len < max_prefix_len)
-            m_prefix[hdr_pref_len++] = child_key;
+        if (hdr_pref_len < max_prefix_len) {
+            m_prefix[hdr_pref_len] = child_key;
+            ++hdr_pref_len;
+        }
 
-        if (hdr_pref_len < max_prefix_len)
+        if (hdr_pref_len < max_prefix_len) {
             std::memcpy(m_prefix + hdr_pref_len, child_node->m_prefix,
                         std::min(max_prefix_len - hdr_pref_len, child_node->m_prefix_len));
 
-        std::memcpy(child_node->m_prefix, m_prefix, std::min(hdr_pref_len, max_prefix_len));
+            hdr_pref_len = std::min(max_prefix_len, hdr_pref_len + child_node->m_prefix_len);
+        }
+
+        std::memcpy(child_node->m_prefix, m_prefix, hdr_pref_len);
         child_node->m_prefix_len += m_prefix_len + 1;
     }
 
