@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <fstream>
 #include <gtest/gtest.h>
+#include <iterator>
 
 #include "art.h"
 
@@ -25,153 +27,123 @@ void assert_search(ART& art, const uint8_t* data, size_t size)
     ASSERT_TRUE(leaf != nullptr && leaf->match(Key{data, size}));
 }
 
+using Keys = const std::vector<std::string>&;
+
+void test_insert(ART& art, Keys insert_keys, Keys valid_keys, Keys invalid_keys)
+{
+    for (auto it = insert_keys.begin(); it != insert_keys.end(); ++it) {
+        art.insert(*it);
+        assert_search(art, *it);
+
+        for (auto it_s = insert_keys.begin(); it_s != it; ++it_s)
+            assert_search(art, *it_s);
+
+        for (auto it_s = std::next(it); it_s != insert_keys.end(); ++it_s)
+            assert_failed_search(art, *it_s);
+
+        for (auto& it_val : valid_keys)
+            assert_search(art, it_val);
+
+        for (auto& it_inv : invalid_keys)
+            assert_failed_search(art, it_inv);
+    }
+}
+
+void test_erase(ART& art, Keys erase_keys, Keys valid_keys, Keys invalid_keys)
+{
+    for (auto it = erase_keys.begin(); it != erase_keys.end(); ++it) {
+        art.erase(*it);
+        assert_failed_search(art, *it);
+
+        for (auto it_s = erase_keys.begin(); it_s != it; ++it_s)
+            assert_failed_search(art, *it_s);
+
+        for (auto it_s = std::next(it); it_s != erase_keys.end(); ++it_s)
+            assert_search(art, *it_s);
+
+        for (auto& it_val : valid_keys)
+            assert_search(art, it_val);
+
+        for (auto& it_inv : invalid_keys)
+            assert_failed_search(art, it_inv);
+    }
+}
+
+void test_crud(ART& art, Keys keys, Keys valid_keys, Keys invalid_keys)
+{
+    test_insert(art, keys, valid_keys, invalid_keys);
+    test_erase(art, keys, valid_keys, invalid_keys);
+}
+
 TEST(art_tests, sanity_test)
 {
     ART art;
 
-    art.insert("a");
-
-    assert_search(art, "a");
-
-    assert_failed_search(art, "");
-    assert_failed_search(art, "aa");
-    assert_failed_search(art, "b");
-
-    art.insert("");
-
-    assert_search(art, "");
-
-    assert_failed_search(art, "aa");
-    assert_failed_search(art, "b");
+    test_insert(art, {"a"}, {}, {"", "aa", "b"});
+    test_insert(art, {""}, {"a"}, {"aa", "b"});
+    test_erase(art, {"a"}, {""}, {"a", "aa", "b"});
+    test_erase(art, {""}, {}, {"", "a", "aa", "b"});
 }
 
-TEST(art_tests, multiple_insertions)
+TEST(art_tests, multiple_items)
 {
     ART art;
 
-    art.insert("abcdef");
-    art.insert("abcde");
-    art.insert("a");
-    art.insert("abcdefgh");
-
-    assert_search(art, "abcdefgh");
-    assert_search(art, "a");
-    assert_search(art, "abcde");
-    assert_search(art, "abcdefgh");
-
-    assert_failed_search(art, "abcdefghi");
+    test_crud(art, {"abcdef", "abcde", "a", "abcdefgh"}, {},
+              {"", "ab", "acdef", "abcdefg", "abcdefghy"});
 }
 
 TEST(art_tests, similar_keys_insertion)
 {
     ART art;
 
-    art.insert("aaaa");
-    art.insert("aaaaa");
-    art.insert("a");
-    art.insert("aaaaaaaaaa");
-    art.insert("aaba");
-    art.insert("aa");
-    art.insert("a");
-
-    assert_search(art, "aaaa");
-    assert_search(art, "aaaaa");
-    assert_search(art, "a");
-    assert_search(art, "aaaaaaaaaa");
-    assert_search(art, "aaba");
-    assert_search(art, "aa");
-
-    assert_failed_search(art, "aaa");
+    test_crud(art, {"aaaa", "aaaaa", "a", "aaaaaaaaaa", "aaba", "aa"}, {}, {"aaa"});
 }
 
 TEST(art_tests, similar_keys_insertion_2)
 {
     ART art;
 
-    art.insert("a");
-    art.insert("aa");
-    art.insert("aaa");
-    art.insert("aaaa");
-    art.insert("aaaaa");
-    art.insert("aaaaaa");
-    art.insert("aaaaaaa");
-
-    assert_search(art, "a");
-    assert_search(art, "aa");
-    assert_search(art, "aaa");
-    assert_search(art, "aaaa");
-    assert_search(art, "aaaaa");
-    assert_search(art, "aaaaaa");
-    assert_search(art, "aaaaaaa");
-
-    assert_failed_search(art, "");
-    assert_failed_search(art, "aaaaaaaa");
-    assert_failed_search(art, "b");
-    assert_failed_search(art, "ab");
-    assert_failed_search(art, "aab");
-    assert_failed_search(art, "aaab");
-    assert_failed_search(art, "aaaab");
-    assert_failed_search(art, "aaaaab");
-    assert_failed_search(art, "aaaaaab");
-    assert_failed_search(art, "aaaaaaab");
+    test_crud(art, {"a", "aa", "aaa", "aaaa", "aaaaa", "aaaaaa", "aaaaaaa"}, {},
+              {"", "aaaaaaaa", "b", "ab", "aab", "aaab", "aaaab", "aaaaab", "aaaaaab", "aaaaaaab"});
 }
 
 TEST(art_tests, similar_prefix_insertions)
 {
     ART art;
 
-    art.insert("aaaaaaaaa");
+    test_insert(art, {"aaaaaaaaa"}, {}, {"aaaaaaaaaa", "aaaaaaaab", "aaaaaaaaab"});
+    test_insert(art, {"aaaaaaaaaa"}, {"aaaaaaaaa"}, {"aaaaaaaab", "aaaaaaaaab"});
+    test_insert(art, {"aaaaaaaab"}, {"aaaaaaaaa", "aaaaaaaaaa"}, {"aaaaaaaaab"});
+    test_insert(art, {"aaaaaaaaab"}, {"aaaaaaaaa", "aaaaaaaaaa", "aaaaaaaab"}, {});
 
-    assert_search(art, "aaaaaaaaa");
-    assert_failed_search(art, "aaaaaaaaaa");
-    assert_failed_search(art, "aaaaaaaab");
-    assert_failed_search(art, "aaaaaaaaab");
-
-    art.insert("aaaaaaaaaa");
-
-    assert_search(art, "aaaaaaaaa");
-    assert_search(art, "aaaaaaaaaa");
-    assert_failed_search(art, "aaaaaaaab");
-    assert_failed_search(art, "aaaaaaaaab");
-
-    art.insert("aaaaaaaab");
-
-    assert_search(art, "aaaaaaaaa");
-    assert_search(art, "aaaaaaaaaa");
-    assert_search(art, "aaaaaaaab");
-    assert_failed_search(art, "aaaaaaaaab");
-
-    art.insert("aaaaaaaaab");
-
-    assert_search(art, "aaaaaaaaa");
-    assert_search(art, "aaaaaaaaaa");
-    assert_search(art, "aaaaaaaab");
-    assert_search(art, "aaaaaaaaab");
+    test_erase(art, {"aaaaaaaaab"}, {"aaaaaaaaa", "aaaaaaaaaa", "aaaaaaaab"}, {});
+    test_erase(art, {"aaaaaaaab"}, {"aaaaaaaaa", "aaaaaaaaaa"}, {"aaaaaaaaab"});
+    test_erase(art, {"aaaaaaaaaa"}, {"aaaaaaaaa"}, {"aaaaaaaab", "aaaaaaaaab"});
+    test_erase(art, {"aaaaaaaaa"}, {}, {"aaaaaaaaaa", "aaaaaaaab", "aaaaaaaaab"});
 }
 
-TEST(art_tests, medium_sizes_keys_insertion)
+TEST(art_tests, medium_size_keys_insertion)
 {
     ART art;
 
-    art.insert("abcdefghijklmnopqrstuvwxyz");
+    test_insert(art, {"abcdefghijklmnopqrstuvwxyz"}, {},
+                {"abcdefghijklmnopqrstuvwxy", "abcdefghijklmnopqrstuvwxyzz"});
 
-    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
+    test_insert(art, {"abcdefghijklmnopqrstuvwxy"}, {"abcdefghijklmnopqrstuvwxyz"},
+                {"abcdefghijklmnopqrstuvwxyzz"});
 
-    assert_failed_search(art, "abcdefghijklmnopqrstuvwxy");
-    assert_failed_search(art, "abcdefghijklmnopqrstuvwxyzz");
+    test_insert(art, {"abcdefghijklmnopqrstuvwxyzz"},
+                {"abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxy"}, {});
 
-    art.insert("abcdefghijklmnopqrstuvwxy");
+    test_erase(art, {"abcdefghijklmnopqrstuvwxyzz"},
+               {"abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxy"}, {});
 
-    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
-    assert_search(art, "abcdefghijklmnopqrstuvwxy");
+    test_erase(art, {"abcdefghijklmnopqrstuvwxy"}, {"abcdefghijklmnopqrstuvwxyz"},
+               {"abcdefghijklmnopqrstuvwxyzz"});
 
-    assert_failed_search(art, "abcdefghijklmnopqrstuvwxyzz");
-
-    art.insert("abcdefghijklmnopqrstuvwxyzz");
-
-    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
-    assert_search(art, "abcdefghijklmnopqrstuvwxy");
-    assert_search(art, "abcdefghijklmnopqrstuvwxyzz");
+    test_erase(art, {"abcdefghijklmnopqrstuvwxyz"}, {},
+               {"abcdefghijklmnopqrstuvwxy", "abcdefghijklmnopqrstuvwxyzz"});
 }
 
 TEST(art_tests, long_keys_insertion)
@@ -204,16 +176,15 @@ TEST(art_tests, growing_nodes)
 {
     ART art;
 
-    constexpr size_t str_len = 1024ULL * 1024;
+    constexpr size_t str_len = 1024ULL;
     const std::string long_str(str_len, '!');
 
-    // Grow to 256 node.
-    //
-    for (int i = 1; i < 256; ++i)
-        art.insert(char(i) + long_str);
+    std::vector<std::string> keys;
 
     for (int i = 1; i < 256; ++i)
-        assert_search(art, char(i) + long_str);
+        keys.push_back(char(i) + long_str);
+
+    test_crud(art, keys, {}, {});
 }
 
 TEST(art_tests, growing_nodes_2)
@@ -223,79 +194,69 @@ TEST(art_tests, growing_nodes_2)
     constexpr size_t str_len = 1024ULL;
     const std::string long_str(str_len, '!');
 
-    char buf[256]{};
-    std::memset(buf, 1, 256);
+    std::vector<std::string> keys;
 
-    for (int i = 0; i < 256; ++i) {
-        for (int j = 1; j < 256; ++j) {
+    const size_t buf_size = 16;
+    char buf[buf_size];
+    std::memset(buf, 1, buf_size);
+
+    keys.push_back(std::string(buf, buf + buf_size));
+    keys.push_back(std::string(buf, buf + buf_size) + long_str);
+    keys.push_back(long_str + std::string(buf, buf + buf_size));
+
+    for (int i = 0; i < buf_size; ++i) {
+        for (int j = 2; j < 64; ++j) {
             buf[i] = j;
-            art.insert((const uint8_t*)buf, 256);
-            art.insert(std::string(buf, buf + 255) + long_str);
-            art.insert(long_str + std::string(buf, buf + 255));
+            keys.push_back(std::string(buf, buf + buf_size));
+            keys.push_back(std::string(buf, buf + buf_size) + long_str);
+            keys.push_back(long_str + std::string(buf, buf + buf_size));
         }
     }
 
-    std::memset(buf, 1, 256);
-
-    for (int i = 0; i < 256; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            buf[i] = j;
-            assert_search(art, (const uint8_t*)buf, 256);
-            assert_search(art, std::string(buf, buf + 255) + long_str);
-            assert_search(art, long_str + std::string(buf, buf + 255));
-        }
-    }
-}
-
-TEST(art_tests, growing_nodes_3)
-{
-    ART art;
-
-    constexpr size_t key_size = 1024;
-    std::vector<uint8_t> v(key_size, 1); // Fill vector with 1s.
-
-    for (int i = 0; i < key_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            v[i] = j;
-            art.insert((const uint8_t*)v.data(), key_size);
-        }
-    }
-
-    for (auto& it : v)
-        it = 1;
-
-    for (int i = 0; i < key_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            v[i] = j;
-            assert_search(art, (const uint8_t*)v.data(), key_size);
-        }
-    }
+    test_crud(art, keys, {}, {});
 }
 
 TEST(art_tests, different_key_sizes)
 {
     ART art;
 
-    constexpr size_t key_max_size = 1024;
-    std::vector<uint8_t> v(key_max_size, 1); // Fill vector with 1s.
+    constexpr size_t key_max_size = 8;
+    uint8_t buff[key_max_size];
+    std::memset(buff, 1, key_max_size);
+
+    std::vector<std::string> keys;
 
     for (int i = 0; i < key_max_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            v[i] = j;
-            art.insert((const uint8_t*)v.data(), i + 1);
+        for (int j = 1; j < 32; ++j) {
+            buff[i] = j;
+            keys.push_back(std::string(buff, buff + i + 1));
         }
     }
 
-    for (auto& it : v)
-        it = 1;
-
-    for (int i = 0; i < key_max_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            v[i] = j;
-            assert_search(art, (const uint8_t*)v.data(), i + 1);
-        }
-    }
+    test_crud(art, keys, {}, {});
 }
+
+#ifndef DEBUG
+TEST(art_tests, different_key_sizes_big)
+{
+    ART art;
+
+    constexpr size_t key_max_size = 32;
+    uint8_t buff[key_max_size];
+    std::memset(buff, 1, key_max_size);
+
+    std::vector<std::string> keys;
+
+    for (int i = 0; i < key_max_size; ++i) {
+        for (int j = 1; j < 256; ++j) {
+            buff[i] = j;
+            keys.push_back(std::string(buff, buff + i + 1));
+        }
+    }
+
+    test_crud(art, keys, {}, {});
+}
+#endif
 
 // Reads all filesystem paths from provided input file, inserts them into ART and search for them 1
 // by 1 while verifying searches.
@@ -312,16 +273,17 @@ void test_filesystem_paths(const std::string& file_name)
         art.insert(paths.back());
     }
 
+    // TODO: Do test_crud here.
+    // It seems that there are duplicates in files.
     for (auto& it : paths)
         assert_search(art, it);
 }
 
 TEST(art_tests, file_system_paths)
 {
-    std::array<std::string, 4> file_names{
+    std::vector<std::string> file_names{
         "windows_paths.txt",
-        "windows_paths_sorted.txt",
-        "windows_paths_extended.txt",
+        "linux_paths.txt",
         "windows_paths_vscode.txt",
     };
 

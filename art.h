@@ -245,26 +245,32 @@ class Node {
 public:
     static constexpr uint32_t max_prefix_len = 9;
 
-    Node(uint8_t type, uint16_t num_children, const uint8_t* prefix, uint32_t prefix_len) noexcept
-        : m_prefix_len{prefix_len}
-        , m_num_children{num_children}
-        , m_type{type}
+    // Construct new node from previous node by copying whole header except node type which is
+    // provided as new_type.
+    //
+    Node(const Node& other, uint8_t new_type)
+        : m_prefix_len{other.m_prefix_len}
+        , m_num_children{other.m_num_children}
+        , m_type{new_type}
     {
-        if (prefix_len > 0) {
-            assert(prefix != nullptr);
-            std::memcpy(m_prefix, prefix, std::min(max_prefix_len, prefix_len));
-        }
+        if (other.m_prefix_len > 0)
+            std::memcpy(m_prefix, other.m_prefix, std::min(max_prefix_len, other.m_prefix_len));
     }
 
     Node(uint8_t type) noexcept : m_type{type} {}
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+    void remove_child(const uint8_t key) noexcept;
 
     [[nodiscard]] bool full() const noexcept;
+    [[nodiscard]] bool should_shrink() const noexcept;
+    [[nodiscard]] bool should_collapse() const noexcept;
 
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
 
     [[nodiscard]] Node* grow() noexcept;
+    [[nodiscard]] Node* shrink() noexcept;
+    [[nodiscard]] entry_ptr collapse() noexcept;
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
@@ -292,12 +298,19 @@ public:
     Node4(const Key& key, size_t depth, Leaf* leaf);
     Node4(const Key& key, size_t depth, Node* node, size_t cp_len);
 
+    Node4(Node16& old_node) noexcept;
+
+    [[nodiscard]] entry_ptr collapse() noexcept;
+
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node16* grow() noexcept;
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 4; }
 
+    [[nodiscard]] bool should_shrink() const noexcept { return false; };
+
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+    void remove_child(const uint8_t key) noexcept;
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
@@ -312,21 +325,21 @@ public:
 //
 class Node16 final : public Node {
 public:
-    Node16(Node4& old_node) noexcept
-        : Node{Node16_t, old_node.m_num_children, old_node.m_prefix, old_node.m_prefix_len}
-    {
-        std::memcpy(m_keys, old_node.m_keys, 4);
-        std::memcpy(m_children, old_node.m_children, 4 * sizeof(entry_ptr));
-    }
+    Node16(Node4& old_node) noexcept;
+    Node16(Node48& old_node) noexcept;
 
     // TODO: Check if compiler generates SIMD instructions. If not, insert them manually.
     //
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node48* grow() noexcept;
+    [[nodiscard]] Node4* shrink() noexcept;
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 16; }
 
+    [[nodiscard]] bool should_shrink() const noexcept { return m_num_children == 2; };
+
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+    void remove_child(const uint8_t key) noexcept;
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
@@ -345,21 +358,19 @@ class Node48 final : public Node {
 public:
     static constexpr uint8_t empty_slot = 255;
 
-    Node48(Node16& old_node) noexcept
-        : Node{Node48_t, old_node.m_num_children, old_node.m_prefix, old_node.m_prefix_len}
-    {
-        std::memset(m_idxs, empty_slot, 256);
-        std::memcpy(m_children, old_node.m_children, 16 * sizeof(entry_ptr));
-        for (int i = 0; i < 16; ++i)
-            m_idxs[old_node.m_keys[i]] = i;
-    }
+    Node48(Node16& old_node) noexcept;
+    Node48(Node256& old_node) noexcept;
 
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node256* grow() noexcept;
+    [[nodiscard]] Node16* shrink() noexcept;
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 48; }
 
+    [[nodiscard]] bool should_shrink() const noexcept { return m_num_children == 14; };
+
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+    void remove_child(const uint8_t key) noexcept;
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
@@ -378,19 +389,17 @@ public:
 //
 class Node256 final : public Node {
 public:
-    Node256(const Node48& old_node) noexcept
-        : Node{Node256_t, old_node.m_num_children, old_node.m_prefix, old_node.m_prefix_len}
-    {
-        for (int i = 0; i < 256; ++i)
-            if (old_node.m_idxs[i] != Node48::empty_slot)
-                m_children[i] = old_node.m_children[old_node.m_idxs[i]];
-    }
+    Node256(const Node48& old_node) noexcept;
 
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
+    [[nodiscard]] Node48* shrink() noexcept;
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 256; }
 
+    [[nodiscard]] bool should_shrink() const noexcept { return m_num_children == 46; };
+
     void add_child(const uint8_t key, entry_ptr child) noexcept;
+    void remove_child(const uint8_t key) noexcept;
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept;
 
@@ -456,6 +465,18 @@ public:
         insert(key);
     }
 
+    void erase(const std::string& s) noexcept
+    {
+        const Key key{(const uint8_t* const)s.data(), s.size()};
+        erase(key);
+    }
+
+    void erase(const uint8_t* const data, size_t size) noexcept
+    {
+        const Key key{data, size};
+        erase(key);
+    }
+
     Leaf* search(const std::string& s) noexcept
     {
         const Key key{(const uint8_t* const)s.data(), s.size()};
@@ -471,6 +492,12 @@ public:
 private:
     void insert(const Key& key) noexcept;
     void insert(entry_ptr& entry, const Key& key, size_t depth) noexcept;
+
+    void erase(const Key& key) noexcept;
+    void erase(entry_ptr& entry, const Key& key, size_t depth) noexcept;
+
+    void erase_leaf(entry_ptr& entry, Leaf* leaf, const Key& key, size_t depth) noexcept;
+
     Leaf* search(const Key& key) noexcept;
     Leaf* search(entry_ptr& entry, const Key& key, size_t depth) noexcept;
 
