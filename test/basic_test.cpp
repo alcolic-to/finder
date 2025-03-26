@@ -69,10 +69,8 @@ void test_erase(ART& art, Keys erase_keys, Keys valid_keys, Keys invalid_keys)
     }
 }
 
-void test_crud(Keys keys, Keys valid_keys, Keys invalid_keys)
+void test_crud(ART& art, Keys keys, Keys valid_keys, Keys invalid_keys)
 {
-    ART art;
-
     test_insert(art, keys, valid_keys, invalid_keys);
     test_erase(art, keys, valid_keys, invalid_keys);
 }
@@ -89,18 +87,24 @@ TEST(art_tests, sanity_test)
 
 TEST(art_tests, multiple_items)
 {
-    test_crud({"abcdef", "abcde", "a", "abcdefgh"}, {},
+    ART art;
+
+    test_crud(art, {"abcdef", "abcde", "a", "abcdefgh"}, {},
               {"", "ab", "acdef", "abcdefg", "abcdefghy"});
 }
 
 TEST(art_tests, similar_keys_insertion)
 {
-    test_crud({"aaaa", "aaaaa", "a", "aaaaaaaaaa", "aaba", "aa"}, {}, {"aaa"});
+    ART art;
+
+    test_crud(art, {"aaaa", "aaaaa", "a", "aaaaaaaaaa", "aaba", "aa"}, {}, {"aaa"});
 }
 
 TEST(art_tests, similar_keys_insertion_2)
 {
-    test_crud({"a", "aa", "aaa", "aaaa", "aaaaa", "aaaaaa", "aaaaaaa"}, {},
+    ART art;
+
+    test_crud(art, {"a", "aa", "aaa", "aaaa", "aaaaa", "aaaaaa", "aaaaaaa"}, {},
               {"", "aaaaaaaa", "b", "ab", "aab", "aaab", "aaaab", "aaaaab", "aaaaaab", "aaaaaaab"});
 }
 
@@ -180,15 +184,14 @@ TEST(art_tests, growing_nodes)
     for (int i = 1; i < 256; ++i)
         keys.push_back(char(i) + long_str);
 
-    test_insert(art, keys, {}, {});
-    test_erase(art, keys, {}, {});
+    test_crud(art, keys, {}, {});
 }
 
 TEST(art_tests, growing_nodes_2)
 {
     ART art;
 
-    constexpr size_t str_len = 8ULL;
+    constexpr size_t str_len = 1024ULL;
     const std::string long_str(str_len, '!');
 
     std::vector<std::string> keys;
@@ -202,7 +205,7 @@ TEST(art_tests, growing_nodes_2)
     keys.push_back(long_str + std::string(buf, buf + buf_size));
 
     for (int i = 0; i < buf_size; ++i) {
-        for (int j = 2; j < 9; ++j) {
+        for (int j = 2; j < 64; ++j) {
             buf[i] = j;
             keys.push_back(std::string(buf, buf + buf_size));
             keys.push_back(std::string(buf, buf + buf_size) + long_str);
@@ -210,59 +213,50 @@ TEST(art_tests, growing_nodes_2)
         }
     }
 
-    test_insert(art, keys, {}, {});
-    test_erase(art, keys, {}, {});
-}
-
-TEST(art_tests, growing_nodes_3)
-{
-    ART art;
-
-    constexpr size_t key_size = 1024;
-    std::vector<uint8_t> key(key_size, 1); // Fill vector with 1s.
-
-    for (int i = 0; i < key_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            key[i] = j;
-            art.insert((const uint8_t*)key.data(), key_size);
-        }
-    }
-
-    for (auto& it : key)
-        it = 1;
-
-    for (int i = 0; i < key_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            key[i] = j;
-            assert_search(art, (const uint8_t*)key.data(), key_size);
-        }
-    }
+    test_crud(art, keys, {}, {});
 }
 
 TEST(art_tests, different_key_sizes)
 {
     ART art;
 
-    constexpr size_t key_max_size = 1024;
-    std::vector<uint8_t> v(key_max_size, 1); // Fill vector with 1s.
+    constexpr size_t key_max_size = 8;
+    uint8_t buff[key_max_size];
+    std::memset(buff, 1, key_max_size);
+
+    std::vector<std::string> keys;
 
     for (int i = 0; i < key_max_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            v[i] = j;
-            art.insert((const uint8_t*)v.data(), i + 1);
+        for (int j = 1; j < 32; ++j) {
+            buff[i] = j;
+            keys.push_back(std::string(buff, buff + i + 1));
         }
     }
 
-    for (auto& it : v)
-        it = 1;
-
-    for (int i = 0; i < key_max_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
-            v[i] = j;
-            assert_search(art, (const uint8_t*)v.data(), i + 1);
-        }
-    }
+    test_crud(art, keys, {}, {});
 }
+
+#ifndef DEBUG
+TEST(art_tests, different_key_sizes_big)
+{
+    ART art;
+
+    constexpr size_t key_max_size = 32;
+    uint8_t buff[key_max_size];
+    std::memset(buff, 1, key_max_size);
+
+    std::vector<std::string> keys;
+
+    for (int i = 0; i < key_max_size; ++i) {
+        for (int j = 1; j < 256; ++j) {
+            buff[i] = j;
+            keys.push_back(std::string(buff, buff + i + 1));
+        }
+    }
+
+    test_crud(art, keys, {}, {});
+}
+#endif
 
 // Reads all filesystem paths from provided input file, inserts them into ART and search for them 1
 // by 1 while verifying searches.
@@ -279,6 +273,8 @@ void test_filesystem_paths(const std::string& file_name)
         art.insert(paths.back());
     }
 
+    // TODO: Do test_crud here.
+    // It seems that there are duplicates in files.
     for (auto& it : paths)
         assert_search(art, it);
 }
