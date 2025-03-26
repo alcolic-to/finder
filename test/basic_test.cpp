@@ -80,38 +80,6 @@ TEST(art_tests, sanity_test)
 {
     ART art;
 
-    // art.insert("a");
-
-    // assert_search(art, "a");
-
-    // assert_failed_search(art, "");
-    // assert_failed_search(art, "aa");
-    // assert_failed_search(art, "b");
-
-    // art.insert("");
-
-    // assert_search(art, "");
-
-    // assert_failed_search(art, "aa");
-    // assert_failed_search(art, "b");
-
-    // art.erase("a");
-
-    // assert_search(art, "");
-
-    // assert_failed_search(art, "a");
-    // assert_failed_search(art, "aa");
-    // assert_failed_search(art, "b");
-
-    // art.erase("");
-
-    // assert_failed_search(art, "");
-    // assert_failed_search(art, "a");
-    // assert_failed_search(art, "aa");
-    // assert_failed_search(art, "b");
-
-    // New code:
-    //
     test_insert(art, {"a"}, {}, {"", "aa", "b"});
     test_insert(art, {""}, {"a"}, {"aa", "b"});
     test_erase(art, {"a"}, {""}, {"a", "aa", "b"});
@@ -139,36 +107,6 @@ TEST(art_tests, similar_prefix_insertions)
 {
     ART art;
 
-    // art.insert("aaaaaaaaa");
-
-    // assert_search(art, "aaaaaaaaa");
-    // assert_failed_search(art, "aaaaaaaaaa");
-    // assert_failed_search(art, "aaaaaaaab");
-    // assert_failed_search(art, "aaaaaaaaab");
-
-    // art.insert("aaaaaaaaaa");
-
-    // assert_search(art, "aaaaaaaaa");
-    // assert_search(art, "aaaaaaaaaa");
-    // assert_failed_search(art, "aaaaaaaab");
-    // assert_failed_search(art, "aaaaaaaaab");
-
-    // art.insert("aaaaaaaab");
-
-    // assert_search(art, "aaaaaaaaa");
-    // assert_search(art, "aaaaaaaaaa");
-    // assert_search(art, "aaaaaaaab");
-    // assert_failed_search(art, "aaaaaaaaab");
-
-    // art.insert("aaaaaaaaab");
-
-    // assert_search(art, "aaaaaaaaa");
-    // assert_search(art, "aaaaaaaaaa");
-    // assert_search(art, "aaaaaaaab");
-    // assert_search(art, "aaaaaaaaab");
-
-    // New code:
-    //
     test_insert(art, {"aaaaaaaaa"}, {}, {"aaaaaaaaaa", "aaaaaaaab", "aaaaaaaaab"});
     test_insert(art, {"aaaaaaaaaa"}, {"aaaaaaaaa"}, {"aaaaaaaab", "aaaaaaaaab"});
     test_insert(art, {"aaaaaaaab"}, {"aaaaaaaaa", "aaaaaaaaaa"}, {"aaaaaaaaab"});
@@ -184,25 +122,23 @@ TEST(art_tests, medium_size_keys_insertion)
 {
     ART art;
 
-    art.insert("abcdefghijklmnopqrstuvwxyz");
+    test_insert(art, {"abcdefghijklmnopqrstuvwxyz"}, {},
+                {"abcdefghijklmnopqrstuvwxy", "abcdefghijklmnopqrstuvwxyzz"});
 
-    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
+    test_insert(art, {"abcdefghijklmnopqrstuvwxy"}, {"abcdefghijklmnopqrstuvwxyz"},
+                {"abcdefghijklmnopqrstuvwxyzz"});
 
-    assert_failed_search(art, "abcdefghijklmnopqrstuvwxy");
-    assert_failed_search(art, "abcdefghijklmnopqrstuvwxyzz");
+    test_insert(art, {"abcdefghijklmnopqrstuvwxyzz"},
+                {"abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxy"}, {});
 
-    art.insert("abcdefghijklmnopqrstuvwxy");
+    test_erase(art, {"abcdefghijklmnopqrstuvwxyzz"},
+               {"abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxy"}, {});
 
-    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
-    assert_search(art, "abcdefghijklmnopqrstuvwxy");
+    test_erase(art, {"abcdefghijklmnopqrstuvwxy"}, {"abcdefghijklmnopqrstuvwxyz"},
+               {"abcdefghijklmnopqrstuvwxyzz"});
 
-    assert_failed_search(art, "abcdefghijklmnopqrstuvwxyzz");
-
-    art.insert("abcdefghijklmnopqrstuvwxyzz");
-
-    assert_search(art, "abcdefghijklmnopqrstuvwxyz");
-    assert_search(art, "abcdefghijklmnopqrstuvwxy");
-    assert_search(art, "abcdefghijklmnopqrstuvwxyzz");
+    test_erase(art, {"abcdefghijklmnopqrstuvwxyz"}, {},
+               {"abcdefghijklmnopqrstuvwxy", "abcdefghijklmnopqrstuvwxyzz"});
 }
 
 TEST(art_tests, long_keys_insertion)
@@ -235,16 +171,18 @@ TEST(art_tests, growing_nodes)
 {
     ART art;
 
-    constexpr size_t str_len = 1024ULL * 1024;
+    constexpr size_t str_len = 1024ULL;
     const std::string long_str(str_len, '!');
+
+    std::vector<std::string> keys;
 
     // Grow to 256 node.
     //
     for (int i = 1; i < 256; ++i)
-        art.insert(char(i) + long_str);
+        keys.push_back(char(i) + long_str);
 
-    for (int i = 1; i < 256; ++i)
-        assert_search(art, char(i) + long_str);
+    test_insert(art, keys, {}, {});
+    test_erase(art, keys, {}, {});
 }
 
 TEST(art_tests, growing_nodes_2)
@@ -283,22 +221,22 @@ TEST(art_tests, growing_nodes_3)
     ART art;
 
     constexpr size_t key_size = 1024;
-    std::vector<uint8_t> v(key_size, 1); // Fill vector with 1s.
+    std::vector<uint8_t> key(key_size, 1); // Fill vector with 1s.
 
     for (int i = 0; i < key_size; ++i) {
         for (int j = 1; j < 256; ++j) {
-            v[i] = j;
-            art.insert((const uint8_t*)v.data(), key_size);
+            key[i] = j;
+            art.insert((const uint8_t*)key.data(), key_size);
         }
     }
 
-    for (auto& it : v)
+    for (auto& it : key)
         it = 1;
 
     for (int i = 0; i < key_size; ++i) {
         for (int j = 1; j < 256; ++j) {
-            v[i] = j;
-            assert_search(art, (const uint8_t*)v.data(), key_size);
+            key[i] = j;
+            assert_search(art, (const uint8_t*)key.data(), key_size);
         }
     }
 }
