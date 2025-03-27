@@ -245,17 +245,7 @@ class Node {
 public:
     static constexpr uint32_t max_prefix_len = 9;
 
-    // Construct new node from previous node by copying whole header except node type which is
-    // provided as new_type.
-    //
-    Node(const Node& other, uint8_t new_type)
-        : m_prefix_len{other.m_prefix_len}
-        , m_num_children{other.m_num_children}
-        , m_type{new_type}
-    {
-        if (other.m_prefix_len > 0)
-            std::memcpy(m_prefix, other.m_prefix, std::min(max_prefix_len, other.m_prefix_len));
-    }
+    Node(const Node& other, uint8_t new_type);
 
     Node(uint8_t type) noexcept : m_type{type} {}
 
@@ -284,6 +274,14 @@ public:
 };
 
 static_assert(sizeof(Node) == 16);
+
+// Limits provided length with maximum header length and returns it.
+//
+template<typename Type>
+static inline uint32_t hdrlen(Type len)
+{
+    return std::min(static_cast<uint32_t>(len), Node::max_prefix_len);
+}
 
 class Node16;
 class Node48;
