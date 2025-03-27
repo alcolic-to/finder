@@ -49,19 +49,13 @@ Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
 // len in prefix_len, but we can only copy up to max_prefix_bytes in prefix array. Later when
 // searching for a key, we will compare all bytes from our prefix array, and if all bytes matches,
 // we will just skip all prefix bytes and go to directly to next node. This is hybrid approach which
-// mixes optimistic and pesimistic approaches.
+// mixes optimistic and pessimistic approaches.
 //
 Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
 {
-    m_prefix_len = 0;
-    size_t max_depth = std::min(key.size() - 1, leaf->m_key_len - 1);
-
-    while (depth < max_depth && key[depth] == leaf->m_key[depth]) {
+    for (m_prefix_len = 0; key[depth] == leaf->m_key[depth]; ++m_prefix_len, ++depth)
         if (m_prefix_len < max_prefix_len)
             m_prefix[m_prefix_len] = key[depth];
-
-        ++m_prefix_len, ++depth;
-    }
 
     assert(depth < key.size() && depth < leaf->m_key_len);
     assert(key[depth] != leaf->m_key[depth]);
@@ -73,6 +67,8 @@ Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
 // Creates new node4 as a parent for key(future leaf node) and node. New node will have 2
 // children with common prefix extracted from them. We must also delete taken prefix from child
 // node, plus we must take one additional byte from prefix as a key for child node.
+// If node prefix does not fit into header, we must go to leaf node (not important which one), to
+// take prefix bytes from there. It it fits, we can take bytes from header directly.
 //
 Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Node4_t}
 {
@@ -81,28 +77,21 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
     m_prefix_len = cp_len;
     std::memcpy(m_prefix, node->m_prefix, std::min(cp_len, (size_t)max_prefix_len));
 
-    assert(node->m_prefix_len >= cp_len + 1);
-    node->m_prefix_len -= (cp_len + 1); // Additional byte for mapping.
-    size_t header_bytes = std::min(node->m_prefix_len, max_prefix_len);
-
-    // Adjust old node header prefix. Check if we can copy new prefix from node header, to avoid
-    // going to leaf.
+    // Allow prefix_src to be 1 byte ahead passed the end of prefix if we are taking prefix from
+    // header, because we won't touch it (node prefix == cp_len + 1 == max prefix len).
     //
-    if (node->m_prefix_len + cp_len + 1 <= max_prefix_len) {
-        uint8_t node_key = node->m_prefix[cp_len];
-        std::memmove(node->m_prefix, node->m_prefix + cp_len + 1, header_bytes);
+    const uint8_t* prefix_src = node->m_prefix_len <= max_prefix_len ?
+                                    &node->m_prefix[cp_len + 1] :
+                                    &(node->next_leaf()[depth + cp_len + 1]);
 
-        assert(node_key != key[depth + cp_len]);
-        add_child(node_key, node);
-    }
-    else {
-        const Leaf& leaf = node->next_leaf();
-        std::memcpy(node->m_prefix, &leaf[depth + cp_len + 1], header_bytes);
+    const uint8_t node_key = prefix_src[-1]; // Previous byte for node mapping.
 
-        assert(leaf[depth + cp_len] != key[depth + cp_len]);
-        add_child(leaf[depth + cp_len], node);
-    }
+    node->m_prefix_len -= (cp_len + 1); // Additional byte for node mapping.
+    if (node->m_prefix_len > 0)
+        std::memmove(node->m_prefix, prefix_src, std::min(node->m_prefix_len, max_prefix_len));
 
+    assert(node_key != key[depth + cp_len]);
+    add_child(node_key, node);
     add_child(key[depth + cp_len], Leaf::new_leaf(key));
 }
 
@@ -119,26 +108,18 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
     assert(m_num_children == 1);
     assert(m_children[0]);
 
-    uint8_t child_key = m_keys[0];
     entry_ptr child_entry{m_children[0]};
-
     if (child_entry.node()) {
         Node* child_node = child_entry.node_ptr();
-        uint32_t hdr_pref_len = std::min(m_prefix_len, max_prefix_len);
 
-        if (hdr_pref_len < max_prefix_len) {
-            m_prefix[hdr_pref_len] = child_key;
-            ++hdr_pref_len;
-        }
+        uint32_t len = std::min(m_prefix_len, max_prefix_len);
+        if (len < max_prefix_len)
+            m_prefix[len++] = m_keys[0]; // Key for mapping.
 
-        if (hdr_pref_len < max_prefix_len) {
-            std::memcpy(m_prefix + hdr_pref_len, child_node->m_prefix,
-                        std::min(max_prefix_len - hdr_pref_len, child_node->m_prefix_len));
+        for (uint32_t i = 0; len < max_prefix_len && i < child_node->m_prefix_len;)
+            m_prefix[len++] = child_node->m_prefix[i++];
 
-            hdr_pref_len = std::min(max_prefix_len, hdr_pref_len + child_node->m_prefix_len);
-        }
-
-        std::memcpy(child_node->m_prefix, m_prefix, hdr_pref_len);
+        std::memcpy(child_node->m_prefix, m_prefix, len);
         child_node->m_prefix_len += m_prefix_len + 1;
     }
 
@@ -590,11 +571,12 @@ void Node256::remove_child(const uint8_t key) noexcept
 }
 
 // Returns common prefix len for key at current depth and a prefix in our header.
+// Header must not hold terminal byte, so we are comparing to minimal of node prefix len and max
+// prefix len. If depth reaches key.size() - 1, we will get terminal byte and stop comparing.
 //
 [[nodiscard]] size_t Node::common_header_prefix(const Key& key, size_t depth) const noexcept
 {
-    const size_t prefix_cmp = std::min(m_prefix_len, max_prefix_len);
-    const size_t max_cmp = std::min(key.size() - depth, prefix_cmp);
+    const size_t max_cmp = std::min(m_prefix_len, max_prefix_len);
     size_t cp_len = 0;
 
     while (cp_len < max_cmp && key[depth + cp_len] == m_prefix[cp_len])
@@ -604,18 +586,17 @@ void Node256::remove_child(const uint8_t key) noexcept
 }
 
 // Returns common prefix length from this node to the leaf and a key at provided depth.
-// If prefix in our header is max_prefix_len long and we matched whole prefix, we need to find leaf
-// to keep comparing. It is not important which leaf we take, because all of them have at least
+// If prefix in our header is max_prefix_len long and we've matched whole prefix, we need to find
+// leaf to keep comparing. It is not important which leaf we take, because all of them have at least
 // m_prefix_len common bytes.
 //
 [[nodiscard]] size_t Node::common_prefix(const Key& key, size_t depth) const noexcept
 {
     size_t cp_len = common_header_prefix(key, depth);
 
-    if (cp_len < m_prefix_len && cp_len == max_prefix_len && cp_len < key.size() - depth) {
+    if (cp_len == max_prefix_len && cp_len < m_prefix_len) {
         const Leaf& leaf = next_leaf();
-        const size_t max_cmp = std::min(key.size() - depth, (size_t)m_prefix_len);
-        while (cp_len < max_cmp && key[depth + cp_len] == leaf[depth + cp_len])
+        while (cp_len < m_prefix_len && key[depth + cp_len] == leaf[depth + cp_len])
             ++cp_len;
     }
 
