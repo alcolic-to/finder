@@ -44,6 +44,18 @@ Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
 //     }
 // }
 
+// Construct new node from previous node by copying whole header except node type which is
+// provided as new_type.
+//
+Node::Node(const Node& other, uint8_t new_type)
+    : m_prefix_len{other.m_prefix_len}
+    , m_num_children{other.m_num_children}
+    , m_type{new_type}
+{
+    if (other.m_prefix_len > 0)
+        std::memcpy(m_prefix, other.m_prefix, hdrlen(other.m_prefix_len));
+}
+
 // Creates new node4 as a parent for key(future leaf node) and leaf. New node will have 2
 // children with common prefix extracted from them. We will store information about common prefix
 // len in prefix_len, but we can only copy up to max_prefix_bytes in prefix array. Later when
@@ -75,20 +87,16 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
     assert(cp_len < node->m_prefix_len);
 
     m_prefix_len = cp_len;
-    std::memcpy(m_prefix, node->m_prefix, std::min(cp_len, (size_t)max_prefix_len));
+    std::memcpy(m_prefix, node->m_prefix, hdrlen(cp_len));
 
-    // Allow prefix_src to be 1 byte ahead passed the end of prefix if we are taking prefix from
-    // header, because we won't touch it (node prefix == cp_len + 1 == max prefix len).
-    //
     const uint8_t* prefix_src = node->m_prefix_len <= max_prefix_len ?
-                                    &node->m_prefix[cp_len + 1] :
-                                    &(node->next_leaf()[depth + cp_len + 1]);
+                                    &node->m_prefix[cp_len] :
+                                    &(node->next_leaf()[depth + cp_len]);
 
-    const uint8_t node_key = prefix_src[-1]; // Previous byte for node mapping.
+    const uint8_t node_key = prefix_src[0]; // Byte for node mapping.
 
     node->m_prefix_len -= (cp_len + 1); // Additional byte for node mapping.
-    if (node->m_prefix_len > 0)
-        std::memmove(node->m_prefix, prefix_src, std::min(node->m_prefix_len, max_prefix_len));
+    std::memmove(node->m_prefix, prefix_src + 1, hdrlen(node->m_prefix_len));
 
     assert(node_key != key[depth + cp_len]);
     add_child(node_key, node);
@@ -112,7 +120,7 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
     if (child_entry.node()) {
         Node* child_node = child_entry.node_ptr();
 
-        uint32_t len = std::min(m_prefix_len, max_prefix_len);
+        uint32_t len = hdrlen(m_prefix_len);
         if (len < max_prefix_len)
             m_prefix[len++] = m_keys[0]; // Key for mapping.
 
@@ -576,7 +584,7 @@ void Node256::remove_child(const uint8_t key) noexcept
 //
 [[nodiscard]] size_t Node::common_header_prefix(const Key& key, size_t depth) const noexcept
 {
-    const size_t max_cmp = std::min(m_prefix_len, max_prefix_len);
+    const size_t max_cmp = hdrlen(m_prefix_len);
     size_t cp_len = 0;
 
     while (cp_len < max_cmp && key[depth + cp_len] == m_prefix[cp_len])
@@ -708,7 +716,7 @@ void ART::erase(entry_ptr& entry, const Key& key, size_t depth) noexcept
     Node* node = entry.node_ptr();
     size_t cp_len = node->common_header_prefix(key, depth);
 
-    if (cp_len != std::min(node->m_prefix_len, Node::max_prefix_len))
+    if (cp_len != hdrlen(node->m_prefix_len))
         return;
 
     depth += node->m_prefix_len;
@@ -744,7 +752,7 @@ Leaf* ART::search(entry_ptr& entry, const Key& key, size_t depth) noexcept
     Node* node = entry.node_ptr();
     size_t cp_len = node->common_header_prefix(key, depth);
 
-    if (cp_len != std::min(node->m_prefix_len, Node::max_prefix_len))
+    if (cp_len != hdrlen(node->m_prefix_len))
         return nullptr;
 
     depth += node->m_prefix_len;
