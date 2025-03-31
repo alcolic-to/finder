@@ -765,26 +765,26 @@ Leaf* ART::search(entry_ptr& entry, const Key& key, size_t depth) noexcept
     return nullptr;
 }
 
-template<bool include_leafs>
+// Returns physical size of whole tree in bytes.
+// By default, it include whole leafs. Leaf keys can be disabled with include_keys = false.
+//
+template<bool include_keys>
 size_t ART::physical_size() const noexcept
 {
-    return sizeof(ART) + physical_size<include_leafs>(m_root);
+    return sizeof(ART) + physical_size<include_keys>(m_root);
 }
 
 template size_t ART::physical_size<true>() const noexcept;
 template size_t ART::physical_size<false>() const noexcept;
 
-// Returns physical size of whole tree in bytes.
-// By default, it include whole leafs. Leaf keys can be disabled with include_leafs = false.
-//
-template<bool include_leafs>
+template<bool include_keys>
 size_t ART::physical_size(const entry_ptr& entry) const noexcept
 {
     if (!entry)
         return 0;
 
     if (entry.leaf())
-        return sizeof(Leaf) + (include_leafs ? entry.leaf_ptr()->m_key_len : 0);
+        return sizeof(Leaf) + (include_keys ? entry.leaf_ptr()->m_key_len : 0);
 
     size_t size = 0;
     Node* node = entry.node_ptr();
@@ -793,25 +793,25 @@ size_t ART::physical_size(const entry_ptr& entry) const noexcept
     case Node4_t: {
         size += sizeof(Node4);
         for (size_t i = 0; i < 4; ++i)
-            size += physical_size<include_leafs>(static_cast<Node4*>(node)->m_children[i]);
+            size += physical_size<include_keys>(static_cast<Node4*>(node)->m_children[i]);
         break;
     }
     case Node16_t: {
         size += sizeof(Node16);
         for (size_t i = 0; i < 16; ++i)
-            size += physical_size<include_leafs>(static_cast<Node16*>(node)->m_children[i]);
+            size += physical_size<include_keys>(static_cast<Node16*>(node)->m_children[i]);
         break;
     }
     case Node48_t: {
         size += sizeof(Node48);
         for (size_t i = 0; i < 48; ++i)
-            size += physical_size<include_leafs>(static_cast<Node48*>(node)->m_children[i]);
+            size += physical_size<include_keys>(static_cast<Node48*>(node)->m_children[i]);
         break;
     }
     case Node256_t: {
         size += sizeof(Node256);
         for (size_t i = 0; i < 256; ++i)
-            size += physical_size<include_leafs>(static_cast<Node256*>(node)->m_children[i]);
+            size += physical_size<include_keys>(static_cast<Node256*>(node)->m_children[i]);
         break;
     }
     default:

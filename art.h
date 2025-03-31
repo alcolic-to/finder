@@ -488,7 +488,7 @@ public:
         return search(key);
     }
 
-    template<bool include_leafs = true>
+    template<bool include_keys = true>
     size_t physical_size() const noexcept;
 
 private:
@@ -508,7 +508,7 @@ private:
 
     bool empty() const noexcept { return m_root; }
 
-    template<bool include_leafs>
+    template<bool include_keys>
     size_t physical_size(const entry_ptr& entry) const noexcept;
 
     entry_ptr m_root;
