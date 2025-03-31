@@ -84,7 +84,8 @@ inline void* clear_tag(void* ptr) noexcept
 
 inline void* set_tag(void* ptr, uintptr_t tag) noexcept
 {
-    return std::bit_cast<void*>(raw(clear_tag(ptr)) | tag);
+    assert((tag & ~tag_bits) == 0);
+    return std::bit_cast<void*>(raw(clear_tag(ptr)) | (tag & tag_bits));
 }
 
 class Node;
@@ -487,6 +488,9 @@ public:
         return search(key);
     }
 
+    template<bool include_keys = true>
+    size_t physical_size() const noexcept;
+
 private:
     void insert(const Key& key) noexcept;
     void insert(entry_ptr& entry, const Key& key, size_t depth) noexcept;
@@ -503,6 +507,9 @@ private:
     void insert_at_node(entry_ptr& entry, const Key& key, size_t depth, size_t cp_len) noexcept;
 
     bool empty() const noexcept { return m_root; }
+
+    template<bool include_keys>
+    size_t physical_size(const entry_ptr& entry) const noexcept;
 
     entry_ptr m_root;
 };
