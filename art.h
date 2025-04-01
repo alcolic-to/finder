@@ -15,6 +15,24 @@
 
 // NOLINTBEGIN
 
+constexpr size_t CFG_node16_shrink_threshold = 2;
+constexpr size_t CFG_node48_shrink_threshold = 14;
+constexpr size_t CFG_node256_shrink_threshold = 46;
+
+enum Node_t : uint8_t {
+    Node4_t,
+    Node16_t,
+    Node48_t,
+    Node256_t,
+};
+
+class Node;
+class Node4;
+class Node16;
+class Node48;
+class Node256;
+class Leaf;
+
 // Helper class that wraps key used in art.
 // Data is not physically copied on construction to increase performance. This object just holds
 // pointer to data beeing manipulated, it's size and current depth used for single value comparison
@@ -32,8 +50,6 @@ public:
     static constexpr uint8_t term_byte = 0;
 
     Key(const uint8_t* const data, size_t size) noexcept : m_data{data}, m_size{size + 1} {}
-
-    Key(Leaf& leaf) noexcept;
 
     uint8_t operator[](size_t idx) const noexcept
     {
@@ -87,9 +103,6 @@ inline void* set_tag(void* ptr, uintptr_t tag) noexcept
     assert((tag & ~tag_bits) == 0);
     return std::bit_cast<void*>(raw(clear_tag(ptr)) | (tag & tag_bits));
 }
-
-class Node;
-class Leaf;
 
 // Wrapper class that holds either pointer to node or pointer to leaf.
 //
@@ -159,13 +172,6 @@ public:
 
 private:
     void* m_ptr;
-};
-
-enum Node_t : uint8_t {
-    Node4_t,
-    Node16_t,
-    Node48_t,
-    Node256_t,
 };
 
 // constexpr uint32_t node_t_bits = 0b11100000'00000000'00000000'00000000; // >> 29
@@ -284,18 +290,14 @@ static inline uint32_t hdrlen(Type len)
     return std::min(static_cast<uint32_t>(len), Node::max_prefix_len);
 }
 
-class Node16;
-class Node48;
-class Node256;
-
 // Node4: The smallest node type can store up to 4 child pointers and uses an array of length 4
 // for keys and another array of the same length for pointers. The keys and pointers are stored
 // at corresponding positions and the keys are sorted.
 //
 class Node4 final : public Node {
 public:
-    Node4(const Key& key, size_t depth, Leaf* leaf);
-    Node4(const Key& key, size_t depth, Node* node, size_t cp_len);
+    Node4(const Key& key, void* value, size_t depth, Leaf* leaf);
+    Node4(const Key& key, void* value, size_t depth, Node* node, size_t cp_len);
 
     Node4(Node16& old_node) noexcept;
 
@@ -335,7 +337,10 @@ public:
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 16; }
 
-    [[nodiscard]] bool should_shrink() const noexcept { return m_num_children == 2; };
+    [[nodiscard]] bool should_shrink() const noexcept
+    {
+        return m_num_children == CFG_node16_shrink_threshold;
+    };
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
     void remove_child(const uint8_t key) noexcept;
@@ -366,7 +371,10 @@ public:
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 48; }
 
-    [[nodiscard]] bool should_shrink() const noexcept { return m_num_children == 14; };
+    [[nodiscard]] bool should_shrink() const noexcept
+    {
+        return m_num_children == CFG_node48_shrink_threshold;
+    };
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
     void remove_child(const uint8_t key) noexcept;
@@ -395,7 +403,10 @@ public:
 
     [[nodiscard]] bool full() const noexcept { return m_num_children == 256; }
 
-    [[nodiscard]] bool should_shrink() const noexcept { return m_num_children == 46; };
+    [[nodiscard]] bool should_shrink() const noexcept
+    {
+        return m_num_children == CFG_node256_shrink_threshold;
+    };
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
     void remove_child(const uint8_t key) noexcept;
@@ -411,12 +422,13 @@ public:
     // calls constructor on that memory. Allocation size for key is taken as a provided key size
     // and a depth that we are at, because we are only saving partial key from current depth.
     //
-    static Leaf* new_leaf(const Key& key)
+    static Leaf* new_leaf(const Key& key, void* value)
     {
         Leaf* leaf = static_cast<Leaf*>(std::malloc(sizeof(*leaf) + key.size()));
 
-        key.copy_to(leaf->m_key, key.size());
+        leaf->m_value = value;
         leaf->m_key_len = key.size();
+        key.copy_to(leaf->m_key, key.size());
 
         return leaf;
     }
@@ -445,23 +457,23 @@ public:
     // Key key_to_key() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
 
 public:
-    void* m_data = nullptr;
+    void* m_value = nullptr;
     size_t m_key_len;
     uint8_t m_key[];
 };
 
 class ART final {
 public:
-    void insert(const std::string& s) noexcept
+    void insert(const std::string& s, void* value = nullptr) noexcept
     {
         const Key key{(const uint8_t* const)s.data(), s.size()};
-        insert(key);
+        insert(key, value);
     }
 
-    void insert(const uint8_t* const data, size_t size) noexcept
+    void insert(const uint8_t* const data, size_t size, void* value = nullptr) noexcept
     {
         const Key key{data, size};
-        insert(key);
+        insert(key, value);
     }
 
     void erase(const std::string& s) noexcept
@@ -492,8 +504,8 @@ public:
     size_t physical_size() const noexcept;
 
 private:
-    void insert(const Key& key) noexcept;
-    void insert(entry_ptr& entry, const Key& key, size_t depth) noexcept;
+    void insert(const Key& key, void* value) noexcept;
+    void insert(entry_ptr& entry, const Key& key, void* value, size_t depth) noexcept;
 
     void erase(const Key& key) noexcept;
     void erase(entry_ptr& entry, const Key& key, size_t depth) noexcept;
@@ -503,8 +515,9 @@ private:
     Leaf* search(const Key& key) noexcept;
     Leaf* search(entry_ptr& entry, const Key& key, size_t depth) noexcept;
 
-    void insert_at_leaf(entry_ptr& entry, const Key& key, size_t depth) noexcept;
-    void insert_at_node(entry_ptr& entry, const Key& key, size_t depth, size_t cp_len) noexcept;
+    void insert_at_leaf(entry_ptr& entry, const Key& key, void* value, size_t depth) noexcept;
+    void insert_at_node(entry_ptr& entry, const Key& key, void* value, size_t depth,
+                        size_t cp_len) noexcept;
 
     bool empty() const noexcept { return m_root; }
 

@@ -4,11 +4,6 @@
 
 // NOLINTBEGIN
 
-// Makes key from leaf node. We don't need to insert terminal byte at the end, because key already
-// holds it.
-//
-Key::Key(Leaf& leaf) noexcept : m_data{leaf.m_key}, m_size{leaf.m_key_len} {}
-
 // Not smart for now.
 //
 // entry_ptr::~entry_ptr() noexcept
@@ -63,7 +58,7 @@ Node::Node(const Node& other, uint8_t new_type)
 // we will just skip all prefix bytes and go to directly to next node. This is hybrid approach which
 // mixes optimistic and pessimistic approaches.
 //
-Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
+Node4::Node4(const Key& key, void* value, size_t depth, Leaf* leaf) : Node{Node4_t}
 {
     for (m_prefix_len = 0; key[depth] == leaf->m_key[depth]; ++m_prefix_len, ++depth)
         if (m_prefix_len < max_prefix_len)
@@ -72,7 +67,7 @@ Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
     assert(depth < key.size() && depth < leaf->m_key_len);
     assert(key[depth] != leaf->m_key[depth]);
 
-    add_child(key[depth], Leaf::new_leaf(key));
+    add_child(key[depth], Leaf::new_leaf(key, value));
     add_child(leaf->m_key[depth], leaf);
 }
 
@@ -82,7 +77,7 @@ Node4::Node4(const Key& key, size_t depth, Leaf* leaf) : Node{Node4_t}
 // If node prefix does not fit into header, we must go to leaf node (not important which one), to
 // take prefix bytes from there. It it fits, we can take bytes from header directly.
 //
-Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Node4_t}
+Node4::Node4(const Key& key, void* value, size_t depth, Node* node, size_t cp_len) : Node{Node4_t}
 {
     assert(cp_len < node->m_prefix_len);
 
@@ -101,7 +96,7 @@ Node4::Node4(const Key& key, size_t depth, Node* node, size_t cp_len) : Node{Nod
     assert(node_key != key[depth + cp_len]);
 
     add_child(node_key, node);
-    add_child(key[depth + cp_len], Leaf::new_leaf(key));
+    add_child(key[depth + cp_len], Leaf::new_leaf(key, value));
 }
 
 // Collapses node4 by replacing it with child entry (which is the only child in this node). This
@@ -256,6 +251,10 @@ void Node::add_child(const uint8_t key, entry_ptr child) noexcept
     }
 }
 
+// Adds new child to node.
+// Finds place for new child (while keeping sorted order) and moves all children by 1 place to make
+// space for new child. Inserts new child after that.
+//
 void Node4::add_child(const uint8_t key, entry_ptr child) noexcept
 {
     assert(m_num_children < 4);
@@ -264,8 +263,6 @@ void Node4::add_child(const uint8_t key, entry_ptr child) noexcept
     while (idx < m_num_children && m_keys[idx] < key)
         ++idx;
 
-    // Make space for new child. Keep sorted order.
-    //
     for (size_t i = m_num_children; i > idx; --i) {
         m_keys[i] = m_keys[i - 1];
         m_children[i] = m_children[i - 1];
@@ -277,6 +274,10 @@ void Node4::add_child(const uint8_t key, entry_ptr child) noexcept
     ++m_num_children;
 }
 
+// Adds new child to node.
+// Finds place for new child (while keeping sorted order) and moves all children by 1 place to make
+// space for new child. Inserts new child after that.
+//
 void Node16::add_child(const uint8_t key, entry_ptr child) noexcept
 {
     assert(m_num_children < 16);
@@ -285,8 +286,6 @@ void Node16::add_child(const uint8_t key, entry_ptr child) noexcept
     while (idx < m_num_children && m_keys[idx] < key)
         ++idx;
 
-    // Make space for new child. Keep sorted order.
-    //
     for (size_t i = m_num_children; i > idx; --i) {
         m_keys[i] = m_keys[i - 1];
         m_children[i] = m_children[i - 1];
@@ -535,7 +534,7 @@ void Node256::remove_child(const uint8_t key) noexcept
     case Node256_t:
         return static_cast<const Node256*>(this)->next_leaf();
     default:
-        return assert(!"Invalid case."), *Leaf::new_leaf(Key{nullptr, 0});
+        return assert(!"Invalid case."), *Leaf::new_leaf(Key{nullptr, 0}, nullptr);
     }
 }
 
@@ -566,7 +565,7 @@ void Node256::remove_child(const uint8_t key) noexcept
             return m_children[m_idxs[i]].next_leaf();
 
     assert(false);
-    return *Leaf::new_leaf(Key{nullptr, 0});
+    return *Leaf::new_leaf(Key{nullptr, 0}, nullptr);
 }
 
 [[nodiscard]] const Leaf& Node256::next_leaf() const noexcept
@@ -576,7 +575,7 @@ void Node256::remove_child(const uint8_t key) noexcept
             return m_children[i].next_leaf();
 
     assert(false);
-    return *Leaf::new_leaf(Key{nullptr, 0});
+    return *Leaf::new_leaf(Key{nullptr, 0}, nullptr);
 }
 
 // Returns common prefix len for key at current depth and a prefix in our header.
@@ -616,60 +615,61 @@ void Node256::remove_child(const uint8_t key) noexcept
 // key if it differs from an exitisting leaf.
 // TODO: Maybe implement substitution of the old entry.
 //
-void ART::insert_at_leaf(entry_ptr& entry, const Key& key, size_t depth) noexcept
+void ART::insert_at_leaf(entry_ptr& entry, const Key& key, void* value, size_t depth) noexcept
 {
     Leaf* leaf = entry.leaf_ptr();
     if (!leaf->match(key))
-        entry = new Node4{key, depth, leaf};
+        entry = new Node4{key, value, depth, leaf};
 }
 
 // Handles insertion when we reached innder node and key at provided depth did not match full node
 // prefix.
 //
-void ART::insert_at_node(entry_ptr& entry, const Key& key, size_t depth, size_t cp_len) noexcept
+void ART::insert_at_node(entry_ptr& entry, const Key& key, void* value, size_t depth,
+                         size_t cp_len) noexcept
 {
     Node* node = entry.node_ptr();
     assert(cp_len != node->m_prefix_len);
 
-    entry = new Node4{key, depth, node, cp_len};
+    entry = new Node4{key, value, depth, node, cp_len};
 }
 
 // Insert new key into the tree.
 //
-void ART::insert(const Key& key) noexcept
+void ART::insert(const Key& key, void* value) noexcept
 {
     if (m_root)
-        return insert(m_root, key, 0);
+        return insert(m_root, key, value, 0);
 
-    m_root = Leaf::new_leaf(key);
+    m_root = Leaf::new_leaf(key, value);
 }
 
 // Inserts new key into the tree.
 //
-void ART::insert(entry_ptr& entry, const Key& key, size_t depth) noexcept
+void ART::insert(entry_ptr& entry, const Key& key, void* value, size_t depth) noexcept
 {
     assert(entry);
 
     if (entry.leaf())
-        return insert_at_leaf(entry, key, depth);
+        return insert_at_leaf(entry, key, value, depth);
 
     Node* node = entry.node_ptr();
     size_t cp_len = node->common_prefix(key, depth);
 
     if (cp_len != node->m_prefix_len)
-        return insert_at_node(entry, key, depth, cp_len);
+        return insert_at_node(entry, key, value, depth, cp_len);
 
     assert(cp_len == node->m_prefix_len);
     depth += node->m_prefix_len;
 
     entry_ptr* next = node->find_child(key[depth]);
     if (next)
-        return insert(*next, key, depth + 1);
+        return insert(*next, key, value, depth + 1);
 
     if (node->full())
         entry = node = node->grow();
 
-    node->add_child(key[depth], Leaf::new_leaf(key));
+    node->add_child(key[depth], Leaf::new_leaf(key, value));
 }
 
 void ART::erase(const Key& key) noexcept
