@@ -11,6 +11,7 @@
 #include <bit>
 #include <cassert>
 #include <cstddef>
+#include <memory>
 #include <string>
 
 // NOLINTBEGIN
@@ -105,6 +106,7 @@ inline void* set_tag(void* ptr, uintptr_t tag) noexcept
 }
 
 // Wrapper class that holds either pointer to node or pointer to leaf.
+// It behaves like a smart pointer.
 //
 class entry_ptr {
 private:
@@ -113,64 +115,70 @@ private:
     static_assert(leaf_tag <= tag_bits);
 
 public:
-    entry_ptr() noexcept : m_ptr{nullptr} {}
+    constexpr entry_ptr() noexcept : m_ptr{nullptr} {}
 
-    entry_ptr(Node* node) noexcept : m_ptr{node} {}
+    constexpr entry_ptr(nullptr_t) noexcept : entry_ptr(){};
 
-    entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
+    constexpr entry_ptr(Node* node) noexcept : m_ptr{node} {}
 
-    // Copy, move, delete.
-    //
-    entry_ptr(const entry_ptr& other) noexcept : m_ptr{other.m_ptr} {}
+    constexpr entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
 
-    entry_ptr& operator=(const entry_ptr& other) noexcept
+    constexpr entry_ptr& operator=(nullptr_t) noexcept
     {
-        m_ptr = other.m_ptr;
+        reset();
         return *this;
-    };
-
-    entry_ptr(entry_ptr&& other) noexcept : m_ptr{other.m_ptr}
-    {
-        // Not smart for now.
-        // other.m_ptr = nullptr;
     }
 
-    entry_ptr& operator=(entry_ptr&& other) noexcept
+    constexpr entry_ptr(const entry_ptr& other) noexcept = delete;
+    constexpr entry_ptr& operator=(const entry_ptr& other) noexcept = delete;
+
+    constexpr entry_ptr(entry_ptr&& other) noexcept : m_ptr{other.release()} {}
+
+    constexpr entry_ptr& operator=(entry_ptr&& other) noexcept
     {
-        m_ptr = other.m_ptr;
-
-        // Not smart for now.
-        // other.m_ptr = nullptr;
-
+        reset(other.release());
         return *this;
     };
 
-    // Not smart for now.
-    // ~entry_ptr() noexcept;
+    constexpr ~entry_ptr() noexcept { destroy(); }
 
-    operator void*() const noexcept { return clear_tag(m_ptr); }
+    constexpr operator bool() const noexcept { return m_ptr != nullptr; }
 
-    operator bool() const noexcept { return static_cast<bool>(clear_tag(m_ptr)); }
+    // Releases ownership without destruction, sets pointer to nullptr and returns tagged pointer.
+    //
+    constexpr void* release() noexcept { return std::exchange(m_ptr, nullptr); }
 
-    [[nodiscard]] bool leaf() const noexcept { return tag(m_ptr) == leaf_tag; }
+    // Destroys object and sets pointer to nullptr.
+    //
+    constexpr void reset(void* new_ptr = nullptr) noexcept
+    {
+        destroy();
+        m_ptr = new_ptr;
+    }
 
-    [[nodiscard]] bool node() const noexcept { return tag(m_ptr) == node_tag; }
+    constexpr void swap(entry_ptr& other) noexcept { std::swap(m_ptr, other.m_ptr); }
 
-    [[nodiscard]] Node* node_ptr() const noexcept
+    [[nodiscard]] constexpr bool leaf() const noexcept { return tag(m_ptr) == leaf_tag; }
+
+    [[nodiscard]] constexpr bool node() const noexcept { return tag(m_ptr) == node_tag; }
+
+    [[nodiscard]] constexpr Node* node_ptr() const noexcept
     {
         assert(node());
         return static_cast<Node*>(m_ptr);
     }
 
-    [[nodiscard]] Leaf* leaf_ptr() const noexcept
+    [[nodiscard]] constexpr Leaf* leaf_ptr() const noexcept
     {
         assert(leaf());
         return static_cast<Leaf*>(clear_tag(m_ptr));
     }
 
-    [[nodiscard]] inline const Leaf& next_leaf() const noexcept;
+    [[nodiscard]] constexpr inline const Leaf& next_leaf() const noexcept;
 
 private:
+    constexpr void destroy() const noexcept;
+
     void* m_ptr;
 };
 
@@ -296,8 +304,8 @@ static inline uint32_t hdrlen(Type len)
 //
 class Node4 final : public Node {
 public:
-    Node4(const Key& key, void* value, size_t depth, Leaf* leaf);
-    Node4(const Key& key, void* value, size_t depth, Node* node, size_t cp_len);
+    Node4(const Key& key, void* value, size_t depth, entry_ptr leaf);
+    Node4(const Key& key, void* value, size_t depth, entry_ptr node, size_t cp_len);
 
     Node4(Node16& old_node) noexcept;
 
@@ -396,7 +404,7 @@ public:
 //
 class Node256 final : public Node {
 public:
-    Node256(const Node48& old_node) noexcept;
+    Node256(Node48& old_node) noexcept;
 
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node48* shrink() noexcept;
@@ -461,6 +469,37 @@ public:
     size_t m_key_len;
     uint8_t m_key[];
 };
+
+constexpr void entry_ptr::destroy() const noexcept
+{
+    if (!m_ptr)
+        return;
+
+    if (leaf()) {
+        delete leaf_ptr();
+        return;
+    }
+
+    Node* n = node_ptr();
+    switch (n->m_type) {
+    case Node4_t:
+        delete (Node4*)n;
+        return;
+    case Node16_t:
+        delete (Node16*)n;
+        return;
+    case Node48_t:
+        delete (Node48*)n;
+        return;
+    case Node256_t:
+        delete (Node256*)n;
+        return;
+    default:
+        assert(!"Invalid case.");
+        delete n;
+        return;
+    }
+}
 
 class ART final {
 public:
