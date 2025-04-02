@@ -85,6 +85,29 @@ TEST(art_tests, sanity_test)
     test_erase(art, {""}, {}, {"", "a", "aa", "b"});
 }
 
+TEST(art_tests, sanity_test_2)
+{
+    ART art;
+
+    std::vector<std::string> v1{"str1"};
+    std::vector<std::string> v2{"str2"};
+    std::vector<std::string> v3{"str3"};
+    std::vector<std::string> v4{"str4"};
+    std::vector<std::string> v5{"str5"};
+
+    art.insert("my_vector1", &v1);
+    art.insert("my_vector2", &v2);
+    art.insert("my_vector3", &v3);
+    art.insert("my_vector4", &v4);
+    art.insert("my_vector5", &v5);
+
+    ASSERT_TRUE(art.search("my_vector1")->m_value == &v1);
+    ASSERT_TRUE(art.search("my_vector2")->m_value == &v2);
+    ASSERT_TRUE(art.search("my_vector3")->m_value == &v3);
+    ASSERT_TRUE(art.search("my_vector4")->m_value == &v4);
+    ASSERT_TRUE(art.search("my_vector5")->m_value == &v5);
+}
+
 TEST(art_tests, multiple_items)
 {
     ART art;
