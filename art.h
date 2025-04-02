@@ -105,7 +105,7 @@ inline void* set_tag(void* ptr, uintptr_t tag) noexcept
     return std::bit_cast<void*>(raw(clear_tag(ptr)) | (tag & tag_bits));
 }
 
-// Wrapper class that holds either pointer to node or pointer to leaf.
+// Wrapper class that holds either pointer to a node or pointer to a leaf.
 // It behaves like a smart pointer.
 //
 class entry_ptr {
@@ -144,11 +144,29 @@ public:
 
     constexpr operator bool() const noexcept { return m_ptr != nullptr; }
 
-    // Releases ownership without destruction, sets pointer to nullptr and returns tagged pointer.
+    // Releases leaf ownership without destruction (sets pointer to nullptr and returns it's
+    // previous value without tag bits).
     //
-    constexpr void* release() noexcept { return std::exchange(m_ptr, nullptr); }
+    constexpr Leaf* release_leaf() noexcept
+    {
+        Leaf* leaf = leaf_ptr();
+        m_ptr = nullptr;
 
-    // Destroys object and sets pointer to nullptr.
+        return leaf;
+    }
+
+    // Releases node ownership without destruction (sets pointer to nullptr and returns it's
+    // previous value without tag bits).
+    //
+    constexpr Node* release_node() noexcept
+    {
+        Node* node = node_ptr();
+        m_ptr = nullptr;
+
+        return node;
+    }
+
+    // Deletes owned object and sets pointer to new_ptr.
     //
     constexpr void reset(void* new_ptr = nullptr) noexcept
     {
@@ -177,6 +195,11 @@ public:
     [[nodiscard]] constexpr inline const Leaf& next_leaf() const noexcept;
 
 private:
+    // Releases ownership without destruction (sets pointer to nullptr and returns it's previous
+    // value without removing tag bits).
+    //
+    constexpr void* release() noexcept { return std::exchange(m_ptr, nullptr); }
+
     constexpr void destroy() const noexcept;
 
     void* m_ptr;
@@ -403,6 +426,8 @@ public:
     uint8_t m_key[];
 };
 
+// Calls delete on leaf or node pointer based on pointer tag.
+//
 constexpr void entry_ptr::destroy() const noexcept
 {
     if (!m_ptr)

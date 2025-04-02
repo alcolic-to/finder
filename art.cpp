@@ -289,7 +289,7 @@ void Node48::add_child(const uint8_t key, entry_ptr child) noexcept
 
 void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
 {
-    assert(m_children[key] == nullptr);
+    assert(!m_children[key]);
 
     m_children[key] = std::move(child);
     ++m_num_children;
@@ -500,7 +500,7 @@ void Node256::remove_child(const uint8_t key) noexcept
 //
 [[nodiscard]] constexpr inline const Leaf& entry_ptr::next_leaf() const noexcept
 {
-    assert(*this != nullptr);
+    assert(*this);
     return leaf() ? *leaf_ptr() : node_ptr()->next_leaf();
 }
 
