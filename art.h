@@ -182,71 +182,6 @@ private:
     void* m_ptr;
 };
 
-// constexpr uint32_t node_t_bits = 0b11100000'00000000'00000000'00000000; // >> 29
-// constexpr uint32_t node_t_bits_offset = std::countr_zero(node_t_bits);
-
-// constexpr uint32_t num_children_bits = 0b00000000'00000000'00000000'11111111;
-// constexpr uint32_t num_children_bits_offset = std::countr_zero(num_children_bits);
-
-// constexpr uint32_t prefix_len_bits = 0b00000000'00000000'11111111'00000000;
-// constexpr uint32_t prefix_len_bits_offset = std::countr_zero(prefix_len_bits);
-
-// constexpr uint32_t key_len_bits = 0b00011111'11111111'11111111'11111111;
-// constexpr uint32_t key_len_bits_offset = std::countr_zero(key_len_bits);
-
-// // clang-format on
-
-// // 4 bytes for header!!!
-// //
-
-// // Node header.
-// // Contains different info based on node type (inner node or a leaf).
-// // For inner node, we are storring node type, number of children and prefix len.
-// // For leaf node, we are storring node type and key len.
-// //
-// struct Node_header {
-//     uint32_t m_bytes;
-// };
-
-// struct nh {
-//     uint8_t m_flags;
-//     uint8_t num_childs;
-//     uint8_t m_prefix[14]; // -> 14 bytes for prefix.
-// };
-
-// struct lh {
-//     void* data;
-//     uint32_t key_len;
-//     uint8_t key[];
-// };
-
-// // Node header. First 3 bits in flags represents node
-// // type and the 3rd bit represents whether we have compresses path or not.
-// //
-// struct Node_header {
-//     Node_header() = default;
-
-//     Node_header(Node_t type, bool comp = false)
-//         : m_flags{uint8_t(type | (comp * Bits::compression))}
-//     {
-//     }
-
-//     Node_t type() { return Node_type(m_flags & Bits::type); }
-
-//     void set_type(Node_t type) { m_flags = type | (m_flags & ~Bits::type); }
-
-//     bool compressed() { return bool(m_flags & Bits::compression); }
-
-//     void set_compression(bool comp)
-//     {
-//         m_flags = (comp * Bits::compression) | (m_flags & ~Bits::compression);
-//     }
-
-//     bool leaf() { return m_flags & Bits::leaf; }
-
-//     uint8_t m_flags = 0;
-// };
-
 // Common node (header) used in all nodes. It holds prefix length, node type, number of children
 // and a prefix. Prefix and prefix length are common for all nodes in a subtree. Prefix length
 // can be greater than max_prefix_len, because we can only store 10 bytes in a prefix array.
@@ -461,8 +396,6 @@ public:
     }
 
     std::string key_to_string() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
-
-    // Key key_to_key() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
 
 public:
     void* m_value = nullptr;

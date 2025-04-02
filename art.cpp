@@ -106,8 +106,6 @@ Node4::Node4(Node16& old_node) noexcept : Node{old_node, Node4_t}
 
     for (uint16_t i = 0; i < old_node.m_num_children; ++i)
         m_children[i] = std::move(old_node.m_children[i]);
-
-    // std::memcpy(m_children, old_node.m_children, old_node.m_num_children * sizeof(entry_ptr));
 }
 
 Node16::Node16(Node4& old_node) noexcept : Node{old_node, Node16_t}
@@ -116,9 +114,6 @@ Node16::Node16(Node4& old_node) noexcept : Node{old_node, Node16_t}
 
     for (uint16_t i = 0; i < old_node.m_num_children; ++i)
         m_children[i] = std::move(old_node.m_children[i]);
-
-    // std::memcpy(m_keys, old_node.m_keys, 4);
-    // std::memcpy(m_children, old_node.m_children, 4 * sizeof(entry_ptr));
 }
 
 Node16::Node16(Node48& old_node) noexcept : Node{old_node, Node16_t}
