@@ -15,10 +15,10 @@ void assert_failed_search(ART& art, const std::string& s)
     ASSERT_TRUE(leaf == nullptr);
 }
 
-void assert_search(ART& art, const std::string& s)
+void assert_search(ART& art, const std::string& s, void* value = nullptr)
 {
     Leaf* leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string());
+    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string() && leaf->m_value == value);
 }
 
 void assert_search(ART& art, const uint8_t* data, size_t size)
@@ -106,6 +106,50 @@ TEST(art_tests, sanity_test_2)
     ASSERT_TRUE(art.search("my_vector3")->m_value == &v3);
     ASSERT_TRUE(art.search("my_vector4")->m_value == &v4);
     ASSERT_TRUE(art.search("my_vector5")->m_value == &v5);
+}
+
+TEST(art_tests, int_ranges)
+{
+    ART art;
+
+    constexpr int32_t capacity = 100000;
+    constexpr int32_t inv = -1;
+    std::vector<int> v;
+    v.reserve(capacity);
+
+    for (int32_t i = 0; i < capacity; ++i) {
+        v.push_back(i);
+        art.insert(std::to_string(i), &v[i]);
+
+        assert_search(art, std::to_string(i), &v[i]);
+    }
+
+    for (int32_t i = 0; i < capacity; ++i)
+        assert_search(art, std::to_string(i), &v[i]);
+
+    auto erase_range = [&](int32_t start, int32_t end) {
+        for (int32_t i = start; i < end; ++i) {
+            art.erase(std::to_string(i));
+            v[i] = inv;
+        }
+    };
+
+    auto search_all = [&]() {
+        for (int32_t i = 0; i < capacity; ++i)
+            if (v[i] != inv)
+                assert_search(art, std::to_string(i), &v[i]);
+            else
+                assert_failed_search(art, std::to_string(i));
+    };
+
+    erase_range(0, 500);
+    search_all();
+
+    erase_range(capacity - 500, capacity);
+    search_all();
+
+    erase_range(2500, 3000);
+    search_all();
 }
 
 TEST(art_tests, multiple_items)
