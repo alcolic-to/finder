@@ -11,6 +11,7 @@
 #include <bit>
 #include <cassert>
 #include <cstddef>
+#include <memory>
 #include <string>
 
 // NOLINTBEGIN
@@ -104,7 +105,8 @@ inline void* set_tag(void* ptr, uintptr_t tag) noexcept
     return std::bit_cast<void*>(raw(clear_tag(ptr)) | (tag & tag_bits));
 }
 
-// Wrapper class that holds either pointer to node or pointer to leaf.
+// Wrapper class that holds either pointer to a node or pointer to a leaf.
+// It behaves like a smart pointer.
 //
 class entry_ptr {
 private:
@@ -113,131 +115,95 @@ private:
     static_assert(leaf_tag <= tag_bits);
 
 public:
-    entry_ptr() noexcept : m_ptr{nullptr} {}
+    constexpr entry_ptr() noexcept : m_ptr{nullptr} {}
 
-    entry_ptr(Node* node) noexcept : m_ptr{node} {}
+    constexpr entry_ptr(nullptr_t) noexcept : entry_ptr(){};
 
-    entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
+    constexpr entry_ptr(Node* node) noexcept : m_ptr{node} {}
 
-    // Copy, move, delete.
-    //
-    entry_ptr(const entry_ptr& other) noexcept : m_ptr{other.m_ptr} {}
+    constexpr entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
 
-    entry_ptr& operator=(const entry_ptr& other) noexcept
+    constexpr entry_ptr& operator=(nullptr_t) noexcept
     {
-        m_ptr = other.m_ptr;
+        reset();
         return *this;
-    };
-
-    entry_ptr(entry_ptr&& other) noexcept : m_ptr{other.m_ptr}
-    {
-        // Not smart for now.
-        // other.m_ptr = nullptr;
     }
 
-    entry_ptr& operator=(entry_ptr&& other) noexcept
+    constexpr entry_ptr(const entry_ptr& other) noexcept = delete;
+    constexpr entry_ptr& operator=(const entry_ptr& other) noexcept = delete;
+
+    constexpr entry_ptr(entry_ptr&& other) noexcept : m_ptr{other.release()} {}
+
+    constexpr entry_ptr& operator=(entry_ptr&& other) noexcept
     {
-        m_ptr = other.m_ptr;
-
-        // Not smart for now.
-        // other.m_ptr = nullptr;
-
+        reset(other.release());
         return *this;
     };
 
-    // Not smart for now.
-    // ~entry_ptr() noexcept;
+    constexpr ~entry_ptr() noexcept { destroy(); }
 
-    operator void*() const noexcept { return clear_tag(m_ptr); }
+    constexpr operator bool() const noexcept { return m_ptr != nullptr; }
 
-    operator bool() const noexcept { return static_cast<bool>(clear_tag(m_ptr)); }
+    // Releases leaf ownership without destruction (sets pointer to nullptr and returns it's
+    // previous value without tag bits).
+    //
+    constexpr Leaf* release_leaf() noexcept
+    {
+        Leaf* leaf = leaf_ptr();
+        m_ptr = nullptr;
 
-    [[nodiscard]] bool leaf() const noexcept { return tag(m_ptr) == leaf_tag; }
+        return leaf;
+    }
 
-    [[nodiscard]] bool node() const noexcept { return tag(m_ptr) == node_tag; }
+    // Releases node ownership without destruction (sets pointer to nullptr and returns it's
+    // previous value without tag bits).
+    //
+    constexpr Node* release_node() noexcept
+    {
+        Node* node = node_ptr();
+        m_ptr = nullptr;
 
-    [[nodiscard]] Node* node_ptr() const noexcept
+        return node;
+    }
+
+    // Deletes owned object and sets pointer to new_ptr.
+    //
+    constexpr void reset(void* new_ptr = nullptr) noexcept
+    {
+        destroy();
+        m_ptr = new_ptr;
+    }
+
+    constexpr void swap(entry_ptr& other) noexcept { std::swap(m_ptr, other.m_ptr); }
+
+    [[nodiscard]] constexpr bool leaf() const noexcept { return tag(m_ptr) == leaf_tag; }
+
+    [[nodiscard]] constexpr bool node() const noexcept { return tag(m_ptr) == node_tag; }
+
+    [[nodiscard]] constexpr Node* node_ptr() const noexcept
     {
         assert(node());
         return static_cast<Node*>(m_ptr);
     }
 
-    [[nodiscard]] Leaf* leaf_ptr() const noexcept
+    [[nodiscard]] constexpr Leaf* leaf_ptr() const noexcept
     {
         assert(leaf());
         return static_cast<Leaf*>(clear_tag(m_ptr));
     }
 
-    [[nodiscard]] inline const Leaf& next_leaf() const noexcept;
+    [[nodiscard]] constexpr inline const Leaf& next_leaf() const noexcept;
 
 private:
+    // Releases ownership without destruction (sets pointer to nullptr and returns it's previous
+    // value without removing tag bits).
+    //
+    constexpr void* release() noexcept { return std::exchange(m_ptr, nullptr); }
+
+    constexpr void destroy() const noexcept;
+
     void* m_ptr;
 };
-
-// constexpr uint32_t node_t_bits = 0b11100000'00000000'00000000'00000000; // >> 29
-// constexpr uint32_t node_t_bits_offset = std::countr_zero(node_t_bits);
-
-// constexpr uint32_t num_children_bits = 0b00000000'00000000'00000000'11111111;
-// constexpr uint32_t num_children_bits_offset = std::countr_zero(num_children_bits);
-
-// constexpr uint32_t prefix_len_bits = 0b00000000'00000000'11111111'00000000;
-// constexpr uint32_t prefix_len_bits_offset = std::countr_zero(prefix_len_bits);
-
-// constexpr uint32_t key_len_bits = 0b00011111'11111111'11111111'11111111;
-// constexpr uint32_t key_len_bits_offset = std::countr_zero(key_len_bits);
-
-// // clang-format on
-
-// // 4 bytes for header!!!
-// //
-
-// // Node header.
-// // Contains different info based on node type (inner node or a leaf).
-// // For inner node, we are storring node type, number of children and prefix len.
-// // For leaf node, we are storring node type and key len.
-// //
-// struct Node_header {
-//     uint32_t m_bytes;
-// };
-
-// struct nh {
-//     uint8_t m_flags;
-//     uint8_t num_childs;
-//     uint8_t m_prefix[14]; // -> 14 bytes for prefix.
-// };
-
-// struct lh {
-//     void* data;
-//     uint32_t key_len;
-//     uint8_t key[];
-// };
-
-// // Node header. First 3 bits in flags represents node
-// // type and the 3rd bit represents whether we have compresses path or not.
-// //
-// struct Node_header {
-//     Node_header() = default;
-
-//     Node_header(Node_t type, bool comp = false)
-//         : m_flags{uint8_t(type | (comp * Bits::compression))}
-//     {
-//     }
-
-//     Node_t type() { return Node_type(m_flags & Bits::type); }
-
-//     void set_type(Node_t type) { m_flags = type | (m_flags & ~Bits::type); }
-
-//     bool compressed() { return bool(m_flags & Bits::compression); }
-
-//     void set_compression(bool comp)
-//     {
-//         m_flags = (comp * Bits::compression) | (m_flags & ~Bits::compression);
-//     }
-
-//     bool leaf() { return m_flags & Bits::leaf; }
-
-//     uint8_t m_flags = 0;
-// };
 
 // Common node (header) used in all nodes. It holds prefix length, node type, number of children
 // and a prefix. Prefix and prefix length are common for all nodes in a subtree. Prefix length
@@ -296,8 +262,8 @@ static inline uint32_t hdrlen(Type len)
 //
 class Node4 final : public Node {
 public:
-    Node4(const Key& key, void* value, size_t depth, Leaf* leaf);
-    Node4(const Key& key, void* value, size_t depth, Node* node, size_t cp_len);
+    Node4(const Key& key, void* value, size_t depth, entry_ptr leaf);
+    Node4(const Key& key, void* value, size_t depth, entry_ptr node, size_t cp_len);
 
     Node4(Node16& old_node) noexcept;
 
@@ -396,7 +362,7 @@ public:
 //
 class Node256 final : public Node {
 public:
-    Node256(const Node48& old_node) noexcept;
+    Node256(Node48& old_node) noexcept;
 
     [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept;
     [[nodiscard]] Node48* shrink() noexcept;
@@ -454,13 +420,44 @@ public:
 
     std::string key_to_string() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
 
-    // Key key_to_key() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
-
 public:
     void* m_value = nullptr;
     size_t m_key_len;
     uint8_t m_key[];
 };
+
+// Calls delete on leaf or node pointer based on pointer tag.
+//
+constexpr void entry_ptr::destroy() const noexcept
+{
+    if (!m_ptr)
+        return;
+
+    if (leaf()) {
+        delete leaf_ptr();
+        return;
+    }
+
+    Node* n = node_ptr();
+    switch (n->m_type) {
+    case Node4_t:
+        delete (Node4*)n;
+        return;
+    case Node16_t:
+        delete (Node16*)n;
+        return;
+    case Node48_t:
+        delete (Node48*)n;
+        return;
+    case Node256_t:
+        delete (Node256*)n;
+        return;
+    default:
+        assert(!"Invalid case.");
+        delete n;
+        return;
+    }
+}
 
 class ART final {
 public:
