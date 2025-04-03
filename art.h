@@ -142,7 +142,7 @@ public:
 
     [[nodiscard]] constexpr const Leaf& next_leaf() const noexcept;
 
-    constexpr void reset() noexcept;
+    constexpr void reset(entry_ptr other = nullptr) noexcept;
 
 private:
     void* m_ptr;
@@ -164,6 +164,15 @@ public:
     Node(const Node& other, uint8_t new_type);
 
     Node(uint8_t type) noexcept : m_type{type} {}
+
+    constexpr Node4* node4();
+    constexpr const Node4* node4() const;
+    constexpr Node16* node16();
+    constexpr const Node16* node16() const;
+    constexpr Node48* node48();
+    constexpr const Node48* node48() const;
+    constexpr Node256* node256();
+    constexpr const Node256* node256() const;
 
     void add_child(const uint8_t key, entry_ptr child) noexcept;
     void remove_child(const uint8_t key) noexcept;
@@ -371,31 +380,46 @@ public:
     uint8_t m_key[];
 };
 
-// Frees memory based on pointer type and sets pointer to nullptr.
+// Frees memory based on pointer type and sets pointer to other (nullptr by default).
 //
-constexpr void entry_ptr::reset() noexcept
+constexpr void entry_ptr::reset(entry_ptr other) noexcept
 {
-    if (!*this)
-        return;
-
-    if (node()) {
-        Node* n = node_ptr();
-        switch (n->m_type) { // clang-format off
-        case Node4_t:   delete (Node4*)  n; break;
-        case Node16_t:  delete (Node16*) n; break;
-        case Node48_t:  delete (Node48*) n; break;
-        case Node256_t: delete (Node256*)n; break;
-        default: assert(!"Invalid case.");  break;
-        } // clang-format on
+    if (*this) {
+        if (node()) {
+            Node* n = node_ptr();
+            switch (n->m_type) { // clang-format off
+            case Node4_t:   delete n->node4();   break;
+            case Node16_t:  delete n->node16();  break;
+            case Node48_t:  delete n->node48();  break;
+            case Node256_t: delete n->node256(); break;
+            default: assert(!"Invalid case.");   break;
+            } // clang-format on
+        }
+        else {
+            delete leaf_ptr();
+        }
     }
-    else
-        delete leaf_ptr();
 
-    m_ptr = nullptr;
+    *this = other;
 }
+
+// Node pointer casts which simplifies node usage.
+// clang-format off
+constexpr       Node4*   Node::node4()         { assert(m_type == Node4_t);   return static_cast<      Node4*>  (this); }
+constexpr const Node4*   Node::node4()   const { assert(m_type == Node4_t);   return static_cast<const Node4*>  (this); }
+constexpr       Node16*  Node::node16()        { assert(m_type == Node16_t);  return static_cast<      Node16*> (this); }
+constexpr const Node16*  Node::node16()  const { assert(m_type == Node16_t);  return static_cast<const Node16*> (this); }
+constexpr       Node48*  Node::node48()        { assert(m_type == Node48_t);  return static_cast<      Node48*> (this); }
+constexpr const Node48*  Node::node48()  const { assert(m_type == Node48_t);  return static_cast<const Node48*> (this); }
+constexpr       Node256* Node::node256()       { assert(m_type == Node256_t); return static_cast<      Node256*>(this); }
+constexpr const Node256* Node::node256() const { assert(m_type == Node256_t); return static_cast<const Node256*>(this); }
+
+// clang-format on
 
 class ART final {
 public:
+    ~ART() noexcept;
+
     void insert(const std::string& s, void* value = nullptr) noexcept
     {
         const Key key{(const uint8_t* const)s.data(), s.size()};
@@ -455,6 +479,8 @@ private:
 
     template<bool include_keys>
     size_t physical_size(const entry_ptr& entry) const noexcept;
+
+    void destroy_all(entry_ptr& entry);
 
     entry_ptr m_root;
 };

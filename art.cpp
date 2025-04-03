@@ -92,7 +92,6 @@ Node4::Node4(const Key& key, void* value, size_t depth, Node* node, size_t cp_le
         child_node->m_prefix_len += m_prefix_len + 1;
     }
 
-    delete this;
     return child_entry;
 }
 
@@ -160,13 +159,13 @@ Node256::Node256(const Node48& old_node) noexcept : Node{old_node, Node256_t}
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<Node4*>(this)->find_child(key);
+        return node4()->find_child(key);
     case Node16_t:
-        return static_cast<Node16*>(this)->find_child(key);
+        return node16()->find_child(key);
     case Node48_t:
-        return static_cast<Node48*>(this)->find_child(key);
+        return node48()->find_child(key);
     case Node256_t:
-        return static_cast<Node256*>(this)->find_child(key);
+        return node256()->find_child(key);
     default:
         return assert(!"Invalid case."), nullptr;
     }
@@ -204,13 +203,13 @@ void Node::add_child(const uint8_t key, entry_ptr child) noexcept
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<Node4*>(this)->add_child(key, child);
+        return node4()->add_child(key, child);
     case Node16_t:
-        return static_cast<Node16*>(this)->add_child(key, child);
+        return node16()->add_child(key, child);
     case Node48_t:
-        return static_cast<Node48*>(this)->add_child(key, child);
+        return node48()->add_child(key, child);
     case Node256_t:
-        return static_cast<Node256*>(this)->add_child(key, child);
+        return node256()->add_child(key, child);
     default:
         return assert(!"Invalid case.");
     }
@@ -289,13 +288,13 @@ void Node::remove_child(const uint8_t key) noexcept
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<Node4*>(this)->remove_child(key);
+        return node4()->remove_child(key);
     case Node16_t:
-        return static_cast<Node16*>(this)->remove_child(key);
+        return node16()->remove_child(key);
     case Node48_t:
-        return static_cast<Node48*>(this)->remove_child(key);
+        return node48()->remove_child(key);
     case Node256_t:
-        return static_cast<Node256*>(this)->remove_child(key);
+        return node256()->remove_child(key);
     default:
         return assert(!"Invalid case.");
     }
@@ -364,13 +363,13 @@ void Node256::remove_child(const uint8_t key) noexcept
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<const Node4*>(this)->full();
+        return node4()->full();
     case Node16_t:
-        return static_cast<const Node16*>(this)->full();
+        return node16()->full();
     case Node48_t:
-        return static_cast<const Node48*>(this)->full();
+        return node48()->full();
     case Node256_t:
-        return static_cast<const Node256*>(this)->full();
+        return node256()->full();
     default:
         return assert(!"Invalid case."), false;
     }
@@ -380,13 +379,13 @@ void Node256::remove_child(const uint8_t key) noexcept
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<const Node4*>(this)->should_shrink();
+        return node4()->should_shrink();
     case Node16_t:
-        return static_cast<const Node16*>(this)->should_shrink();
+        return node16()->should_shrink();
     case Node48_t:
-        return static_cast<const Node48*>(this)->should_shrink();
+        return node48()->should_shrink();
     case Node256_t:
-        return static_cast<const Node256*>(this)->should_shrink();
+        return node256()->should_shrink();
     default:
         return assert(!"Invalid case."), false;
     }
@@ -401,11 +400,11 @@ void Node256::remove_child(const uint8_t key) noexcept
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<Node4*>(this)->grow();
+        return node4()->grow();
     case Node16_t:
-        return static_cast<Node16*>(this)->grow();
+        return node16()->grow();
     case Node48_t:
-        return static_cast<Node48*>(this)->grow();
+        return node48()->grow();
     default:
         return assert(!"Invalid case."), this;
     }
@@ -413,37 +412,28 @@ void Node256::remove_child(const uint8_t key) noexcept
 
 [[nodiscard]] Node16* Node4::grow() noexcept
 {
-    Node16* new_node = new Node16{*this};
-
-    delete this;
-    return new_node;
+    return new Node16{*this};
 }
 
 [[nodiscard]] Node48* Node16::grow() noexcept
 {
-    Node48* new_node = new Node48{*this};
-
-    delete this;
-    return new_node;
+    return new Node48{*this};
 }
 
 [[nodiscard]] Node256* Node48::grow() noexcept
 {
-    Node256* new_node = new Node256{*this};
-
-    delete this;
-    return new_node;
+    return new Node256{*this};
 }
 
 [[nodiscard]] Node* Node::shrink() noexcept
 {
     switch (m_type) {
     case Node16_t:
-        return static_cast<Node16*>(this)->shrink();
+        return node16()->shrink();
     case Node48_t:
-        return static_cast<Node48*>(this)->shrink();
+        return node48()->shrink();
     case Node256_t:
-        return static_cast<Node256*>(this)->shrink();
+        return node256()->shrink();
     default:
         return assert(!"Invalid case."), this;
     }
@@ -451,33 +441,24 @@ void Node256::remove_child(const uint8_t key) noexcept
 
 [[nodiscard]] Node4* Node16::shrink() noexcept
 {
-    Node4* new_node = new Node4{*this};
-
-    delete this;
-    return new_node;
+    return new Node4{*this};
 }
 
 [[nodiscard]] Node16* Node48::shrink() noexcept
 {
-    Node16* new_node = new Node16{*this};
-
-    delete this;
-    return new_node;
+    return new Node16{*this};
 }
 
 [[nodiscard]] Node48* Node256::shrink() noexcept
 {
-    Node48* new_node = new Node48{*this};
-
-    delete this;
-    return new_node;
+    return new Node48{*this};
 }
 
 [[nodiscard]] entry_ptr Node::collapse() noexcept
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<Node4*>(this)->collapse();
+        return node4()->collapse();
     default:
         return assert(!"Invalid case."), this;
     }
@@ -487,13 +468,13 @@ void Node256::remove_child(const uint8_t key) noexcept
 {
     switch (m_type) {
     case Node4_t:
-        return static_cast<const Node4*>(this)->next_leaf();
+        return node4()->next_leaf();
     case Node16_t:
-        return static_cast<const Node16*>(this)->next_leaf();
+        return node16()->next_leaf();
     case Node48_t:
-        return static_cast<const Node48*>(this)->next_leaf();
+        return node48()->next_leaf();
     case Node256_t:
-        return static_cast<const Node256*>(this)->next_leaf();
+        return node256()->next_leaf();
     default:
         return assert(!"Invalid case."), *Leaf::new_leaf(Key{nullptr, 0}, nullptr);
     }
@@ -572,6 +553,11 @@ void Node256::remove_child(const uint8_t key) noexcept
     return cp_len;
 }
 
+ART::~ART() noexcept
+{
+    destroy_all(m_root);
+}
+
 // Handles insertion when we reached leaf node. With current implementation, we will only insert new
 // key if it differs from an exitisting leaf.
 // TODO: Maybe implement substitution of the old entry.
@@ -628,7 +614,7 @@ void ART::insert(entry_ptr& entry, const Key& key, void* value, size_t depth) no
         return insert(*next, key, value, depth + 1);
 
     if (node->full())
-        entry = node = node->grow();
+        entry.reset(node = node->grow());
 
     node->add_child(key[depth], Leaf::new_leaf(key, value));
 }
@@ -661,10 +647,10 @@ void ART::erase_leaf(entry_ptr& entry, Leaf* leaf, const Key& key, size_t depth)
     node->remove_child(key[depth]);
 
     if (node->should_shrink())
-        entry = node = node->shrink();
+        entry.reset(node = node->shrink());
 
     if (node->should_collapse())
-        entry = node->collapse();
+        entry.reset(node->collapse());
 }
 
 // Delete: The implementation of deletion is symmetrical to
@@ -753,25 +739,25 @@ size_t ART::physical_size(const entry_ptr& entry) const noexcept
     case Node4_t: {
         size += sizeof(Node4);
         for (size_t i = 0; i < 4; ++i)
-            size += physical_size<include_keys>(static_cast<Node4*>(node)->m_children[i]);
+            size += physical_size<include_keys>(node->node4()->m_children[i]);
         break;
     }
     case Node16_t: {
         size += sizeof(Node16);
         for (size_t i = 0; i < 16; ++i)
-            size += physical_size<include_keys>(static_cast<Node16*>(node)->m_children[i]);
+            size += physical_size<include_keys>(node->node16()->m_children[i]);
         break;
     }
     case Node48_t: {
         size += sizeof(Node48);
         for (size_t i = 0; i < 48; ++i)
-            size += physical_size<include_keys>(static_cast<Node48*>(node)->m_children[i]);
+            size += physical_size<include_keys>(node->node48()->m_children[i]);
         break;
     }
     case Node256_t: {
         size += sizeof(Node256);
         for (size_t i = 0; i < 256; ++i)
-            size += physical_size<include_keys>(static_cast<Node256*>(node)->m_children[i]);
+            size += physical_size<include_keys>(node->node256()->m_children[i]);
         break;
     }
     default:
@@ -779,6 +765,34 @@ size_t ART::physical_size(const entry_ptr& entry) const noexcept
     }
 
     return size;
+}
+
+// Recursively visits all entries in a subtree and deletes them.
+//
+void ART::destroy_all(entry_ptr& entry)
+{
+    if (!entry)
+        return;
+
+    if (entry.node()) {
+        Node* node = entry.node_ptr();
+
+        entry_ptr* children = nullptr;
+        size_t children_len = 0;
+
+        switch (node->m_type) { // clang-format off
+        case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
+        case Node16_t:  children_len = 16,  children = node->node16()->m_children;  break;
+        case Node48_t:  children_len = 48,  children = node->node48()->m_children;  break;
+        case Node256_t: children_len = 256, children = node->node256()->m_children; break;
+        default: assert(false);                                                     break;
+        } // clang-format on
+
+        for (size_t i = 0; i < children_len; ++i)
+            destroy_all(children[i]);
+    }
+
+    entry.reset();
 }
 
 // NOLINTEND
