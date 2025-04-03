@@ -4,41 +4,6 @@
 
 // NOLINTBEGIN
 
-// Not smart for now.
-//
-// entry_ptr::~entry_ptr() noexcept
-// {
-//     if (*this == nullptr) // invoke operator void* on this.
-//         return;
-//
-//     if (node()) {
-//         Node* n = node_ptr();
-//
-//         switch (n->m_type) {
-//         case Node4_t:
-//             delete (Node4*)n;
-//             break;
-//         case Node16_t:
-//             delete (Node16*)n;
-//             break;
-//         case Node48_t:
-//             delete (Node48*)n;
-//             break;
-//         case Node256_t:
-//             delete (Node256*)n;
-//             break;
-//         default:
-//             assert(!"Invalid case.");
-//             delete n;
-//             break;
-//         }
-//     }
-//     else {
-//         assert(leaf());
-//         delete leaf_ptr();
-//     }
-// }
-
 // Construct new node from previous node by copying whole header except node type which is
 // provided as new_type.
 //
@@ -314,7 +279,7 @@ void Node48::add_child(const uint8_t key, entry_ptr child) noexcept
 
 void Node256::add_child(const uint8_t key, entry_ptr child) noexcept
 {
-    assert(m_children[key] == nullptr);
+    assert(!m_children[key]);
 
     m_children[key] = child;
     ++m_num_children;
@@ -343,7 +308,7 @@ void Node4::remove_child(const uint8_t key) noexcept
         ++idx;
 
     assert(idx < m_num_children);
-    delete m_children[idx].leaf_ptr();
+    m_children[idx].reset();
 
     for (; idx < m_num_children - 1; ++idx) {
         m_keys[idx] = m_keys[idx + 1];
@@ -351,7 +316,7 @@ void Node4::remove_child(const uint8_t key) noexcept
     }
 
     m_keys[idx] = 0;
-    m_children[idx] = entry_ptr{};
+    m_children[idx] = nullptr;
 
     --m_num_children;
 }
@@ -363,7 +328,7 @@ void Node16::remove_child(const uint8_t key) noexcept
         ++idx;
 
     assert(idx < m_num_children);
-    delete m_children[idx].leaf_ptr();
+    m_children[idx].reset();
 
     for (; idx < m_num_children - 1; ++idx) {
         m_keys[idx] = m_keys[idx + 1];
@@ -371,7 +336,7 @@ void Node16::remove_child(const uint8_t key) noexcept
     }
 
     m_keys[idx] = 0;
-    m_children[idx] = entry_ptr{};
+    m_children[idx] = nullptr;
 
     --m_num_children;
 }
@@ -383,9 +348,7 @@ void Node48::remove_child(const uint8_t key) noexcept
     size_t idx = m_idxs[key];
     m_idxs[key] = empty_slot;
 
-    delete m_children[idx].leaf_ptr();
-    m_children[idx] = entry_ptr{};
-
+    m_children[idx].reset();
     --m_num_children;
 }
 
@@ -393,9 +356,7 @@ void Node256::remove_child(const uint8_t key) noexcept
 {
     assert(m_children[key]);
 
-    delete m_children[key].leaf_ptr();
-    m_children[key] = entry_ptr{};
-
+    m_children[key].reset();
     --m_num_children;
 }
 
@@ -542,9 +503,9 @@ void Node256::remove_child(const uint8_t key) noexcept
 // calls next_leaf() on a node which will recurse down one level based on node type an call us
 // again.
 //
-[[nodiscard]] inline const Leaf& entry_ptr::next_leaf() const noexcept
+[[nodiscard]] constexpr const Leaf& entry_ptr::next_leaf() const noexcept
 {
-    assert(*this != nullptr);
+    assert(*this);
     return leaf() ? *leaf_ptr() : node_ptr()->next_leaf();
 }
 
@@ -684,8 +645,7 @@ void ART::erase(const Key& key) noexcept
     if (!leaf->match(key))
         return;
 
-    delete leaf;
-    m_root = entry_ptr{};
+    m_root.reset();
 }
 
 // Erases leaf node.

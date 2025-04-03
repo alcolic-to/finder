@@ -83,28 +83,29 @@ private:
 //
 static constexpr uintptr_t tag_bits = alignof(std::max_align_t) - 1;
 
-inline uintptr_t raw(void* ptr) noexcept
+constexpr uintptr_t raw(void* ptr) noexcept
 {
     return std::bit_cast<uintptr_t>(ptr);
 }
 
-inline uintptr_t tag(void* ptr) noexcept
+constexpr uintptr_t tag(void* ptr) noexcept
 {
     return raw(ptr) & tag_bits;
 }
 
-inline void* clear_tag(void* ptr) noexcept
+constexpr void* clear_tag(void* ptr) noexcept
 {
     return std::bit_cast<void*>(raw(ptr) & ~tag_bits);
 }
 
-inline void* set_tag(void* ptr, uintptr_t tag) noexcept
+constexpr void* set_tag(void* ptr, uintptr_t tag) noexcept
 {
     assert((tag & ~tag_bits) == 0);
     return std::bit_cast<void*>(raw(clear_tag(ptr)) | (tag & tag_bits));
 }
 
 // Wrapper class that holds either pointer to node or pointer to leaf.
+// It is not a smart pointer, hence user must manage memory manually.
 //
 class entry_ptr {
 private:
@@ -113,131 +114,39 @@ private:
     static_assert(leaf_tag <= tag_bits);
 
 public:
-    entry_ptr() noexcept : m_ptr{nullptr} {}
+    constexpr entry_ptr() noexcept : m_ptr{nullptr} {}
 
-    entry_ptr(Node* node) noexcept : m_ptr{node} {}
+    constexpr entry_ptr(nullptr_t) noexcept : m_ptr{nullptr} {}
 
-    entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
+    constexpr entry_ptr(Node* node) noexcept : m_ptr{node} {}
 
-    // Copy, move, delete.
-    //
-    entry_ptr(const entry_ptr& other) noexcept : m_ptr{other.m_ptr} {}
+    constexpr entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
 
-    entry_ptr& operator=(const entry_ptr& other) noexcept
-    {
-        m_ptr = other.m_ptr;
-        return *this;
-    };
+    constexpr operator bool() const noexcept { return m_ptr != nullptr; }
 
-    entry_ptr(entry_ptr&& other) noexcept : m_ptr{other.m_ptr}
-    {
-        // Not smart for now.
-        // other.m_ptr = nullptr;
-    }
+    [[nodiscard]] constexpr bool leaf() const noexcept { return tag(m_ptr) == leaf_tag; }
 
-    entry_ptr& operator=(entry_ptr&& other) noexcept
-    {
-        m_ptr = other.m_ptr;
+    [[nodiscard]] constexpr bool node() const noexcept { return tag(m_ptr) == node_tag; }
 
-        // Not smart for now.
-        // other.m_ptr = nullptr;
-
-        return *this;
-    };
-
-    // Not smart for now.
-    // ~entry_ptr() noexcept;
-
-    operator void*() const noexcept { return clear_tag(m_ptr); }
-
-    operator bool() const noexcept { return static_cast<bool>(clear_tag(m_ptr)); }
-
-    [[nodiscard]] bool leaf() const noexcept { return tag(m_ptr) == leaf_tag; }
-
-    [[nodiscard]] bool node() const noexcept { return tag(m_ptr) == node_tag; }
-
-    [[nodiscard]] Node* node_ptr() const noexcept
+    [[nodiscard]] constexpr Node* node_ptr() const noexcept
     {
         assert(node());
         return static_cast<Node*>(m_ptr);
     }
 
-    [[nodiscard]] Leaf* leaf_ptr() const noexcept
+    [[nodiscard]] constexpr Leaf* leaf_ptr() const noexcept
     {
         assert(leaf());
         return static_cast<Leaf*>(clear_tag(m_ptr));
     }
 
-    [[nodiscard]] inline const Leaf& next_leaf() const noexcept;
+    [[nodiscard]] constexpr const Leaf& next_leaf() const noexcept;
+
+    constexpr void reset() noexcept;
 
 private:
     void* m_ptr;
 };
-
-// constexpr uint32_t node_t_bits = 0b11100000'00000000'00000000'00000000; // >> 29
-// constexpr uint32_t node_t_bits_offset = std::countr_zero(node_t_bits);
-
-// constexpr uint32_t num_children_bits = 0b00000000'00000000'00000000'11111111;
-// constexpr uint32_t num_children_bits_offset = std::countr_zero(num_children_bits);
-
-// constexpr uint32_t prefix_len_bits = 0b00000000'00000000'11111111'00000000;
-// constexpr uint32_t prefix_len_bits_offset = std::countr_zero(prefix_len_bits);
-
-// constexpr uint32_t key_len_bits = 0b00011111'11111111'11111111'11111111;
-// constexpr uint32_t key_len_bits_offset = std::countr_zero(key_len_bits);
-
-// // clang-format on
-
-// // 4 bytes for header!!!
-// //
-
-// // Node header.
-// // Contains different info based on node type (inner node or a leaf).
-// // For inner node, we are storring node type, number of children and prefix len.
-// // For leaf node, we are storring node type and key len.
-// //
-// struct Node_header {
-//     uint32_t m_bytes;
-// };
-
-// struct nh {
-//     uint8_t m_flags;
-//     uint8_t num_childs;
-//     uint8_t m_prefix[14]; // -> 14 bytes for prefix.
-// };
-
-// struct lh {
-//     void* data;
-//     uint32_t key_len;
-//     uint8_t key[];
-// };
-
-// // Node header. First 3 bits in flags represents node
-// // type and the 3rd bit represents whether we have compresses path or not.
-// //
-// struct Node_header {
-//     Node_header() = default;
-
-//     Node_header(Node_t type, bool comp = false)
-//         : m_flags{uint8_t(type | (comp * Bits::compression))}
-//     {
-//     }
-
-//     Node_t type() { return Node_type(m_flags & Bits::type); }
-
-//     void set_type(Node_t type) { m_flags = type | (m_flags & ~Bits::type); }
-
-//     bool compressed() { return bool(m_flags & Bits::compression); }
-
-//     void set_compression(bool comp)
-//     {
-//         m_flags = (comp * Bits::compression) | (m_flags & ~Bits::compression);
-//     }
-
-//     bool leaf() { return m_flags & Bits::leaf; }
-
-//     uint8_t m_flags = 0;
-// };
 
 // Common node (header) used in all nodes. It holds prefix length, node type, number of children
 // and a prefix. Prefix and prefix length are common for all nodes in a subtree. Prefix length
@@ -462,6 +371,29 @@ public:
     uint8_t m_key[];
 };
 
+// Frees memory based on pointer type and sets pointer to nullptr.
+//
+constexpr void entry_ptr::reset() noexcept
+{
+    if (!*this)
+        return;
+
+    if (node()) {
+        Node* n = node_ptr();
+        switch (n->m_type) { // clang-format off
+        case Node4_t:   delete (Node4*)  n; break;
+        case Node16_t:  delete (Node16*) n; break;
+        case Node48_t:  delete (Node48*) n; break;
+        case Node256_t: delete (Node256*)n; break;
+        default: assert(!"Invalid case.");  break;
+        } // clang-format on
+    }
+    else
+        delete leaf_ptr();
+
+    m_ptr = nullptr;
+}
+
 class ART final {
 public:
     void insert(const std::string& s, void* value = nullptr) noexcept
@@ -526,67 +458,6 @@ private:
 
     entry_ptr m_root;
 };
-
-// For insert, this part of code makes new node with 2 children: 1. new key that is beeing
-// inserted and the second which is an existing node. Because we are holding prefix in every
-// node, common prefix is extracted from both nodes and inserted into prefix array. This way we
-// are always getting inner node with two child nodes.
-
-/*
- 4 if isLeaf(node) //expandnode
- 5 newNode=makeNode4()
- 6 key2=loadKey(node)
- 7 for(i=depth;key[i]==key2[i];i=i+1)
- 8 newNode.prefix[i-depth]=key[i]
- 9 newNode.prefixLen=i-depth
- 10 depth=depth+newNode.prefixLen
- 11 addChild(newNode,key[depth],leaf)
- 12 addChild(newNode,key2[depth],node)
- 13 replace(node,newNode)
- 14 return
- */
-
-// Some aditional code that might me used in future:
-//
-// Idea: when node type is determined, we can just return an index of a node type and call a
-// function of that node type with corresponding pointer.
-//
-// arr[4] = { Node4*, Node16*, Node48*, Node64* };
-// arr[node_type()]->find() or something like that.
-// Benchmark that approach with simle if/else approach.
-
-// class Node_pool {
-// public:
-// Node_pool(size_t size = 1024)
-// {
-// m_node4s.reserve(size);
-// m_node16s.reserve(size);
-// m_node48s.reserve(size);
-// m_node256s.reserve(size);
-// }
-
-// std::vector<Node4> m_node4s;
-// std::vector<Node16> m_node16s;
-// std::vector<Node48> m_node48s;
-// std::vector<Node256> m_node256s;
-// };
-
-// class Node_idx {
-// public:
-// void* operator[](size_t idx)
-// {
-// Node_type type = Node_type(m_node_type);
-// switch (type) {
-// case Node4_t:
-// return
-// }
-// }
-
-// uint64_t m_node_type : 2;
-// uint64_t m_idx : 62;
-// };
-
-// static_assert(sizeof(Node_idx) == 8);
 
 // NOLINTEND
 
