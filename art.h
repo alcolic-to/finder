@@ -456,8 +456,7 @@ public:
         return search(key);
     }
 
-    template<bool include_keys = true>
-    size_t physical_size() const noexcept;
+    size_t size_in_bytes(bool full_leaves = true) const noexcept;
 
 private:
     void insert(const Key& key, void* value) noexcept;
@@ -477,8 +476,7 @@ private:
 
     bool empty() const noexcept { return m_root; }
 
-    template<bool include_keys>
-    size_t physical_size(const entry_ptr& entry) const noexcept;
+    size_t size_in_bytes(const entry_ptr& entry, bool full_leaves) const noexcept;
 
     void destroy_all(entry_ptr& entry);
 

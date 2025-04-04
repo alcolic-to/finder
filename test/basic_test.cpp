@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <format>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <iterator>
@@ -344,6 +345,12 @@ void test_filesystem_paths(const std::string& file_name)
     // It seems that there are duplicates in files.
     for (auto& it : paths)
         assert_search(art, it);
+
+    constexpr size_t MB = 1024 * 1024;
+
+    std::cout << std::format("\nEntries count:           {}K\n", paths.size() / 1000);
+    std::cout << std::format("ART size with leaves:    {}MB\n", art.size_in_bytes(true) / MB);
+    std::cout << std::format("ART size without leaves: {}MB\n\n", art.size_in_bytes(false) / MB);
 }
 
 TEST(art_tests, file_system_paths)
