@@ -109,7 +109,9 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 
 int main(int argc, char* argv[])
 {
-    ART art;
+    // ART<int> art;
+
+    // art.insert("Aleksandar");
 
     // std::string s{"banana"};
     // art.insert((uint8_t*)s.data(), s.size());
@@ -123,31 +125,31 @@ int main(int argc, char* argv[])
     // s = "ananas";
     // art.insert((uint8_t*)s.data(), s.size());
 
-    std::string s{"aaaaaa"};
-    art.insert((uint8_t*)s.data(), s.size());
+    // std::string s{"aaaaaa"};
+    // art.insert((uint8_t*)s.data(), s.size());
 
-    s = "aaaaa";
-    art.insert((uint8_t*)s.data(), s.size());
+    // s = "aaaaa";
+    // art.insert((uint8_t*)s.data(), s.size());
 
-    s = "a";
-    art.insert((uint8_t*)s.data(), s.size());
+    // s = "a";
+    // art.insert((uint8_t*)s.data(), s.size());
 
-    s = "aaaaaaaa";
-    art.insert((uint8_t*)s.data(), s.size());
+    // s = "aaaaaaaa";
+    // art.insert((uint8_t*)s.data(), s.size());
 
-    Leaf* l = art.search((uint8_t*)s.data(), s.size());
-    std::cout << l->m_key << "\n";
+    // Leaf* l = art.search((uint8_t*)s.data(), s.size());
+    // std::cout << l->m_key << "\n";
 
-    s = "a", l = art.search((uint8_t*)s.data(), s.size());
-    std::cout << l->m_key << "\n";
+    // s = "a", l = art.search((uint8_t*)s.data(), s.size());
+    // std::cout << l->m_key << "\n";
 
-    s = "aaaaa", l = art.search((uint8_t*)s.data(), s.size());
-    std::cout << l->m_key << "\n";
+    // s = "aaaaa", l = art.search((uint8_t*)s.data(), s.size());
+    // std::cout << l->m_key << "\n";
 
-    s = "aaaaaa", l = art.search((uint8_t*)s.data(), s.size());
-    std::cout << l->m_key << "\n";
+    // s = "aaaaaa", l = art.search((uint8_t*)s.data(), s.size());
+    // std::cout << l->m_key << "\n";
 
-    std::cout << "Added tests and benchmark.\n";
+    // std::cout << "Added tests and benchmark.\n";
 
     // std::cout << "Hello, new cpp project.\n" << __FILE__;
 

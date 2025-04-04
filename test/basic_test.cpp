@@ -10,6 +10,10 @@
 
 // NOLINTBEGIN
 
+using ART = art::ART<void>;
+using Leaf = art::Leaf<void>;
+using Key = art::Key;
+
 void assert_failed_search(ART& art, const std::string& s)
 {
     Leaf* leaf = art.search(s);
