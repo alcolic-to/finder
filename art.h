@@ -352,7 +352,7 @@ public:
         case Node16_t:  return node16()->next_leaf();
         case Node48_t:  return node48()->next_leaf();
         case Node256_t: return node256()->next_leaf();
-        default:        return assert(!"Invalid case."), *Leaf::new_leaf(Key{nullptr, 0}, nullptr);
+        default:        return assert(!"Invalid case."), *Leaf::new_leaf(Key{nullptr, 0}, T{});
         } // clang-format on
     }
 
@@ -423,7 +423,7 @@ public:
     // all bytes matches, we will just skip all prefix bytes and go to directly to next node.
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
-    Node4(const Key& key, void* value, size_t depth, Leaf* leaf) : Node{Node4_t}
+    Node4(const Key& key, T&& value, size_t depth, Leaf* leaf) : Node{Node4_t}
     {
         for (m_prefix_len = 0; key[depth] == leaf->m_key[depth]; ++m_prefix_len, ++depth)
             if (m_prefix_len < max_prefix_len)
@@ -432,7 +432,7 @@ public:
         assert(depth < key.size() && depth < leaf->m_key_len);
         assert(key[depth] != leaf->m_key[depth]);
 
-        add_child(key[depth], Leaf::new_leaf(key, value));
+        add_child(key[depth], Leaf::new_leaf(key, std::forward<T>(value)));
         add_child(leaf->m_key[depth], leaf);
     }
 
@@ -442,7 +442,7 @@ public:
     // If node prefix does not fit into header, we must go to leaf node (not important which one),
     // to take prefix bytes from there. It it fits, we can take bytes from header directly.
     //
-    Node4(const Key& key, void* value, size_t depth, Node* node, size_t cp_len) : Node{Node4_t}
+    Node4(const Key& key, T&& value, size_t depth, Node* node, size_t cp_len) : Node{Node4_t}
     {
         assert(cp_len < node->m_prefix_len);
 
@@ -461,7 +461,7 @@ public:
         assert(node_key != key[depth + cp_len]);
 
         add_child(node_key, node);
-        add_child(key[depth + cp_len], Leaf::new_leaf(key, value));
+        add_child(key[depth + cp_len], Leaf::new_leaf(key, std::forward<T>(value)));
     }
 
     Node4(Node16& old_node) noexcept : Node{old_node, Node4_t}
@@ -777,7 +777,7 @@ public:
                 return m_children[m_idxs[i]].next_leaf();
 
         assert(false);
-        return *Leaf::new_leaf(Key{nullptr, 0}, nullptr);
+        return *Leaf::new_leaf(Key{nullptr, 0}, T{});
     }
 
     // Keys with span of 1 byte with value of index for m_idxs array.
@@ -852,7 +852,7 @@ public:
                 return m_children[i].next_leaf();
 
         assert(false);
-        return *Leaf::new_leaf(Key{nullptr, 0}, nullptr);
+        return *Leaf::new_leaf(Key{nullptr, 0}, T{});
     }
 
     entry_ptr m_children[256]{}; // Pointers to children nodes.
@@ -860,20 +860,22 @@ public:
 
 template<class T>
 class Leaf final {
-public:
-    // Creates new leaf from provided key. It allocates memory big enough to fit leaf object and
-    // calls constructor on that memory. Allocation size for key is taken as a provided key size
-    // and a depth that we are at, because we are only saving partial key from current depth.
+private:
+    // Private constructor that initializes leaf. It constructs Leaf object in place on a allocated
+    // memory from new_leaf().
     //
-    static Leaf* new_leaf(const Key& key, void* value)
+    Leaf(const Key& key, T&& value) : m_value{std::forward<T>(value)}, m_key_len{key.size()}
     {
-        Leaf* leaf = static_cast<Leaf*>(std::malloc(sizeof(*leaf) + key.size()));
+        key.copy_to(m_key, key.size());
+    }
 
-        leaf->m_value = value;
-        leaf->m_key_len = key.size();
-        key.copy_to(leaf->m_key, key.size());
-
-        return leaf;
+public:
+    // Creates new leaf from provided key and value. It allocates memory big enough to fit value,
+    // key len and variable key size after which calls constructor on that memory.
+    //
+    static Leaf* new_leaf(const Key& key, T&& value)
+    {
+        return new (std::malloc(sizeof(Leaf) + key.size())) Leaf{key, std::forward<T>(value)};
     }
 
     const uint8_t& operator[](size_t idx) const noexcept
@@ -898,12 +900,12 @@ public:
     std::string key_to_string() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
 
 public:
-    void* m_value = nullptr;
+    T m_value;
     size_t m_key_len;
     uint8_t m_key[];
 };
 
-template<class T>
+template<class T = void*>
 class ART final {
 public:
     using Node = Node<T>;
@@ -916,16 +918,16 @@ public:
 
     ~ART() noexcept { destroy_all(m_root); }
 
-    void insert(const std::string& s, void* value = nullptr) noexcept
+    void insert(const std::string& s, T&& value = T{}) noexcept
     {
         const Key key{(const uint8_t* const)s.data(), s.size()};
-        insert(key, value);
+        insert(key, std::forward<T>(value));
     }
 
-    void insert(const uint8_t* const data, size_t size, void* value = nullptr) noexcept
+    void insert(const uint8_t* const data, size_t size, T&& value = T{}) noexcept
     {
         const Key key{data, size};
-        insert(key, value);
+        insert(key, std::forward<T>(value));
     }
 
     void erase(const std::string& s) noexcept
@@ -965,61 +967,61 @@ private:
     // new key if it differs from an exitisting leaf.
     // TODO: Maybe implement substitution of the old entry.
     //
-    void insert_at_leaf(entry_ptr& entry, const Key& key, void* value, size_t depth) noexcept
+    void insert_at_leaf(entry_ptr& entry, const Key& key, T&& value, size_t depth) noexcept
     {
         Leaf* leaf = entry.leaf_ptr();
         if (!leaf->match(key))
-            entry = new Node4{key, value, depth, leaf};
+            entry = new Node4{key, std::forward<T>(value), depth, leaf};
     }
 
     // Handles insertion when we reached innder node and key at provided depth did not match full
     // node prefix.
     //
-    void insert_at_node(entry_ptr& entry, const Key& key, void* value, size_t depth,
+    void insert_at_node(entry_ptr& entry, const Key& key, T&& value, size_t depth,
                         size_t cp_len) noexcept
     {
         Node* node = entry.node_ptr();
         assert(cp_len != node->m_prefix_len);
 
-        entry = new Node4{key, value, depth, node, cp_len};
+        entry = new Node4{key, std::forward<T>(value), depth, node, cp_len};
     }
 
     // Insert new key into the tree.
     //
-    void insert(const Key& key, void* value) noexcept
+    void insert(const Key& key, T&& value) noexcept
     {
         if (m_root)
-            return insert(m_root, key, value, 0);
+            return insert(m_root, key, std::forward<T>(value), 0);
 
-        m_root = Leaf::new_leaf(key, value);
+        m_root = Leaf::new_leaf(key, std::forward<T>(value));
     }
 
     // Inserts new key into the tree.
     //
-    void insert(entry_ptr& entry, const Key& key, void* value, size_t depth) noexcept
+    void insert(entry_ptr& entry, const Key& key, T&& value, size_t depth) noexcept
     {
         assert(entry);
 
         if (entry.leaf())
-            return insert_at_leaf(entry, key, value, depth);
+            return insert_at_leaf(entry, key, std::forward<T>(value), depth);
 
         Node* node = entry.node_ptr();
         size_t cp_len = node->common_prefix(key, depth);
 
         if (cp_len != node->m_prefix_len)
-            return insert_at_node(entry, key, value, depth, cp_len);
+            return insert_at_node(entry, key, std::forward<T>(value), depth, cp_len);
 
         assert(cp_len == node->m_prefix_len);
         depth += node->m_prefix_len;
 
         entry_ptr* next = node->find_child(key[depth]);
         if (next)
-            return insert(*next, key, value, depth + 1);
+            return insert(*next, key, std::forward<T>(value), depth + 1);
 
         if (node->full())
             entry.reset(node = node->grow());
 
-        node->add_child(key[depth], Leaf::new_leaf(key, value));
+        node->add_child(key[depth], Leaf::new_leaf(key, std::forward<T>(value)));
     }
 
     void erase(const Key& key) noexcept

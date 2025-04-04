@@ -10,8 +10,8 @@
 
 // NOLINTBEGIN
 
-using ART = art::ART<void>;
-using Leaf = art::Leaf<void>;
+using ART = art::ART<void*>;
+using Leaf = art::Leaf<void*>;
 using Key = art::Key;
 
 void assert_failed_search(ART& art, const std::string& s)
@@ -368,5 +368,15 @@ TEST(art_tests, file_system_paths)
     for (const auto& file_name : file_names)
         test_filesystem_paths(file_name);
 }
+
+// TEST(new_art_tests, test_1)
+// {
+//     // art::ART<std::string> art;
+//     art::ART art;
+
+//     // art.insert("item_1", "value_1");
+//     art.insert("item_1");
+//     art.erase("item_1");
+// }
 
 // NOLINTEND
