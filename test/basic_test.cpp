@@ -369,14 +369,27 @@ TEST(art_tests, file_system_paths)
         test_filesystem_paths(file_name);
 }
 
-// TEST(new_art_tests, test_1)
-// {
-//     // art::ART<std::string> art;
-//     art::ART art;
+TEST(new_art_tests, test_1)
+{
+    art::ART<std::string> art;
+    // art::ART art;
 
-//     // art.insert("item_1", "value_1");
-//     art.insert("item_1");
-//     art.erase("item_1");
-// }
+    std::vector<std::string> v;
+    // std::map<int, std::string> m;
+
+    std::string s1{"I am string 1."};
+    // auto p = std::pair{1, s1};
+    // m.insert(p);
+
+    art.insert("item_1", "value_1");
+    art.insert("item_2", s1);
+    art.insert("item_3", std::string("value"));
+    // art.erase("item_1");
+
+    // C<std::string> cs;
+    // std::string s = "A";
+    // cs.insert(s);
+    // cs.insert("ao");
+}
 
 // NOLINTEND
