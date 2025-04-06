@@ -1,40 +1,33 @@
-#include <algorithm>
-#include <array>
 #include <cstddef>
 #include <format>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <iterator>
+#include <string>
 
 #include "art.h"
 
 // NOLINTBEGIN
 
-using ART = art::ART<void*>;
-using Leaf = art::Leaf<void*>;
-using Key = art::Key;
-
-void assert_failed_search(ART& art, const std::string& s)
-{
-    Leaf* leaf = art.search(s);
-    ASSERT_TRUE(leaf == nullptr);
-}
-
-void assert_search(ART& art, const std::string& s, void* value = nullptr)
-{
-    Leaf* leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string() && leaf->m_value == value);
-}
-
-void assert_search(ART& art, const uint8_t* data, size_t size)
-{
-    Leaf* leaf = art.search(data, size);
-    ASSERT_TRUE(leaf != nullptr && leaf->match(Key{data, size}));
-}
-
+using namespace art;
 using Keys = const std::vector<std::string>&;
 
-void test_insert(ART& art, Keys insert_keys, Keys valid_keys, Keys invalid_keys)
+template<class T>
+void assert_failed_search(ART<T>& art, const std::string& s)
+{
+    ASSERT_TRUE(art.search(s) == nullptr);
+}
+
+template<class T>
+void assert_search(const ART<T>& art, const std::string& s,
+                   typename ART<T>::const_reference value = T{})
+{
+    Leaf<T>* leaf = art.search(s);
+    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string() && leaf->value() == value);
+}
+
+template<class T>
+void test_insert(ART<T>& art, Keys insert_keys, Keys valid_keys, Keys invalid_keys)
 {
     for (auto it = insert_keys.begin(); it != insert_keys.end(); ++it) {
         art.insert(*it);
@@ -54,7 +47,8 @@ void test_insert(ART& art, Keys insert_keys, Keys valid_keys, Keys invalid_keys)
     }
 }
 
-void test_erase(ART& art, Keys erase_keys, Keys valid_keys, Keys invalid_keys)
+template<class T>
+void test_erase(ART<T>& art, Keys erase_keys, Keys valid_keys, Keys invalid_keys)
 {
     for (auto it = erase_keys.begin(); it != erase_keys.end(); ++it) {
         art.erase(*it);
@@ -74,7 +68,8 @@ void test_erase(ART& art, Keys erase_keys, Keys valid_keys, Keys invalid_keys)
     }
 }
 
-void test_crud(ART& art, Keys keys, Keys valid_keys, Keys invalid_keys)
+template<class T>
+void test_crud(ART<T>& art, Keys keys, Keys valid_keys, Keys invalid_keys)
 {
     test_insert(art, keys, valid_keys, invalid_keys);
     test_erase(art, keys, valid_keys, invalid_keys);
@@ -106,11 +101,11 @@ TEST(art_tests, sanity_test_2)
     art.insert("my_vector4", &v4);
     art.insert("my_vector5", &v5);
 
-    ASSERT_TRUE(art.search("my_vector1")->m_value == &v1);
-    ASSERT_TRUE(art.search("my_vector2")->m_value == &v2);
-    ASSERT_TRUE(art.search("my_vector3")->m_value == &v3);
-    ASSERT_TRUE(art.search("my_vector4")->m_value == &v4);
-    ASSERT_TRUE(art.search("my_vector5")->m_value == &v5);
+    ASSERT_TRUE(art.search("my_vector1")->value() == &v1);
+    ASSERT_TRUE(art.search("my_vector2")->value() == &v2);
+    ASSERT_TRUE(art.search("my_vector3")->value() == &v3);
+    ASSERT_TRUE(art.search("my_vector4")->value() == &v4);
+    ASSERT_TRUE(art.search("my_vector5")->value() == &v5);
 }
 
 TEST(art_tests, int_ranges)
@@ -367,29 +362,6 @@ TEST(art_tests, file_system_paths)
 
     for (const auto& file_name : file_names)
         test_filesystem_paths(file_name);
-}
-
-TEST(new_art_tests, test_1)
-{
-    art::ART<std::string> art;
-    // art::ART art;
-
-    std::vector<std::string> v;
-    // std::map<int, std::string> m;
-
-    std::string s1{"I am string 1."};
-    // auto p = std::pair{1, s1};
-    // m.insert(p);
-
-    art.insert("item_1", "value_1");
-    art.insert("item_2", s1);
-    art.insert("item_3", std::string("value"));
-    // art.erase("item_1");
-
-    // C<std::string> cs;
-    // std::string s = "A";
-    // cs.insert(s);
-    // cs.insert("ao");
 }
 
 // NOLINTEND

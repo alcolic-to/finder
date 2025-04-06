@@ -470,7 +470,7 @@ public:
 
     Node4(Node16& old_node) noexcept : Node{old_node, Node4_t}
     {
-        std::memcpy(m_keys, old_node.m_keys, old_node.Node::m_num_children);
+        std::memcpy(m_keys, old_node.m_keys, old_node.m_num_children);
         std::memcpy(m_children, old_node.m_children, old_node.m_num_children * sizeof(entry_ptr));
     }
 
@@ -877,7 +877,7 @@ private:
 
 public:
     // Creates new leaf from provided key and value. It allocates memory big enough to fit value,
-    // key len and variable key size after which calls constructor on that memory.
+    // key len and variable size key after which calls constructor on that memory.
     //
     template<class V>
     static Leaf* new_leaf(const Key& key, V&& value)
@@ -904,6 +904,10 @@ public:
         return !std::memcmp(m_key, key.m_data, m_key_len - 1);
     }
 
+    const T& value() const noexcept { return m_value; }
+
+    T& value() noexcept { return m_value; }
+
     std::string key_to_string() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
 
 public:
@@ -923,13 +927,17 @@ public:
     using Leaf = Leaf<T>;
     using entry_ptr = entry_ptr<T>;
 
+    using value_type = T;
+    using reference = T&;
+    using const_reference = const T&;
+
     ~ART() noexcept { destroy_all(m_root); }
 
     // Inserts single key/value pair into the tree. In order to support keys insertions without
     // values, we will default class T = void*, and default initialize value parameter. Also, in
     // order to avoid duplicating code, we need to introduce new template class V in order to
     // perfectly forward value to leaf. If we were to use T&& value as a parameter without template
-    // declaration, compiler would thread it as a rvalue reference only.
+    // declaration, compiler would treat it as a rvalue reference only.
     //
     template<class V = T>
     void insert(const std::string& s, V&& value = V{}) noexcept
@@ -950,13 +958,13 @@ public:
         erase(key);
     }
 
-    Leaf* search(const std::string& s) noexcept
+    Leaf* const search(const std::string& s) const noexcept
     {
         const Key key{(const uint8_t* const)s.data(), s.size()};
         return search(key);
     }
 
-    Leaf* search(const uint8_t* const data, size_t size) noexcept
+    Leaf* const search(const uint8_t* const data, size_t size) const noexcept
     {
         const Key key{data, size};
         return search(key);
@@ -1095,7 +1103,7 @@ private:
         erase_leaf(entry, next->leaf_ptr(), key, depth);
     }
 
-    Leaf* search(const Key& key) noexcept
+    Leaf* const search(const Key& key) const noexcept
     {
         if (m_root)
             return search(m_root, key, 0);
@@ -1103,7 +1111,7 @@ private:
         return nullptr;
     }
 
-    Leaf* search(entry_ptr& entry, const Key& key, size_t depth) noexcept
+    Leaf* const search(const entry_ptr& entry, const Key& key, size_t depth) const noexcept
     {
         if (entry.leaf()) {
             Leaf* leaf = entry.leaf_ptr();
