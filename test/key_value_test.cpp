@@ -5,34 +5,50 @@
 #include <iterator>
 
 #include "art.h"
+#include "test_util.h"
 
 // NOLINTBEGIN
-
-using namespace art;
-
-template<class T>
-void assert_failed_search(ART<T>& art, const std::string& s)
-{
-    ASSERT_TRUE(art.search(s) == nullptr);
-}
-
-template<class T>
-void assert_search(const ART<T>& art, const std::string& s, ART<T>::const_reference value)
-{
-    Leaf<T>* leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string() && leaf->value() == value);
-}
-
-using Keys = const std::vector<std::string>&;
 
 TEST(art_key_value_tests, sanity_test_1)
 {
     art::ART<std::string> art_str;
 
-    std::string s{"string_1"};
+    std::string key{"key_1"};
+    std::string value{"value_1"};
 
-    art_str.insert("key_1", s);
-    assert_search(art_str, "key_1", s);
+    art_str.insert(key, value);
+    assert_search(art_str, key, value);
+
+    art_str.insert("key_2", "value_2");
+    assert_search(art_str, "key_2", "value_2");
+
+    std::string key_3{"key_3"};
+    std::string value_3{"value_3"};
+
+    art_str.insert(std::move(key_3), std::move(value_3));
+    assert_search(art_str, "key_3", "value_3");
+    ASSERT_TRUE(key_3 == "key_3" && value_3.empty()); // key should not be moved.
+}
+
+TEST(art_key_value_tests, sanity_test_2)
+{
+    art::ART<std::vector<int>> art_v;
+
+    std::vector<int> v1{1, 2, 3, 4, 5, 6};
+    art_v.insert("key_1", v1);
+    assert_search(art_v, "key_1", v1);
+
+    auto leaf = art_v.search("key_1");
+    leaf->value().pop_back();
+
+    auto leaf_1 = art_v.search("key_1");
+    ASSERT_TRUE(leaf_1->value() != v1);
+
+    v1.pop_back();
+    assert_search(art_v, "key_1", v1);
+
+    leaf->value() = {1, 2, 3};
+    assert_search(art_v, "key_1", {1, 2, 3});
 }
 
 // NOLINTEND

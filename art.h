@@ -432,7 +432,7 @@ public:
             if (m_prefix_len < max_prefix_len)
                 m_prefix[m_prefix_len] = key[depth];
 
-        assert(depth < key.size() && depth < leaf->m_key_len);
+        assert(depth < key.size() && depth < leaf->m_key_size);
         assert(key[depth] != leaf->m_key[depth]);
 
         add_child(key[depth], Leaf::new_leaf(key, std::forward<V>(value)));
@@ -865,12 +865,17 @@ public:
 template<class T>
 class Leaf final {
 private:
+    friend class Node4<T>;
+    friend class Node16<T>;
+    friend class Node48<T>;
+    friend class Node256<T>;
+
     // Private constructor that initializes leaf. It constructs Leaf object in place on a allocated
     // memory from new_leaf().
     //
     template<class V>
     Leaf(const Key& key, V&& value) : m_value{std::forward<V>(value)}
-                                    , m_key_len{key.size()}
+                                    , m_key_size{key.size()}
     {
         key.copy_to(m_key, key.size());
     }
@@ -887,32 +892,35 @@ public:
 
     const uint8_t& operator[](size_t idx) const noexcept
     {
-        assert(idx < m_key_len);
+        assert(idx < m_key_size);
         return m_key[idx];
     }
 
-    size_t size() const noexcept { return m_key_len; }
+    size_t key_size() const noexcept { return m_key_size; }
 
     // Returns whether internal key and provided key matches. Since internal key already holds
     // terminal byte at the end and key doesn't, we must memcmp all except last byte.
     //
     bool match(const Key& key) const noexcept
     {
-        if (m_key_len != key.size())
+        if (m_key_size != key.size())
             return false;
 
-        return !std::memcmp(m_key, key.m_data, m_key_len - 1);
+        return !std::memcmp(m_key, key.m_data, m_key_size - 1);
     }
 
     const T& value() const noexcept { return m_value; }
 
     T& value() noexcept { return m_value; }
 
-    std::string key_to_string() const noexcept { return std::string(m_key, m_key + m_key_len - 1); }
+    std::string key_to_string() const noexcept
+    {
+        return std::string(m_key, m_key + m_key_size - 1);
+    }
 
-public:
+private:
     T m_value;
-    size_t m_key_len;
+    size_t m_key_size;
     uint8_t m_key[];
 };
 
@@ -1170,7 +1178,7 @@ private:
             return 0;
 
         if (entry.leaf())
-            return sizeof(Leaf) + (full_leaves ? entry.leaf_ptr()->m_key_len : 0);
+            return sizeof(Leaf) + (full_leaves ? entry.leaf_ptr()->key_size() : 0);
 
         Node* node = entry.node_ptr();
         size_t size = 0;
