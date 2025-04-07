@@ -111,22 +111,22 @@ private:
 //
 static constexpr uintptr_t tag_bits = alignof(std::max_align_t) - 1;
 
-constexpr uintptr_t raw(void* ptr) noexcept
+constexpr uintptr_t raw(const void* ptr) noexcept
 {
     return std::bit_cast<uintptr_t>(ptr);
 }
 
-constexpr uintptr_t tag(void* ptr) noexcept
+constexpr uintptr_t tag(const void* ptr) noexcept
 {
     return raw(ptr) & tag_bits;
 }
 
-constexpr void* clear_tag(void* ptr) noexcept
+constexpr void* clear_tag(const void* ptr) noexcept
 {
     return std::bit_cast<void*>(raw(ptr) & ~tag_bits);
 }
 
-constexpr void* set_tag(void* ptr, uintptr_t tag) noexcept
+constexpr void* set_tag(const void* ptr, uintptr_t tag) noexcept
 {
     assert((tag & ~tag_bits) == 0);
     return std::bit_cast<void*>(raw(clear_tag(ptr)) | (tag & tag_bits));
@@ -155,7 +155,11 @@ public:
 
     constexpr entry_ptr(Node* node) noexcept : m_ptr{node} {}
 
+    constexpr entry_ptr(const Node* node) noexcept : m_ptr{node} {}
+
     constexpr entry_ptr(Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
+
+    constexpr entry_ptr(const Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
 
     constexpr operator bool() const noexcept { return m_ptr != nullptr; }
 
@@ -270,7 +274,7 @@ public:
         } // clang-format on
     }
 
-    void add_child(const uint8_t key, entry_ptr child) noexcept
+    void add_child(uint8_t key, entry_ptr child) noexcept
     {
         switch (m_type) { // clang-format off
         case Node4_t:   return node4()->add_child(key, child);
@@ -281,7 +285,7 @@ public:
         } // clang-format on
     }
 
-    void remove_child(const uint8_t key) noexcept
+    void remove_child(uint8_t key) noexcept
     {
         switch (m_type) { // clang-format off
         case Node4_t:   return node4()->remove_child(key);
@@ -426,17 +430,17 @@ public:
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
     template<class V>
-    Node4(const Key& key, V&& value, size_t depth, Leaf* leaf) : Node{Node4_t}
+    Node4(const Key& key, V&& value, size_t depth, const Leaf& leaf) : Node{Node4_t}
     {
-        for (m_prefix_len = 0; key[depth] == leaf->m_key[depth]; ++m_prefix_len, ++depth)
+        for (m_prefix_len = 0; key[depth] == leaf[depth]; ++m_prefix_len, ++depth)
             if (m_prefix_len < max_prefix_len)
                 m_prefix[m_prefix_len] = key[depth];
 
-        assert(depth < key.size() && depth < leaf->m_key_size);
-        assert(key[depth] != leaf->m_key[depth]);
+        assert(depth < key.size() && depth < leaf.key_size());
+        assert(key[depth] != leaf[depth]);
 
         add_child(key[depth], Leaf::new_leaf(key, std::forward<V>(value)));
-        add_child(leaf->m_key[depth], leaf);
+        add_child(leaf[depth], &leaf);
     }
 
     // Creates new node4 as a parent for key(future leaf node) and node. New node will have 2
@@ -446,29 +450,29 @@ public:
     // to take prefix bytes from there. It it fits, we can take bytes from header directly.
     //
     template<class V>
-    Node4(const Key& key, V&& value, size_t depth, Node* node, size_t cp_len) : Node{Node4_t}
+    Node4(const Key& key, V&& value, size_t depth, Node& node, size_t cp_len) : Node{Node4_t}
     {
-        assert(cp_len < node->m_prefix_len);
+        assert(cp_len < node.m_prefix_len);
 
         m_prefix_len = cp_len;
-        std::memcpy(m_prefix, node->m_prefix, hdrlen(cp_len));
+        std::memcpy(m_prefix, node.m_prefix, hdrlen(cp_len));
 
-        const uint8_t* prefix_src = node->m_prefix_len <= max_prefix_len ?
-                                        &node->m_prefix[cp_len] :
-                                        &node->next_leaf()[depth + cp_len];
+        const uint8_t* prefix_src = node.m_prefix_len <= max_prefix_len ?
+                                        &node.m_prefix[cp_len] :
+                                        &node.next_leaf()[depth + cp_len];
 
         const uint8_t node_key = prefix_src[0]; // Byte for node mapping.
 
-        node->m_prefix_len -= (cp_len + 1); // Additional byte for node mapping.
-        std::memmove(node->m_prefix, prefix_src + 1, hdrlen(node->m_prefix_len));
+        node.m_prefix_len -= (cp_len + 1); // Additional byte for node mapping.
+        std::memmove(node.m_prefix, prefix_src + 1, hdrlen(node.m_prefix_len));
 
         assert(node_key != key[depth + cp_len]);
 
-        add_child(node_key, node);
+        add_child(node_key, &node);
         add_child(key[depth + cp_len], Leaf::new_leaf(key, std::forward<V>(value)));
     }
 
-    Node4(Node16& old_node) noexcept : Node{old_node, Node4_t}
+    Node4(const Node16& old_node) noexcept : Node{old_node, Node4_t}
     {
         std::memcpy(m_keys, old_node.m_keys, old_node.m_num_children);
         std::memcpy(m_children, old_node.m_children, old_node.m_num_children * sizeof(entry_ptr));
@@ -487,7 +491,7 @@ public:
     // Finds place for new child (while keeping sorted order) and moves all children by 1 place to
     // make space for new child. Inserts new child after that.
     //
-    void add_child(const uint8_t key, entry_ptr child) noexcept
+    void add_child(uint8_t key, entry_ptr child) noexcept
     {
         assert(m_num_children < 4);
 
@@ -506,7 +510,7 @@ public:
         ++m_num_children;
     }
 
-    void remove_child(const uint8_t key) noexcept
+    void remove_child(uint8_t key) noexcept
     {
         size_t idx = 0;
         while (m_keys[idx] != key)
@@ -590,13 +594,13 @@ public:
     using Node::m_prefix_len;
     using Node::m_type;
 
-    Node16(Node4& old_node) noexcept : Node{old_node, Node16_t}
+    Node16(const Node4& old_node) noexcept : Node{old_node, Node16_t}
     {
         std::memcpy(m_keys, old_node.m_keys, 4);
         std::memcpy(m_children, old_node.m_children, 4 * sizeof(entry_ptr));
     }
 
-    Node16(Node48& old_node) noexcept : Node{old_node, Node16_t}
+    Node16(const Node48& old_node) noexcept : Node{old_node, Node16_t}
     {
         size_t idx = 0;
         for (size_t old_idx = 0; old_idx < 256; ++old_idx) {
@@ -626,7 +630,7 @@ public:
     // Finds place for new child (while keeping sorted order) and moves all children by 1 place to
     // make space for new child. Inserts new child after that.
     //
-    void add_child(const uint8_t key, entry_ptr child) noexcept
+    void add_child(uint8_t key, entry_ptr child) noexcept
     {
         assert(m_num_children < 16);
 
@@ -645,7 +649,7 @@ public:
         ++m_num_children;
     }
 
-    void remove_child(const uint8_t key) noexcept
+    void remove_child(uint8_t key) noexcept
     {
         size_t idx = 0;
         while (m_keys[idx] != key)
@@ -706,7 +710,7 @@ public:
 
     static constexpr uint8_t empty_slot = 255;
 
-    Node48(Node16& old_node) noexcept : Node{old_node, Node48_t}
+    Node48(const Node16& old_node) noexcept : Node{old_node, Node48_t}
     {
         std::memset(m_idxs, empty_slot, 256);
         std::memcpy(m_children, old_node.m_children, 16 * sizeof(entry_ptr));
@@ -715,7 +719,7 @@ public:
             m_idxs[old_node.m_keys[i]] = i;
     }
 
-    Node48(Node256& old_node) noexcept : Node{old_node, Node48_t}
+    Node48(const Node256& old_node) noexcept : Node{old_node, Node48_t}
     {
         std::memset(m_idxs, empty_slot, 256);
 
@@ -737,7 +741,7 @@ public:
         return m_idxs[key] != empty_slot ? &m_children[m_idxs[key]] : nullptr;
     }
 
-    void add_child(const uint8_t key, entry_ptr child) noexcept
+    void add_child(uint8_t key, entry_ptr child) noexcept
     {
         assert(m_num_children < 48);
         assert(m_idxs[key] == empty_slot);
@@ -752,7 +756,7 @@ public:
         ++m_num_children;
     }
 
-    void remove_child(const uint8_t key) noexcept
+    void remove_child(uint8_t key) noexcept
     {
         assert(m_idxs[key] != empty_slot);
 
@@ -824,7 +828,7 @@ public:
         return m_children[key] ? &m_children[key] : nullptr;
     }
 
-    void add_child(const uint8_t key, entry_ptr child) noexcept
+    void add_child(uint8_t key, entry_ptr child) noexcept
     {
         assert(!m_children[key]);
 
@@ -832,7 +836,7 @@ public:
         ++m_num_children;
     }
 
-    void remove_child(const uint8_t key) noexcept
+    void remove_child(uint8_t key) noexcept
     {
         assert(m_children[key]);
 
@@ -865,11 +869,6 @@ public:
 template<class T>
 class Leaf final {
 private:
-    friend class Node4<T>;
-    friend class Node16<T>;
-    friend class Node48<T>;
-    friend class Node256<T>;
-
     // Private constructor that initializes leaf. It constructs Leaf object in place on a allocated
     // memory from new_leaf().
     //
@@ -996,7 +995,7 @@ private:
     {
         Leaf* leaf = entry.leaf_ptr();
         if (!leaf->match(key))
-            entry = new Node4{key, std::forward<V>(value), depth, leaf};
+            entry = new Node4{key, std::forward<V>(value), depth, *leaf};
     }
 
     // Handles insertion when we reached innder node and key at provided depth did not match full
@@ -1009,7 +1008,7 @@ private:
         Node* node = entry.node_ptr();
         assert(cp_len != node->m_prefix_len);
 
-        entry = new Node4{key, std::forward<V>(value), depth, node, cp_len};
+        entry = new Node4{key, std::forward<V>(value), depth, *node, cp_len};
     }
 
     // Insert new key into the tree.
