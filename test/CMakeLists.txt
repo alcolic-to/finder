@@ -32,3 +32,4 @@ function(add_art_test TEST_FILE)
 endfunction()
 
 add_art_test("basic_test.cpp")
+add_art_test("key_value_test.cpp")

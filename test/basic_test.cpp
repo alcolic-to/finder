@@ -1,84 +1,17 @@
-#include <algorithm>
-#include <array>
 #include <cstddef>
 #include <format>
 #include <fstream>
 #include <gtest/gtest.h>
-#include <iterator>
+#include <string>
 
 #include "art.h"
+#include "test_util.h"
 
 // NOLINTBEGIN
 
-void assert_failed_search(ART& art, const std::string& s)
-{
-    Leaf* leaf = art.search(s);
-    ASSERT_TRUE(leaf == nullptr);
-}
-
-void assert_search(ART& art, const std::string& s, void* value = nullptr)
-{
-    Leaf* leaf = art.search(s);
-    ASSERT_TRUE(leaf != nullptr && s == leaf->key_to_string() && leaf->m_value == value);
-}
-
-void assert_search(ART& art, const uint8_t* data, size_t size)
-{
-    Leaf* leaf = art.search(data, size);
-    ASSERT_TRUE(leaf != nullptr && leaf->match(Key{data, size}));
-}
-
-using Keys = const std::vector<std::string>&;
-
-void test_insert(ART& art, Keys insert_keys, Keys valid_keys, Keys invalid_keys)
-{
-    for (auto it = insert_keys.begin(); it != insert_keys.end(); ++it) {
-        art.insert(*it);
-        assert_search(art, *it);
-
-        for (auto it_s = insert_keys.begin(); it_s != it; ++it_s)
-            assert_search(art, *it_s);
-
-        for (auto it_s = std::next(it); it_s != insert_keys.end(); ++it_s)
-            assert_failed_search(art, *it_s);
-
-        for (auto& it_val : valid_keys)
-            assert_search(art, it_val);
-
-        for (auto& it_inv : invalid_keys)
-            assert_failed_search(art, it_inv);
-    }
-}
-
-void test_erase(ART& art, Keys erase_keys, Keys valid_keys, Keys invalid_keys)
-{
-    for (auto it = erase_keys.begin(); it != erase_keys.end(); ++it) {
-        art.erase(*it);
-        assert_failed_search(art, *it);
-
-        for (auto it_s = erase_keys.begin(); it_s != it; ++it_s)
-            assert_failed_search(art, *it_s);
-
-        for (auto it_s = std::next(it); it_s != erase_keys.end(); ++it_s)
-            assert_search(art, *it_s);
-
-        for (auto& it_val : valid_keys)
-            assert_search(art, it_val);
-
-        for (auto& it_inv : invalid_keys)
-            assert_failed_search(art, it_inv);
-    }
-}
-
-void test_crud(ART& art, Keys keys, Keys valid_keys, Keys invalid_keys)
-{
-    test_insert(art, keys, valid_keys, invalid_keys);
-    test_erase(art, keys, valid_keys, invalid_keys);
-}
-
 TEST(art_tests, sanity_test)
 {
-    ART art;
+    art::ART art;
 
     test_insert(art, {"a"}, {}, {"", "aa", "b"});
     test_insert(art, {""}, {"a"}, {"aa", "b"});
@@ -88,7 +21,7 @@ TEST(art_tests, sanity_test)
 
 TEST(art_tests, sanity_test_2)
 {
-    ART art;
+    art::ART art;
 
     std::vector<std::string> v1{"str1"};
     std::vector<std::string> v2{"str2"};
@@ -102,16 +35,16 @@ TEST(art_tests, sanity_test_2)
     art.insert("my_vector4", &v4);
     art.insert("my_vector5", &v5);
 
-    ASSERT_TRUE(art.search("my_vector1")->m_value == &v1);
-    ASSERT_TRUE(art.search("my_vector2")->m_value == &v2);
-    ASSERT_TRUE(art.search("my_vector3")->m_value == &v3);
-    ASSERT_TRUE(art.search("my_vector4")->m_value == &v4);
-    ASSERT_TRUE(art.search("my_vector5")->m_value == &v5);
+    ASSERT_TRUE(art.search("my_vector1")->value() == &v1);
+    ASSERT_TRUE(art.search("my_vector2")->value() == &v2);
+    ASSERT_TRUE(art.search("my_vector3")->value() == &v3);
+    ASSERT_TRUE(art.search("my_vector4")->value() == &v4);
+    ASSERT_TRUE(art.search("my_vector5")->value() == &v5);
 }
 
 TEST(art_tests, int_ranges)
 {
-    ART art;
+    art::ART art;
 
     constexpr int32_t capacity = 100000;
     constexpr int32_t inv = -1;
@@ -155,7 +88,7 @@ TEST(art_tests, int_ranges)
 
 TEST(art_tests, multiple_items)
 {
-    ART art;
+    art::ART art;
 
     test_crud(art, {"abcdef", "abcde", "a", "abcdefgh"}, {},
               {"", "ab", "acdef", "abcdefg", "abcdefghy"});
@@ -163,14 +96,14 @@ TEST(art_tests, multiple_items)
 
 TEST(art_tests, similar_keys_insertion)
 {
-    ART art;
+    art::ART art;
 
     test_crud(art, {"aaaa", "aaaaa", "a", "aaaaaaaaaa", "aaba", "aa"}, {}, {"aaa"});
 }
 
 TEST(art_tests, similar_keys_insertion_2)
 {
-    ART art;
+    art::ART art;
 
     test_crud(art, {"a", "aa", "aaa", "aaaa", "aaaaa", "aaaaaa", "aaaaaaa"}, {},
               {"", "aaaaaaaa", "b", "ab", "aab", "aaab", "aaaab", "aaaaab", "aaaaaab", "aaaaaaab"});
@@ -178,7 +111,7 @@ TEST(art_tests, similar_keys_insertion_2)
 
 TEST(art_tests, similar_prefix_insertions)
 {
-    ART art;
+    art::ART art;
 
     test_insert(art, {"aaaaaaaaa"}, {}, {"aaaaaaaaaa", "aaaaaaaab", "aaaaaaaaab"});
     test_insert(art, {"aaaaaaaaaa"}, {"aaaaaaaaa"}, {"aaaaaaaab", "aaaaaaaaab"});
@@ -193,7 +126,7 @@ TEST(art_tests, similar_prefix_insertions)
 
 TEST(art_tests, medium_size_keys_insertion)
 {
-    ART art;
+    art::ART art;
 
     test_insert(art, {"abcdefghijklmnopqrstuvwxyz"}, {},
                 {"abcdefghijklmnopqrstuvwxy", "abcdefghijklmnopqrstuvwxyzz"});
@@ -216,7 +149,7 @@ TEST(art_tests, medium_size_keys_insertion)
 
 TEST(art_tests, long_keys_insertion)
 {
-    ART art;
+    art::ART art;
 
     constexpr size_t str_len = 1024ULL * 1024;
     const std::string long_str(str_len, '!');
@@ -242,7 +175,7 @@ TEST(art_tests, long_keys_insertion)
 
 TEST(art_tests, growing_nodes)
 {
-    ART art;
+    art::ART art;
 
     constexpr size_t str_len = 1024ULL;
     const std::string long_str(str_len, '!');
@@ -257,7 +190,7 @@ TEST(art_tests, growing_nodes)
 
 TEST(art_tests, growing_nodes_2)
 {
-    ART art;
+    art::ART art;
 
     constexpr size_t str_len = 1024ULL;
     const std::string long_str(str_len, '!');
@@ -286,7 +219,7 @@ TEST(art_tests, growing_nodes_2)
 
 TEST(art_tests, different_key_sizes)
 {
-    ART art;
+    art::ART art;
 
     constexpr size_t key_max_size = 8;
     uint8_t buff[key_max_size];
@@ -307,7 +240,7 @@ TEST(art_tests, different_key_sizes)
 #ifndef DEBUG
 TEST(art_tests, different_key_sizes_big)
 {
-    ART art;
+    art::ART art;
 
     constexpr size_t key_max_size = 32;
     uint8_t buff[key_max_size];
@@ -331,7 +264,7 @@ TEST(art_tests, different_key_sizes_big)
 //
 void test_filesystem_paths(const std::string& file_name)
 {
-    ART art;
+    art::ART art;
 
     std::ifstream in_file_stream{"test/input_files/" + file_name};
     std::vector<std::string> paths;
