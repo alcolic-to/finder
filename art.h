@@ -5,6 +5,7 @@
 #ifndef ART_H
 #define ART_H
 
+#include <type_traits>
 #pragma once
 
 #include <algorithm>
@@ -422,7 +423,7 @@ public:
     using Node::m_prefix_len;
     using Node::m_type;
 
-    // Creates new node4 as a parent for key(future leaf node) and leaf. New node will have 2
+    // Creates new node4 as a parent for new_leaf and old leaf. New node will have 2
     // children with common prefix extracted from them. We will store information about common
     // prefix len in prefix_len, but we can only copy up to max_prefix_bytes in prefix array.
     // Later when searching for a key, we will compare all bytes from our prefix array, and if
@@ -430,7 +431,8 @@ public:
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
     template<class V>
-    Node4(const Key& key, V&& value, size_t depth, const Leaf& leaf) : Node{Node4_t}
+    Node4(const Key& key, V&& value, size_t depth, const Leaf& new_leaf, const Leaf& leaf)
+        : Node{Node4_t}
     {
         for (m_prefix_len = 0; key[depth] == leaf[depth]; ++m_prefix_len, ++depth)
             if (m_prefix_len < max_prefix_len)
@@ -439,18 +441,19 @@ public:
         assert(depth < key.size() && depth < leaf.key_size());
         assert(key[depth] != leaf[depth]);
 
-        add_child(key[depth], Leaf::new_leaf(key, std::forward<V>(value)));
+        add_child(key[depth], &new_leaf);
         add_child(leaf[depth], &leaf);
     }
 
-    // Creates new node4 as a parent for key(future leaf node) and node. New node will have 2
+    // Creates new node4 as a parent for new leaf and node. New node will have 2
     // children with common prefix extracted from them. We must also delete taken prefix from child
-    // node, plus we must take one additional byte from prefix as a key for child node.
+    // node, plus we must take one additional byte from prefix as a key for child node mapping.
     // If node prefix does not fit into header, we must go to leaf node (not important which one),
     // to take prefix bytes from there. It it fits, we can take bytes from header directly.
     //
     template<class V>
-    Node4(const Key& key, V&& value, size_t depth, Node& node, size_t cp_len) : Node{Node4_t}
+    Node4(const Key& key, V&& value, size_t depth, const Leaf& new_leaf, Node& node, size_t cp_len)
+        : Node{Node4_t}
     {
         assert(cp_len < node.m_prefix_len);
 
@@ -469,7 +472,7 @@ public:
         assert(node_key != key[depth + cp_len]);
 
         add_child(node_key, &node);
-        add_child(key[depth + cp_len], Leaf::new_leaf(key, std::forward<V>(value)));
+        add_child(key[depth + cp_len], &new_leaf);
     }
 
     Node4(const Node16& old_node) noexcept : Node{old_node, Node4_t}
@@ -923,6 +926,38 @@ private:
     uint8_t m_key[];
 };
 
+// Class that wraps insert result.
+// It holds reference to Leaf and a bool flag representing whether insert succeeded or failed.
+//
+template<class T>
+class result {
+public:
+    result(T* value, bool success) : m_value{value}, m_success{success}
+    {
+        assert(m_value != nullptr);
+    }
+
+    result(T& value, bool success) : result{&value, success} {};
+
+    constexpr operator T*() noexcept { return m_value; }
+
+    constexpr operator const T*() const noexcept { return m_value; }
+
+    constexpr operator T&() noexcept { return *m_value; }
+
+    constexpr operator const T&() const noexcept { return *m_value; }
+
+    T* operator->() noexcept { return m_value; }
+
+    const T* operator->() const noexcept { return m_value; }
+
+    constexpr operator bool() const noexcept { return m_success; }
+
+private:
+    T* m_value;
+    bool m_success;
+};
+
 template<class T = void*>
 class ART final {
 public:
@@ -933,12 +968,21 @@ public:
     using Node256 = Node256<T>;
     using Leaf = Leaf<T>;
     using entry_ptr = entry_ptr<T>;
+    using result = result<Leaf>;
 
     using value_type = T;
     using reference = T&;
     using const_reference = const T&;
 
+    ART() noexcept = default;
+
     ~ART() noexcept { destroy_all(m_root); }
+
+    ART(const ART& other) = delete;
+    ART(ART&& other) noexcept = delete;
+
+    ART& operator=(const ART& other) = delete;
+    ART& operator=(ART&& other) noexcept = delete;
 
     // Inserts single key/value pair into the tree. In order to support keys insertions without
     // values, we will default class T = void*, and default initialize value parameter. Also, in
@@ -947,10 +991,23 @@ public:
     // declaration, compiler would treat it as a rvalue reference only.
     //
     template<class V = T>
-    void insert(const std::string& s, V&& value = V{}) noexcept
+    result insert(const std::string& s, V&& value = V{}) noexcept
     {
         const Key key{s};
-        insert(key, std::forward<V>(value));
+        return insert(key, std::forward<V>(value));
+    }
+
+    // Inserts single key/value pair into the tree. In order to support keys insertions without
+    // values, we will default class T = void*, and default initialize value parameter. Also, in
+    // order to avoid duplicating code, we need to introduce new template class V in order to
+    // perfectly forward value to leaf. If we were to use T&& value as a parameter without template
+    // declaration, compiler would treat it as a rvalue reference only.
+    //
+    template<class V = T>
+    result insert(const uint8_t* const data, size_t size, V&& value = V{}) noexcept
+    {
+        const Key key{data, size};
+        return insert(key, std::forward<V>(value));
     }
 
     void erase(const std::string& s) noexcept
@@ -991,41 +1048,52 @@ private:
     // TODO: Maybe implement substitution of the old entry.
     //
     template<class V>
-    void insert_at_leaf(entry_ptr& entry, const Key& key, V&& value, size_t depth) noexcept
+    result insert_at_leaf(entry_ptr& entry, const Key& key, V&& value, size_t depth) noexcept
     {
         Leaf* leaf = entry.leaf_ptr();
-        if (!leaf->match(key))
-            entry = new Node4{key, std::forward<V>(value), depth, *leaf};
+        if (leaf->match(key))
+            return {leaf, false};
+
+        Leaf* new_leaf = Leaf::new_leaf(key, std::forward<V>(value));
+        entry = new Node4{key, std::forward<V>(value), depth, *new_leaf, *leaf};
+
+        return {new_leaf, true};
     }
 
     // Handles insertion when we reached innder node and key at provided depth did not match full
     // node prefix.
     //
     template<class V>
-    void insert_at_node(entry_ptr& entry, const Key& key, V&& value, size_t depth,
-                        size_t cp_len) noexcept
+    result insert_at_node(entry_ptr& entry, const Key& key, V&& value, size_t depth,
+                          size_t cp_len) noexcept
     {
         Node* node = entry.node_ptr();
         assert(cp_len != node->m_prefix_len);
 
-        entry = new Node4{key, std::forward<V>(value), depth, *node, cp_len};
+        Leaf* new_leaf = Leaf::new_leaf(key, std::forward<V>(value));
+        entry = new Node4{key, std::forward<V>(value), depth, *new_leaf, *node, cp_len};
+
+        return {new_leaf, true};
     }
 
     // Insert new key into the tree.
     //
     template<class V>
-    void insert(const Key& key, V&& value) noexcept
+    result insert(const Key& key, V&& value) noexcept
     {
         if (m_root)
             return insert(m_root, key, std::forward<V>(value), 0);
 
-        m_root = Leaf::new_leaf(key, std::forward<V>(value));
+        Leaf* new_leaf = Leaf::new_leaf(key, std::forward<V>(value));
+        m_root = new_leaf;
+
+        return {new_leaf, true};
     }
 
     // Inserts new key into the tree.
     //
     template<class V>
-    void insert(entry_ptr& entry, const Key& key, V&& value, size_t depth) noexcept
+    result insert(entry_ptr& entry, const Key& key, V&& value, size_t depth) noexcept
     {
         assert(entry);
 
@@ -1048,7 +1116,10 @@ private:
         if (node->full())
             entry.reset(node = node->grow());
 
-        node->add_child(key[depth], Leaf::new_leaf(key, std::forward<V>(value)));
+        Leaf* leaf = Leaf::new_leaf(key, std::forward<V>(value));
+        node->add_child(key[depth], leaf);
+
+        return {leaf, true};
     }
 
     void erase(const Key& key) noexcept
