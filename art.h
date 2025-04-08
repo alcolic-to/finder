@@ -5,7 +5,6 @@
 #ifndef ART_H
 #define ART_H
 
-#include <type_traits>
 #pragma once
 
 #include <algorithm>

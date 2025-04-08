@@ -51,4 +51,17 @@ TEST(art_key_value_tests, sanity_test_2)
     assert_search(art_v, "key_1", {1, 2, 3});
 }
 
+TEST(art_key_value_tests, sanity_test_3)
+{
+    art::ART<std::string> art_s;
+
+    ASSERT_TRUE(art_s.insert("key_1", "value_1"));
+    auto res = art_s.insert("key_1", "value_2");
+
+    ASSERT_TRUE(res == false && res->value() == "value_1");
+    res->value() = "value_2";
+
+    ASSERT_TRUE(art_s.search("key_1")->value() == "value_2");
+}
+
 // NOLINTEND
