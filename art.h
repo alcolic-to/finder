@@ -926,39 +926,35 @@ private:
 };
 
 // Class that wraps insert result.
-// It holds reference to Leaf and a bool flag representing whether insert succeeded or failed.
+// It holds reference to Leaf and a bool flag representing whether insert succeeded (read insert for
+// more details).
 //
 template<class T>
 class result {
 public:
-    result(T* value, bool success) : m_value{value}, m_success{success}
-    {
-        assert(m_value != nullptr);
-    }
+    result(T* value, bool ok) : m_value{value}, m_ok{ok} { assert(m_value != nullptr); }
 
-    result(T& value, bool success) : result{&value, success} {};
+    result(T& value, bool ok) : result{&value, ok} {};
 
-    constexpr operator T*() noexcept { return m_value; }
+    T* get() noexcept { return m_value; }
 
-    constexpr operator const T*() const noexcept { return m_value; }
+    const T* get() const noexcept { return m_value; }
 
-    constexpr operator T&() noexcept { return *m_value; }
+    constexpr bool ok() const noexcept { return m_ok; }
 
-    constexpr operator const T&() const noexcept { return *m_value; }
+    T* operator->() noexcept { return get(); }
 
-    T* operator->() noexcept { return m_value; }
+    const T* operator->() const noexcept { return get(); }
 
-    const T* operator->() const noexcept { return m_value; }
-
-    constexpr operator bool() const noexcept { return m_success; }
+    constexpr operator bool() const noexcept { return ok(); }
 
 private:
     T* m_value;
-    bool m_success;
+    bool m_ok;
 };
 
 template<class T = void*>
-class ART final {
+class ART {
 public:
     using Node = Node<T>;
     using Node4 = Node4<T>;
@@ -1270,7 +1266,7 @@ private:
 
     bool empty() const noexcept { return m_root; }
 
-private:
+protected:
     entry_ptr m_root;
 };
 
