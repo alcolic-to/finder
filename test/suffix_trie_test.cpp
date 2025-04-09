@@ -21,6 +21,11 @@ TEST(suffix_trie_tests, sanity_test_1)
     ASSERT_TRUE(s.find_suffix("na")->value().begin()->get() == "banana");
     ASSERT_TRUE(s.find_suffix("a")->value().begin()->get() == "banana");
     ASSERT_TRUE(s.find_suffix("")->value().begin()->get() == "banana");
+
+    ASSERT_TRUE(s.find_prefix("ba").size() == 1);
+    ASSERT_TRUE(s.find_prefix("a").size() == 3);
+    ASSERT_TRUE(s.find_prefix("an").size() == 2);
+    ASSERT_TRUE(s.find_prefix("ana").size() == 2);
 }
 
 TEST(suffix_trie_tests, sanity_test_2)

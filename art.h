@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <vector>
 
 // NOLINTBEGIN
 
@@ -910,6 +911,19 @@ public:
         return !std::memcmp(m_key, key.m_data, m_key_size - 1);
     }
 
+    // Matches provided key as a prefix for this leaf. We need to match all characters from key
+    // except last terminal byte.
+    //
+    bool match_prefix(const Key& key) const noexcept
+    {
+        const size_t cmp_size = key.size() - 1;
+
+        if (cmp_size > m_key_size)
+            return false;
+
+        return !std::memcmp(m_key, key.m_data, std::min(m_key_size, cmp_size));
+    }
+
     const T& value() const noexcept { return m_value; }
 
     T& value() noexcept { return m_value; }
@@ -1020,16 +1034,35 @@ public:
         erase(key);
     }
 
-    Leaf* const search(const std::string& s) const noexcept
+    [[nodiscard]] Leaf* const search(const std::string& s) const noexcept
     {
         const Key key{(const uint8_t* const)s.data(), s.size()};
         return search(key);
     }
 
-    Leaf* const search(const uint8_t* const data, size_t size) const noexcept
+    [[nodiscard]] Leaf* const search(const uint8_t* const data, size_t size) const noexcept
     {
         const Key key{data, size};
         return search(key);
+    }
+
+    [[nodiscard]] const std::vector<Leaf*> search_prefix(const std::string& s) const noexcept
+    {
+        std::vector<Leaf*> leaves;
+        const Key key{(const uint8_t* const)s.data(), s.size()};
+
+        search_prefix(key, leaves);
+        return leaves;
+    }
+
+    [[nodiscard]] const std::vector<Leaf*> search_prefix(const uint8_t* const data,
+                                                         size_t size) const noexcept
+    {
+        std::vector<Leaf*> leaves;
+        const Key key{data, size};
+
+        search_prefix(key, leaves);
+        return leaves;
     }
 
     enum class visit_order { pre_order, post_order };
@@ -1315,6 +1348,47 @@ private:
     }
 
     bool empty() const noexcept { return m_root; }
+
+    void search_prefix(const Key& key, std::vector<Leaf*>& leaves) const noexcept
+    {
+        if (m_root)
+            search_prefix(m_root, key, 0, leaves);
+    }
+
+    void search_prefix(const entry_ptr& entry, const Key& prefix, size_t depth,
+                       std::vector<Leaf*>& leaves) const noexcept
+    {
+        if (entry.leaf()) {
+            Leaf* leaf = entry.leaf_ptr();
+            if (leaf->match_prefix(prefix))
+                leaves.push_back(leaf);
+
+            return;
+        }
+
+        Node* node = entry.node_ptr();
+        size_t cp_len = node->common_header_prefix(prefix, depth);
+
+        // All bytes except terminal byte matched, so just collect leaves.
+        //
+        if (depth + cp_len == prefix.size() - 1) {
+            for_each(entry, [&](const entry_ptr& this_entry) {
+                if (this_entry.leaf())
+                    leaves.push_back(this_entry.leaf_ptr());
+            });
+
+            return;
+        }
+
+        if (cp_len != hdrlen(node->m_prefix_len))
+            return;
+
+        depth += node->m_prefix_len;
+
+        entry_ptr* next = node->find_child(prefix[depth]);
+        if (next)
+            search_prefix(*next, prefix, depth + 1, leaves);
+    }
 
 protected:
     entry_ptr m_root;

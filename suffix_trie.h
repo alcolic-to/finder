@@ -65,6 +65,8 @@ public:
 
     auto find_suffix(const std::string& str) { return search(str); }
 
+    [[nodiscard]] auto find_prefix(const std::string& str) { return search_prefix(str); }
+
     const std::list<std::string>& $() const noexcept { return m_$; }
 
 private:
