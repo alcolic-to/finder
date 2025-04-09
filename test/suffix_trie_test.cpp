@@ -149,9 +149,10 @@ void test_filesystem_paths(const std::string& file_name)
         std::cout << "String for match: ";
         std::cin >> str_for_match;
 
-        if (auto r = trie.find_suffix(str_for_match))
-            for (const auto& r : r->value())
-                std::cout << r.get() << "\n";
+        auto r = trie.find_prefix(str_for_match);
+        for (auto& leaf : r)
+            for (auto& suffix : leaf->value())
+                std::cout << suffix.get() << "\n";
     }
 
     // ASSERT_TRUE(r->value().size() == 10000);

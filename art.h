@@ -1046,108 +1046,23 @@ public:
         return search(key);
     }
 
-    [[nodiscard]] const std::vector<Leaf*> search_prefix(const std::string& s) const noexcept
+    [[nodiscard]] const std::vector<const Leaf*> search_prefix(const std::string& s) const noexcept
     {
-        std::vector<Leaf*> leaves;
+        std::vector<const Leaf*> leaves;
         const Key key{(const uint8_t* const)s.data(), s.size()};
 
         search_prefix(key, leaves);
         return leaves;
     }
 
-    [[nodiscard]] const std::vector<Leaf*> search_prefix(const uint8_t* const data,
-                                                         size_t size) const noexcept
+    [[nodiscard]] const std::vector<const Leaf*> search_prefix(const uint8_t* const data,
+                                                               size_t size) const noexcept
     {
-        std::vector<Leaf*> leaves;
+        std::vector<const Leaf*> leaves;
         const Key key{data, size};
 
         search_prefix(key, leaves);
         return leaves;
-    }
-
-    enum class visit_order { pre_order, post_order };
-
-    // Default for each to root node.
-    //
-    template<visit_order order = visit_order::pre_order>
-    void for_each(const auto& callback) noexcept(noexcept(callback(m_root)))
-    {
-        for_each<order>(m_root, callback);
-    }
-
-    // Const version of for_each.
-    //
-    template<visit_order order = visit_order::pre_order>
-    void for_each(const auto& callback) const noexcept(noexcept(callback(m_root)))
-    {
-        for_each<order>(m_root, callback);
-    }
-
-    // Visits all entries and invokes callback on them.
-    //
-    template<visit_order order = visit_order::pre_order>
-    void for_each(entry_ptr& entry, const auto& callback) noexcept(noexcept(callback(entry)))
-    {
-        if (!entry)
-            return;
-
-        if constexpr (order == visit_order::pre_order)
-            callback(entry);
-
-        if (entry.node()) {
-            Node* node = entry.node_ptr();
-
-            entry_ptr* children = nullptr;
-            size_t children_len = 0;
-
-            switch (node->m_type) { // clang-format off
-            case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
-            case Node16_t:  children_len = 16,  children = node->node16()->m_children;  break;
-            case Node48_t:  children_len = 48,  children = node->node48()->m_children;  break;
-            case Node256_t: children_len = 256, children = node->node256()->m_children; break;
-            default: assert(false);                                                     break;
-            } // clang-format on
-
-            for (size_t i = 0; i < children_len; ++i)
-                for_each<order>(children[i], callback);
-        }
-
-        if constexpr (order == visit_order::post_order)
-            callback(entry);
-    }
-
-    // Const version of for_each.
-    //
-    template<visit_order order = visit_order::pre_order>
-    void for_each(const entry_ptr& entry, const auto& callback) const
-        noexcept(noexcept(callback(entry)))
-    {
-        if (!entry)
-            return;
-
-        if constexpr (order == visit_order::pre_order)
-            callback(entry);
-
-        if (entry.node()) {
-            Node* node = entry.node_ptr();
-
-            entry_ptr* children = nullptr;
-            size_t children_len = 0;
-
-            switch (node->m_type) { // clang-format off
-            case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
-            case Node16_t:  children_len = 16,  children = node->node16()->m_children;  break;
-            case Node48_t:  children_len = 48,  children = node->node48()->m_children;  break;
-            case Node256_t: children_len = 256, children = node->node256()->m_children; break;
-            default: assert(false);                                                     break;
-            } // clang-format on
-
-            for (size_t i = 0; i < children_len; ++i)
-                for_each<order>(children[i], callback);
-        }
-
-        if constexpr (order == visit_order::post_order)
-            callback(entry);
     }
 
     // Returns size of whole tree in bytes.
@@ -1173,6 +1088,207 @@ public:
         });
 
         return size;
+    }
+
+    // ********************************************************************************************
+    // Iterators section.
+    // ********************************************************************************************
+
+    // Order and type of iterations.
+    //
+    enum class visit_order { pre_order, post_order };
+    enum class visit_type { node = 1, leaf = 2, any = node | leaf };
+
+    // Don't look at this.
+    //
+    template<visit_type type>
+    static constexpr bool noexcept_check(auto&& entry, const auto& callback)
+    {
+        if constexpr (type == visit_type::any)
+            return noexcept(callback(entry));
+
+        if constexpr (type == visit_type::node)
+            return noexcept(callback(entry.node_ptr()));
+
+        if constexpr (type == visit_type::leaf)
+            return noexcept(callback(entry.leaf_ptr()));
+    }
+
+    // Default for each to root node.
+    //
+    template<visit_order order = visit_order::pre_order, visit_type type = visit_type::any>
+    void for_each(const auto& callback) noexcept(noexcept(noexcept_check<type>(m_root, callback)))
+    {
+        for_each<order, type>(m_root, callback);
+    }
+
+    // Const version of for_each.
+    //
+    template<visit_order order = visit_order::pre_order, visit_type type = visit_type::any>
+    void for_each(const auto& callback) const
+        noexcept(noexcept(noexcept_check<type>(m_root, callback)))
+    {
+        for_each<order, type>(m_root, callback);
+    }
+
+    // Visits all entries and invokes callback on them.
+    //
+    template<visit_order order = visit_order::pre_order, visit_type type = visit_type::any>
+    void for_each(entry_ptr& entry,
+                  const auto& callback) noexcept(noexcept(noexcept_check<type>(entry, callback)))
+    {
+        if (!entry)
+            return;
+
+        if constexpr (order == visit_order::pre_order) {
+            if constexpr (type == visit_type::any)
+                callback(entry);
+
+            if constexpr (type == visit_type::node)
+                if (entry.node())
+                    callback(entry.node_ptr());
+
+            if constexpr (type == visit_type::leaf)
+                if (entry.leaf())
+                    callback(entry.leaf_ptr());
+        }
+
+        if (entry.node()) {
+            Node* node = entry.node_ptr();
+
+            entry_ptr* children = nullptr;
+            size_t children_len = 0;
+
+            switch (node->m_type) { // clang-format off
+            case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
+            case Node16_t:  children_len = 16,  children = node->node16()->m_children;  break;
+            case Node48_t:  children_len = 48,  children = node->node48()->m_children;  break;
+            case Node256_t: children_len = 256, children = node->node256()->m_children; break;
+            default: assert(false);                                                     break;
+            } // clang-format on
+
+            for (size_t i = 0; i < children_len; ++i)
+                for_each<order, type>(children[i], callback);
+        }
+
+        if constexpr (order == visit_order::post_order) {
+            if constexpr (type == visit_type::any)
+                callback(entry);
+
+            if constexpr (type == visit_type::node)
+                if (entry.node())
+                    callback(entry.node_ptr());
+
+            if constexpr (type == visit_type::leaf)
+                if (entry.leaf())
+                    callback(entry.leaf_ptr());
+        }
+    }
+
+    // Const for_each version.
+    //
+    template<visit_order order = visit_order::pre_order, visit_type type = visit_type::any>
+    void for_each(const entry_ptr& entry, const auto& callback) const
+        noexcept(noexcept(noexcept_check<type>(entry, callback)))
+    {
+        if (!entry)
+            return;
+
+        if constexpr (order == visit_order::pre_order) {
+            if constexpr (type == visit_type::any)
+                callback(entry);
+
+            if constexpr (type == visit_type::node)
+                if (entry.node())
+                    callback(entry.node_ptr());
+
+            if constexpr (type == visit_type::leaf)
+                if (entry.leaf())
+                    callback(entry.leaf_ptr());
+        }
+
+        if (entry.node()) {
+            Node* node = entry.node_ptr();
+
+            entry_ptr* children = nullptr;
+            size_t children_len = 0;
+
+            switch (node->m_type) { // clang-format off
+            case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
+            case Node16_t:  children_len = 16,  children = node->node16()->m_children;  break;
+            case Node48_t:  children_len = 48,  children = node->node48()->m_children;  break;
+            case Node256_t: children_len = 256, children = node->node256()->m_children; break;
+            default: assert(false);                                                     break;
+            } // clang-format on
+
+            for (size_t i = 0; i < children_len; ++i)
+                for_each<order, type>(children[i], callback);
+        }
+
+        if constexpr (order == visit_order::post_order) {
+            if constexpr (type == visit_type::any)
+                callback(entry);
+
+            if constexpr (type == visit_type::node)
+                if (entry.node())
+                    callback(entry.node_ptr());
+
+            if constexpr (type == visit_type::leaf)
+                if (entry.leaf())
+                    callback(entry.leaf_ptr());
+        }
+    }
+
+    template<visit_order order = visit_order::pre_order>
+    void for_each_node(const auto& callback) noexcept(noexcept(callback(m_root.node_ptr())))
+    {
+        for_each<order, visit_type::node>(m_root, callback);
+    }
+
+    template<visit_order order = visit_order::pre_order>
+    void for_each_node(const auto& callback) const noexcept(noexcept(callback(m_root.node_ptr())))
+    {
+        for_each<order, visit_type::node>(m_root, callback);
+    }
+
+    template<visit_order order = visit_order::pre_order>
+    void for_each_node(entry_ptr& entry,
+                       const auto& callback) noexcept(noexcept(callback(entry.node_ptr())))
+    {
+        for_each<order, visit_type::node>(entry, callback);
+    }
+
+    template<visit_order order = visit_order::pre_order>
+    void for_each_node(const entry_ptr& entry, const auto& callback) const
+        noexcept(noexcept(callback(entry.node_ptr())))
+    {
+        for_each<order, visit_type::node>(entry, callback);
+    }
+
+    template<visit_order order = visit_order::pre_order>
+    void for_each_leaf(const auto& callback) noexcept(noexcept(callback(m_root.leaf_ptr())))
+    {
+        for_each<order, visit_type::leaf>(m_root, callback);
+    }
+
+    template<visit_order order = visit_order::pre_order>
+    void for_each_leaf(const auto& callback) const noexcept(noexcept(callback(m_root.leaf_ptr())))
+    {
+        for_each<order, visit_type::leaf>(m_root, callback);
+    }
+
+    template<visit_order order = visit_order::pre_order>
+    void for_each_leaf(entry_ptr& entry,
+                       const auto& callback) noexcept(noexcept(callback(entry.leaf_ptr())))
+    {
+        for_each<order, visit_type::leaf>(entry, callback);
+    }
+
+    template<visit_order order = visit_order::pre_order>
+    void for_each_leaf(const entry_ptr& entry, const auto& callback) const
+        noexcept(noexcept(callback(entry.leaf_ptr())))
+    {
+        for_each<order, visit_type::leaf>(entry, callback);
     }
 
 private:
@@ -1349,14 +1465,14 @@ private:
 
     bool empty() const noexcept { return m_root; }
 
-    void search_prefix(const Key& key, std::vector<Leaf*>& leaves) const noexcept
+    void search_prefix(const Key& key, std::vector<const Leaf*>& leaves) const noexcept
     {
         if (m_root)
             search_prefix(m_root, key, 0, leaves);
     }
 
     void search_prefix(const entry_ptr& entry, const Key& prefix, size_t depth,
-                       std::vector<Leaf*>& leaves) const noexcept
+                       std::vector<const Leaf*>& leaves) const noexcept
     {
         if (entry.leaf()) {
             Leaf* leaf = entry.leaf_ptr();
@@ -1371,14 +1487,8 @@ private:
 
         // All bytes except terminal byte matched, so just collect leaves.
         //
-        if (depth + cp_len == prefix.size() - 1) {
-            for_each(entry, [&](const entry_ptr& this_entry) {
-                if (this_entry.leaf())
-                    leaves.push_back(this_entry.leaf_ptr());
-            });
-
-            return;
-        }
+        if (depth + cp_len == prefix.size() - 1)
+            return for_each_leaf(entry, [&](const Leaf* leaf) { leaves.push_back(leaf); });
 
         if (cp_len != hdrlen(node->m_prefix_len))
             return;
