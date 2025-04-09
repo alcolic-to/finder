@@ -971,7 +971,10 @@ public:
 
     ART() noexcept = default;
 
-    ~ART() noexcept { destroy_all(m_root); }
+    ~ART() noexcept
+    {
+        for_each<visit_order::post_order>([](entry_ptr& entry) { entry.reset(); });
+    }
 
     ART(const ART& other) = delete;
     ART(ART&& other) noexcept = delete;
@@ -1029,12 +1032,114 @@ public:
         return search(key);
     }
 
+    enum class visit_order { pre_order, post_order };
+
+    // Default for each to root node.
+    //
+    template<visit_order order = visit_order::pre_order>
+    void for_each(const auto& callback) noexcept(noexcept(callback(m_root)))
+    {
+        for_each<order>(m_root, callback);
+    }
+
+    // Const version of for_each.
+    //
+    template<visit_order order = visit_order::pre_order>
+    void for_each(const auto& callback) const noexcept(noexcept(callback(m_root)))
+    {
+        for_each<order>(m_root, callback);
+    }
+
+    // Visits all entries and invokes callback on them.
+    //
+    template<visit_order order = visit_order::pre_order>
+    void for_each(entry_ptr& entry, const auto& callback) noexcept(noexcept(callback(entry)))
+    {
+        if (!entry)
+            return;
+
+        if constexpr (order == visit_order::pre_order)
+            callback(entry);
+
+        if (entry.node()) {
+            Node* node = entry.node_ptr();
+
+            entry_ptr* children = nullptr;
+            size_t children_len = 0;
+
+            switch (node->m_type) { // clang-format off
+            case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
+            case Node16_t:  children_len = 16,  children = node->node16()->m_children;  break;
+            case Node48_t:  children_len = 48,  children = node->node48()->m_children;  break;
+            case Node256_t: children_len = 256, children = node->node256()->m_children; break;
+            default: assert(false);                                                     break;
+            } // clang-format on
+
+            for (size_t i = 0; i < children_len; ++i)
+                for_each<order>(children[i], callback);
+        }
+
+        if constexpr (order == visit_order::post_order)
+            callback(entry);
+    }
+
+    // Const version of for_each.
+    //
+    template<visit_order order = visit_order::pre_order>
+    void for_each(const entry_ptr& entry, const auto& callback) const
+        noexcept(noexcept(callback(entry)))
+    {
+        if (!entry)
+            return;
+
+        if constexpr (order == visit_order::pre_order)
+            callback(entry);
+
+        if (entry.node()) {
+            Node* node = entry.node_ptr();
+
+            entry_ptr* children = nullptr;
+            size_t children_len = 0;
+
+            switch (node->m_type) { // clang-format off
+            case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
+            case Node16_t:  children_len = 16,  children = node->node16()->m_children;  break;
+            case Node48_t:  children_len = 48,  children = node->node48()->m_children;  break;
+            case Node256_t: children_len = 256, children = node->node256()->m_children; break;
+            default: assert(false);                                                     break;
+            } // clang-format on
+
+            for (size_t i = 0; i < children_len; ++i)
+                for_each<order>(children[i], callback);
+        }
+
+        if constexpr (order == visit_order::post_order)
+            callback(entry);
+    }
+
     // Returns size of whole tree in bytes.
     // By default, it include whole leafs. Leaf keys can be disabled by passing false.
     //
-    size_t size_in_bytes(bool full_leaves) const noexcept
+    size_t size_in_bytes(bool full_leaves = true) const noexcept
     {
-        return sizeof(ART) + size_in_bytes(m_root, full_leaves);
+        size_t size = sizeof(ART);
+
+        for_each([&](const entry_ptr& entry) {
+            if (entry.leaf())
+                size += sizeof(Leaf) + (full_leaves ? entry.leaf_ptr()->key_size() : 0);
+            else {
+                Node* node = entry.node_ptr();
+                switch (node->m_type) { // clang-format off
+                case Node4_t:   size += sizeof(Node4);   break;
+                case Node16_t:  size += sizeof(Node16);  break;
+                case Node48_t:  size += sizeof(Node48);  break;
+                case Node256_t: size += sizeof(Node256); break;
+                default: assert(false);                  break;
+                } // clang-format on
+            }
+        });
+
+        return size;
     }
 
 private:
@@ -1207,61 +1312,6 @@ private:
             return search(*next, key, depth + 1);
 
         return nullptr;
-    }
-
-    // Recursively visits all entries in a subtree and deletes them.
-    //
-    void destroy_all(entry_ptr& entry)
-    {
-        if (!entry)
-            return;
-
-        if (entry.node()) {
-            Node* node = entry.node_ptr();
-
-            entry_ptr* children = nullptr;
-            size_t children_len = 0;
-
-            switch (node->m_type) { // clang-format off
-            case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
-            case Node16_t:  children_len = 16,  children = node->node16()->m_children;  break;
-            case Node48_t:  children_len = 48,  children = node->node48()->m_children;  break;
-            case Node256_t: children_len = 256, children = node->node256()->m_children; break;
-            default: assert(false);                                                     break;
-            } // clang-format on
-
-            for (size_t i = 0; i < children_len; ++i)
-                destroy_all(children[i]);
-        }
-
-        entry.reset();
-    }
-
-    size_t size_in_bytes(const entry_ptr& entry, bool full_leaves) const noexcept
-    {
-        if (!entry)
-            return 0;
-
-        if (entry.leaf())
-            return sizeof(Leaf) + (full_leaves ? entry.leaf_ptr()->key_size() : 0);
-
-        Node* node = entry.node_ptr();
-        size_t size = 0;
-        entry_ptr* children = nullptr;
-        size_t children_len = 0;
-
-        switch (node->m_type) { // clang-format off
-        case Node4_t:   size += sizeof(Node4),   children_len = 4,   children = node->node4()->m_children;   break;
-        case Node16_t:  size += sizeof(Node16),  children_len = 16,  children = node->node16()->m_children;  break;
-        case Node48_t:  size += sizeof(Node48),  children_len = 48,  children = node->node48()->m_children;  break;
-        case Node256_t: size += sizeof(Node256), children_len = 256, children = node->node256()->m_children; break;
-        default: assert(false);                                                                              break;
-        } // clang-format on
-
-        for (size_t i = 0; i < children_len; ++i)
-            size += size_in_bytes(children[i], full_leaves);
-
-        return size;
     }
 
     bool empty() const noexcept { return m_root; }
