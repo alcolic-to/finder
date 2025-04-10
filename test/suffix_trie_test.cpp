@@ -23,11 +23,13 @@ TEST(suffix_trie_tests, sanity_test_1)
     ASSERT_TRUE(s.search_suffix("ana")[0]->first == "banana");
     ASSERT_TRUE(s.search_suffix("na")[0]->first == "banana");
     ASSERT_TRUE(s.search_suffix("a")[0]->first == "banana");
+    ASSERT_TRUE(s.search_suffix("")[0]->first == "banana");
 
     ASSERT_TRUE(s.search_prefix("ba").size() == 1);
     ASSERT_TRUE(s.search_prefix("a").size() == 1);
     ASSERT_TRUE(s.search_prefix("an").size() == 1);
     ASSERT_TRUE(s.search_prefix("ana").size() == 1);
+    ASSERT_TRUE(s.search_prefix("n").size() == 1);
 }
 
 TEST(suffix_trie_tests, sanity_test_2)
@@ -121,19 +123,106 @@ TEST(suffix_trie_tests, sanity_test_3)
     r = s.search_suffix("");
     ASSERT_TRUE(r.size() == 3);
     ASSERT_TRUE(r[0]->first == "banana" && r[1]->first == "ana" && r[2]->first == "not_banana");
+
+    r = s.search_prefix("not_banana");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "not_banana");
+
+    r = s.search_prefix("banana");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->first == "banana" || r[1]->first == "banana");
+    ASSERT_TRUE(r[0]->first == "not_banana" || r[1]->first == "not_banana");
+
+    r = s.search_prefix("b");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->first == "banana" || r[1]->first == "banana");
+    ASSERT_TRUE(r[0]->first == "not_banana" || r[1]->first == "not_banana");
+
+    r = s.search_prefix("");
+    ASSERT_TRUE(r.size() == 3);
+    ASSERT_TRUE(r[0]->first == "banana" || r[1]->first == "banana" || r[2]->first == "banana");
+    ASSERT_TRUE(r[0]->first == "not_banana" || r[1]->first == "not_banana" ||
+                r[2]->first == "not_banana");
+    ASSERT_TRUE(r[0]->first == "ana" || r[1]->first == "ana" || r[2]->first == "ana");
 }
 
 TEST(suffix_trie_tests, sanity_test_4)
 {
-    Suffix_trie s;
+    Suffix_trie<std::string> s;
 
-    s.insert_suffix(
-        R"(C:\Users\topac\.vscode\extensions\ms-python.vscode-pylance-2025.4.1\dist\bundled\stubs\sympy-stubs\printing)");
+    std::string file_path =
+        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.vscode-pylance-2025.4.1\dist\bundled\stubs\sympy-stubs\printing)";
 
-    auto r = s.search_prefix("in");
+    s.insert_suffix("printing", file_path);
 
-    for (auto& it : r)
-        std::cout << it->first << "\n";
+    auto r = s.search_suffix("printing");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "printing");
+    ASSERT_TRUE(r[0]->second == file_path);
+
+    r = s.search_suffix("in");
+    ASSERT_TRUE(r.size() == 0);
+
+    r = s.search_prefix("in");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "printing");
+    ASSERT_TRUE(r[0]->second == file_path);
+
+    r = s.search_suffix("ing");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "printing");
+    ASSERT_TRUE(r[0]->second == file_path);
+
+    r = s.search_prefix("ing");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "printing");
+    ASSERT_TRUE(r[0]->second == file_path);
+
+    r = s.search_suffix("p");
+    ASSERT_TRUE(r.size() == 0);
+
+    r = s.search_prefix("p");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "printing");
+    ASSERT_TRUE(r[0]->second == file_path);
+
+    s.insert_suffix("printige", file_path);
+
+    r = s.search_suffix("printing");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "printing");
+    ASSERT_TRUE(r[0]->second == file_path);
+
+    r = s.search_suffix("in");
+    ASSERT_TRUE(r.size() == 0);
+
+    r = s.search_prefix("in");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[1]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printing" || r[1]->first == "printing");
+    ASSERT_TRUE(r[0]->first == "printige" || r[1]->first == "printige");
+
+    r = s.search_prefix("print");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[1]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printing" || r[1]->first == "printing");
+    ASSERT_TRUE(r[0]->first == "printige" || r[1]->first == "printige");
+
+    r = s.search_prefix("printi");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[1]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printing" || r[1]->first == "printing");
+    ASSERT_TRUE(r[0]->first == "printige" || r[1]->first == "printige");
+
+    r = s.search_prefix("p");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[1]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printing" || r[1]->first == "printing");
+    ASSERT_TRUE(r[0]->first == "printige" || r[1]->first == "printige");
 }
 
 // Reads all filesystem paths from provided input file, inserts them into Suffix trie and search for

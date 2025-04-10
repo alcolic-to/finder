@@ -124,31 +124,10 @@ public:
     template<class V = T>
     result_it insert_suffix(const std::string& suffix, V&& value = T{})
     {
-        // const auto& it = std::ranges::find(m_$, value);
-        // std::string& s = it != m_$.end() ? *it : m_$.emplace_back(std::move(value));
-
-        // uint8_t* begin = (uint8_t*)suffix.data();
-        // uint8_t* end = begin + suffix.size();
-
-        // while (begin <= end) {
-        // auto res = insert(begin, end - begin, &s); // Try to insert new vector with s.
-        // if (!res) // Vector entry already exist, so just push back new string.
-        // res->value().push_back(&s);
-
-        // ++begin;
-        // }
-
-        if (auto r = m_$.find(suffix); r != m_$.end()) {
-            // if (std::ranges::find(r->second, value) == r->second.end())
-            //    r->second.push_back(value);
-
+        if (auto r = m_$.find(suffix); r != m_$.end())
             return {r, false};
-            // return r;
-        }
 
         auto entry = m_$.insert({suffix, std::forward<V>(value)});
-
-        // auto it = m_$.insert(suffix, value);
 
         uint8_t* begin = (uint8_t*)suffix.data();
         uint8_t* end = begin + suffix.size();
@@ -173,17 +152,17 @@ public:
         // m_root.reset();
     }
 
-    // auto find_suffix(const std::string& str) { return ART::search(str); }
-
     // Returns a vector of string/value matching str prefix.
     //
     [[nodiscard]] auto search_suffix(const std::string& str)
     {
         std::vector<suffix_map_it<T>> results;
 
-        for (const auto& map_entry_it : ART::search(str)->value())
-            if (std::ranges::find(results, map_entry_it) == results.end())
-                results.push_back(map_entry_it);
+        if (auto* leaf = ART::search(str)) {
+            for (const auto& map_entry_it : leaf->value())
+                if (std::ranges::find(results, map_entry_it) == results.end())
+                    results.push_back(map_entry_it);
+        }
 
         return results;
     }
