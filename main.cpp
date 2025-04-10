@@ -106,6 +106,8 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 #endif
 }
 
+using namespace suffix_trie;
+
 // NOLINTEND
 
 int main(int argc, char* argv[])
@@ -194,7 +196,7 @@ int main(int argc, char* argv[])
             //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
             // }
 
-            trie.insert_path(dir_entry.path());
+            // trie.insert_path(dir_entry.path());
         }
 
         std::cout << "All $s: " << trie.$().size() << "\n";
@@ -208,12 +210,11 @@ int main(int argc, char* argv[])
                 // std::unordered_set<std::string_view> results;
                 auto r = [&] {
                     Stopwatch<true, microseconds> s;
-                    return trie.find_prefix(str_for_match);
+                    return trie.search_prefix(str_for_match);
                 }();
 
-                for (auto& leaf : r)
-                    for (const auto& suffix : leaf->value())
-                        std::cout << *suffix << "\n";
+                for (auto& it : r)
+                    std::cout << it->first << "\n";
 
                 // {
                 //     Stopwatch<true, microseconds> s;
