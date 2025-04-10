@@ -14,13 +14,13 @@ TEST(suffix_trie_tests, sanity_test_1)
     Suffix_trie s;
 
     s.insert_suffix("banana");
-    ASSERT_TRUE(s.find_suffix("banana")->value().begin()->get() == "banana");
-    ASSERT_TRUE(s.find_suffix("anana")->value().begin()->get() == "banana");
-    ASSERT_TRUE(s.find_suffix("nana")->value().begin()->get() == "banana");
-    ASSERT_TRUE(s.find_suffix("ana")->value().begin()->get() == "banana");
-    ASSERT_TRUE(s.find_suffix("na")->value().begin()->get() == "banana");
-    ASSERT_TRUE(s.find_suffix("a")->value().begin()->get() == "banana");
-    ASSERT_TRUE(s.find_suffix("")->value().begin()->get() == "banana");
+    ASSERT_TRUE(**s.find_suffix("banana")->value().begin() == "banana");
+    ASSERT_TRUE(**s.find_suffix("anana")->value().begin() == "banana");
+    ASSERT_TRUE(**s.find_suffix("nana")->value().begin() == "banana");
+    ASSERT_TRUE(**s.find_suffix("ana")->value().begin() == "banana");
+    ASSERT_TRUE(**s.find_suffix("na")->value().begin() == "banana");
+    ASSERT_TRUE(**s.find_suffix("a")->value().begin() == "banana");
+    ASSERT_TRUE(**s.find_suffix("")->value().begin() == "banana");
 
     ASSERT_TRUE(s.find_prefix("ba").size() == 1);
     ASSERT_TRUE(s.find_prefix("a").size() == 3);
@@ -37,35 +37,35 @@ TEST(suffix_trie_tests, sanity_test_2)
 
     auto r = s.find_suffix("banana")->value();
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r.begin()->get() == "banana");
+    ASSERT_TRUE(**r.begin() == "banana");
 
     r = s.find_suffix("anana")->value();
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r.begin()->get() == "banana");
+    ASSERT_TRUE(**r.begin() == "banana");
 
     r = s.find_suffix("nana")->value();
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r.begin()->get() == "banana");
+    ASSERT_TRUE(**r.begin() == "banana");
 
     r = s.find_suffix("ana")->value();
     ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r.begin()->get() == "banana");
-    ASSERT_TRUE((r.begin() + 1)->get() == "ana");
+    ASSERT_TRUE(**r.begin() == "banana");
+    ASSERT_TRUE(**(r.begin() + 1) == "ana");
 
     r = s.find_suffix("na")->value();
     ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r.begin()->get() == "banana");
-    ASSERT_TRUE((r.begin() + 1)->get() == "ana");
+    ASSERT_TRUE(**r.begin() == "banana");
+    ASSERT_TRUE(**(r.begin() + 1) == "ana");
 
     r = s.find_suffix("a")->value();
     ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r.begin()->get() == "banana");
-    ASSERT_TRUE((r.begin() + 1)->get() == "ana");
+    ASSERT_TRUE(**r.begin() == "banana");
+    ASSERT_TRUE(**(r.begin() + 1) == "ana");
 
     r = s.find_suffix("")->value();
     ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r.begin()->get() == "banana");
-    ASSERT_TRUE((r.begin() + 1)->get() == "ana");
+    ASSERT_TRUE(**r.begin() == "banana");
+    ASSERT_TRUE(**(r.begin() + 1) == "ana");
 }
 
 TEST(suffix_trie_tests, sanity_test_3)
@@ -78,51 +78,51 @@ TEST(suffix_trie_tests, sanity_test_3)
 
     auto r = s.find_suffix("not_banana")->value();
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r.begin()->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "not_banana");
 
     r = s.find_suffix("ot_banana")->value();
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r.begin()->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "not_banana");
 
     r = s.find_suffix("t_banana")->value();
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r.begin()->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "not_banana");
 
     r = s.find_suffix("_banana")->value();
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r.begin()->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "not_banana");
 
     r = s.find_suffix("banana")->value();
     ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r.begin()->get() == "banana" && (r.begin() + 1)->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "banana" && **(r.begin() + 1) == "not_banana");
 
     r = s.find_suffix("anana")->value();
     ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r.begin()->get() == "banana" && (r.begin() + 1)->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "banana" && **(r.begin() + 1) == "not_banana");
 
     r = s.find_suffix("nana")->value();
     ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r.begin()->get() == "banana" && (r.begin() + 1)->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "banana" && **(r.begin() + 1) == "not_banana");
 
     r = s.find_suffix("ana")->value();
     ASSERT_TRUE(r.size() == 3);
-    ASSERT_TRUE(r.begin()->get() == "banana" && (r.begin() + 1)->get() == "ana" &&
-                (r.begin() + 2)->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "banana" && **(r.begin() + 1) == "ana" &&
+                **(r.begin() + 2) == "not_banana");
 
     r = s.find_suffix("na")->value();
     ASSERT_TRUE(r.size() == 3);
-    ASSERT_TRUE(r.begin()->get() == "banana" && (r.begin() + 1)->get() == "ana" &&
-                (r.begin() + 2)->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "banana" && **(r.begin() + 1) == "ana" &&
+                **(r.begin() + 2) == "not_banana");
 
     r = s.find_suffix("a")->value();
     ASSERT_TRUE(r.size() == 3);
-    ASSERT_TRUE(r.begin()->get() == "banana" && (r.begin() + 1)->get() == "ana" &&
-                (r.begin() + 2)->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "banana" && **(r.begin() + 1) == "ana" &&
+                **(r.begin() + 2) == "not_banana");
 
     r = s.find_suffix("")->value();
     ASSERT_TRUE(r.size() == 3);
-    ASSERT_TRUE(r.begin()->get() == "banana" && (r.begin() + 1)->get() == "ana" &&
-                (r.begin() + 2)->get() == "not_banana");
+    ASSERT_TRUE(**r.begin() == "banana" && **(r.begin() + 1) == "ana" &&
+                **(r.begin() + 2) == "not_banana");
 }
 
 TEST(suffix_trie_tests, sanity_test_4)
@@ -136,7 +136,7 @@ TEST(suffix_trie_tests, sanity_test_4)
 
     for (auto& leaf : r)
         for (const auto& suffix : leaf->value())
-            std::cout << suffix.get() << "\n";
+            std::cout << *suffix << "\n";
 }
 
 // Reads all filesystem paths from provided input file, inserts them into Suffix trie and search for
@@ -166,7 +166,7 @@ void test_filesystem_paths(const std::string& file_name)
         auto r = trie.find_prefix(str_for_match);
         for (auto& leaf : r)
             for (auto& suffix : leaf->value())
-                std::cout << suffix.get() << "\n";
+                std::cout << *suffix << "\n";
     }
 
     // ASSERT_TRUE(r->value().size() == 10000);

@@ -2,15 +2,14 @@
 #include <functional>
 #include <list>
 #include <ranges>
+#include <unordered_map>
 #include <vector>
 
 #include "art.h"
 
 // NOLINTBEGIN
 
-using strref = std::reference_wrapper<std::string>;
-
-class Suffix_trie : private art::ART<std::vector<strref>> {
+class Suffix_trie : private art::ART<std::vector<std::string*>> {
 public:
     static constexpr bool path_sep(char ch) { return ch == '\\' || ch == '/'; }
 
@@ -71,9 +70,9 @@ public:
         uint8_t* end = begin + suffix.size();
 
         while (begin <= end) {
-            auto res = insert(begin, end - begin, s); // Try to insert new vector with s.
+            auto res = insert(begin, end - begin, &s); // Try to insert new vector with s.
             if (!res) // Vector entry already exist, so just push back new string.
-                res->value().push_back(s);
+                res->value().push_back(&s);
 
             ++begin;
         }

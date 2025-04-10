@@ -213,7 +213,7 @@ int main(int argc, char* argv[])
 
                 for (auto& leaf : r)
                     for (const auto& suffix : leaf->value())
-                        std::cout << suffix.get() << "\n";
+                        std::cout << *suffix << "\n";
 
                 // {
                 //     Stopwatch<true, microseconds> s;
