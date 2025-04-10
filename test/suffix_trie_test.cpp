@@ -125,6 +125,20 @@ TEST(suffix_trie_tests, sanity_test_3)
                 (r.begin() + 2)->get() == "not_banana");
 }
 
+TEST(suffix_trie_tests, sanity_test_4)
+{
+    Suffix_trie s;
+
+    s.insert_suffix(
+        R"(C:\Users\topac\.vscode\extensions\ms-python.vscode-pylance-2025.4.1\dist\bundled\stubs\sympy-stubs\printing)");
+
+    auto r = s.find_prefix("in");
+
+    for (auto& leaf : r)
+        for (const auto& suffix : leaf->value())
+            std::cout << suffix.get() << "\n";
+}
+
 // Reads all filesystem paths from provided input file, inserts them into Suffix trie and search for
 // them 1 by 1 while verifying searches.
 //

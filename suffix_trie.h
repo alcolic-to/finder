@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <functional>
 #include <list>
 #include <ranges>
@@ -13,29 +14,53 @@ class Suffix_trie : private art::ART<std::vector<strref>> {
 public:
     static constexpr bool path_sep(char ch) { return ch == '\\' || ch == '/'; }
 
-    void insert_path(const std::string& path)
+    // void insert_path(const std::string& path)
+    // {
+    //     const char* start = path.data();
+    //     const char* end = start;
+    //     const char* path_end = start + path.size();
+
+    //     while (start < path_end) {
+    //         while (end < path_end && !path_sep(*end))
+    //             ++end;
+
+    //         if (start < end)
+    //             insert_suffix(std::string{start, end}, path);
+
+    //         ++end;
+    //         start = end;
+    //     }
+    // }
+
+    void insert_path(std::filesystem::path path)
     {
-        const char* start = path.data();
-        const char* end = start;
-        const char* path_end = start + path.size();
+        std::string file_name = path.filename().generic_string();
+        std::string file_path = path.generic_string();
 
-        while (start < path_end) {
-            while (end < path_end && !path_sep(*end))
-                ++end;
+        insert_suffix(file_name, std::move(file_path));
+    }
 
-            if (start < end)
-                insert_suffix(std::string{start, end}, path);
+    void insert_path_2(const std::string& path)
+    {
+        const char* path_start = path.data();
+        const char* path_end = path_start + path.size();
+        const char* it = path_end;
 
-            ++end;
-            start = end;
-        }
+        while (it >= path_start && path_sep(*it))
+            --it;
+
+        while (it >= path_start && !path_sep(*it))
+            --it;
+
+        if (it >= path_start && it < path_end)
+            insert_suffix(std::string{it + 1, path_end}, path);
     }
 
     void insert_suffix(const std::string& suffix) { insert_suffix(suffix, suffix); }
 
     // Inserts string in a trie.
     // This is done by inserting all suffixes of a string, where each leaf will
-    // point to the physical string(s) stored in results (m_$) list.
+    // point to the physical string stored in results (m_$) list.
     //
     void insert_suffix(const std::string& suffix, std::string value)
     {

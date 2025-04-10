@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
             //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
             // }
 
-            trie.insert_path(dir_entry.path().string());
+            trie.insert_path(dir_entry.path());
         }
 
         std::cout << "All $s: " << trie.$().size() << "\n";
@@ -206,13 +206,14 @@ int main(int argc, char* argv[])
                 std::cin >> str_for_match;
 
                 // std::unordered_set<std::string_view> results;
-                auto* r = [&] {
+                auto r = [&] {
                     Stopwatch<true, microseconds> s;
-                    return trie.find_suffix(str_for_match);
+                    return trie.find_prefix(str_for_match);
                 }();
 
-                for (const auto& r : r->value())
-                    std::cout << r.get() << "\n";
+                for (auto& leaf : r)
+                    for (const auto& suffix : leaf->value())
+                        std::cout << suffix.get() << "\n";
 
                 // {
                 //     Stopwatch<true, microseconds> s;
