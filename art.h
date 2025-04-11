@@ -939,32 +939,6 @@ private:
     uint8_t m_key[];
 };
 
-// Class that wraps insert result.
-// It holds reference to Leaf and a bool flag representing whether insert succeeded (read insert for
-// more details).
-//
-template<class T>
-class result {
-public:
-    result(T* value, bool ok) : m_value{value}, m_ok{ok} { assert(m_value != nullptr); }
-
-    T* get() noexcept { return m_value; }
-
-    const T* get() const noexcept { return m_value; }
-
-    constexpr bool ok() const noexcept { return m_ok; }
-
-    T* operator->() noexcept { return get(); }
-
-    const T* operator->() const noexcept { return get(); }
-
-    constexpr operator bool() const noexcept { return ok(); }
-
-private:
-    T* m_value;
-    bool m_ok;
-};
-
 template<class T = void*>
 class ART {
 public:
@@ -975,11 +949,35 @@ public:
     using Node256 = Node256<T>;
     using Leaf = Leaf<T>;
     using entry_ptr = entry_ptr<T>;
-    using result = result<Leaf>;
 
     using value_type = T;
     using reference = T&;
     using const_reference = const T&;
+
+    // Class that wraps insert result.
+    // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
+    // for more details).
+    //
+    class result {
+    public:
+        result(Leaf* value, bool ok) : m_value{value}, m_ok{ok} { assert(m_value != nullptr); }
+
+        Leaf* get() noexcept { return m_value; }
+
+        const Leaf* get() const noexcept { return m_value; }
+
+        constexpr bool ok() const noexcept { return m_ok; }
+
+        Leaf* operator->() noexcept { return get(); }
+
+        const Leaf* operator->() const noexcept { return get(); }
+
+        constexpr operator bool() const noexcept { return ok(); }
+
+    private:
+        Leaf* m_value;
+        bool m_ok;
+    };
 
     ART() noexcept = default;
 

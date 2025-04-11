@@ -33,39 +33,37 @@ using suffix_map_it = suffix_map<T>::iterator;
 template<class T>
 using art_value_type = std::vector<suffix_map_it<T>>;
 
-// Class that wraps insert result.
-// It holds reference to Leaf and a bool flag representing whether insert succeeded (read insert
-// for more details).
-//
-template<class T>
-class result {
-public:
-    result(T iterator, bool ok) : m_iterator{iterator}, m_ok{ok} {}
-
-    T get() noexcept { return m_iterator; }
-
-    const T get() const noexcept { return m_iterator; }
-
-    constexpr bool ok() const noexcept { return m_ok; }
-
-    T* operator->() noexcept { return get(); }
-
-    const T* operator->() const noexcept { return get(); }
-
-    constexpr operator bool() const noexcept { return ok(); }
-
-private:
-    T m_iterator;
-    bool m_ok;
-};
-
 template<class T = void*>
 class Suffix_trie : private art::ART<art_value_type<T>> {
 public:
     using ART = art::ART<art_value_type<T>>;
-    using result = result<suffix_map_it<T>>;
 
-public:
+    // Class that wraps insert result.
+    // It holds iterator and a bool flag representing whether insert succeeded.
+    //
+    class result {
+    public:
+        using Iter = suffix_map_it<T>;
+
+        result(Iter iterator, bool ok) : m_iterator{iterator}, m_ok{ok} {}
+
+        Iter get() noexcept { return m_iterator; }
+
+        const Iter get() const noexcept { return m_iterator; }
+
+        constexpr bool ok() const noexcept { return m_ok; }
+
+        Iter* operator->() noexcept { return get(); }
+
+        const Iter* operator->() const noexcept { return get(); }
+
+        constexpr operator bool() const noexcept { return ok(); }
+
+    private:
+        Iter m_iterator;
+        bool m_ok;
+    };
+
     static constexpr bool path_sep(char ch) { return ch == '\\' || ch == '/'; }
 
     // void insert_path(const std::string& path)
