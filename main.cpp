@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "art.h"
-#include "suffix_trie.h"
+#include "fs_trie.h"
 #include "trie.h"
 
 using namespace std::chrono;
@@ -186,8 +186,7 @@ int main(int argc, char* argv[])
     //     std::cout << "Not found\n";
 
     try {
-        // Trie trie;
-        Suffix_trie trie;
+        FS_trie trie;
         std::string path{R"(C:\Users\topac\.vscode)"};
         for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path}) {
             // if (dir_entry.is_regular_file()) {
@@ -196,7 +195,7 @@ int main(int argc, char* argv[])
             //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
             // }
 
-            // trie.insert_path(dir_entry.path());
+            trie.insert_file_path(dir_entry.path().filename().string(), dir_entry.path().string());
         }
 
         std::cout << "All $s: " << trie.$().size() << "\n";
@@ -210,11 +209,14 @@ int main(int argc, char* argv[])
                 // std::unordered_set<std::string_view> results;
                 auto r = [&] {
                     Stopwatch<true, microseconds> s;
-                    return trie.search_prefix(str_for_match);
+                    return trie.search(str_for_match);
                 }();
 
-                for (auto& it : r)
-                    std::cout << it->first << "\n";
+                for (auto& entry : r) {
+                    // std::cout << "File name: " << entry->first << "\n";
+                    for (auto& path : entry->second)
+                        std::cout << path << "\n";
+                }
 
                 // {
                 //     Stopwatch<true, microseconds> s;
