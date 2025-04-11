@@ -29,6 +29,7 @@ function(add_gtest TEST_FILE)
     target_link_libraries(${TEST_NAME} ${ART_LIBRARIES} gtest_main)
     target_include_directories(${TEST_NAME} PUBLIC ${CMAKE_SOURCE_DIR})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+    target_compile_definitions(${TEST_NAME} PRIVATE PROJECT_ROOT="${CMAKE_SOURCE_DIR}")
 endfunction()
 
 add_gtest("basic_test.cpp")

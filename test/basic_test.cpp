@@ -266,7 +266,9 @@ void test_filesystem_paths(const std::string& file_name)
 {
     art::ART art;
 
-    std::ifstream in_file_stream{"test/input_files/" + file_name};
+    std::ifstream in_file_stream{std::string(PROJECT_ROOT) + "/test/input_files/" + file_name};
+    ASSERT_TRUE(in_file_stream.is_open());
+
     std::vector<std::string> paths;
 
     for (std::string file_path; std::getline(in_file_stream, file_path);) {

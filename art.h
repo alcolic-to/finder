@@ -948,8 +948,6 @@ class result {
 public:
     result(T* value, bool ok) : m_value{value}, m_ok{ok} { assert(m_value != nullptr); }
 
-    result(T& value, bool ok) : result{&value, ok} {};
-
     T* get() noexcept { return m_value; }
 
     const T* get() const noexcept { return m_value; }

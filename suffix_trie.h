@@ -38,9 +38,9 @@ using art_value_type = std::vector<suffix_map_it<T>>;
 // for more details).
 //
 template<class T>
-class result_it {
+class result {
 public:
-    result_it(T iterator, bool ok) : m_iterator{iterator}, m_ok{ok} {}
+    result(T iterator, bool ok) : m_iterator{iterator}, m_ok{ok} {}
 
     T get() noexcept { return m_iterator; }
 
@@ -63,7 +63,7 @@ template<class T = void*>
 class Suffix_trie : private art::ART<art_value_type<T>> {
 public:
     using ART = art::ART<art_value_type<T>>;
-    using result_it = result_it<suffix_map_it<T>>;
+    using result = result<suffix_map_it<T>>;
 
 public:
     static constexpr bool path_sep(char ch) { return ch == '\\' || ch == '/'; }
@@ -117,7 +117,7 @@ public:
     // point to the physical string stored in results (m_$) list.
     //
     template<class V = T>
-    result_it insert_suffix(const std::string& suffix, V&& value = T{})
+    result insert_suffix(const std::string& suffix, V&& value = T{})
     {
         if (auto r = m_$.find(suffix); r != m_$.end())
             return {r, false};
