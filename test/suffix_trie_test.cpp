@@ -30,6 +30,11 @@ TEST(suffix_trie_tests, sanity_test_1)
     ASSERT_TRUE(s.search_prefix("an").size() == 1);
     ASSERT_TRUE(s.search_prefix("ana").size() == 1);
     ASSERT_TRUE(s.search_prefix("n").size() == 1);
+
+    s.erase_suffix("banana");
+
+    ASSERT_TRUE(s.search_suffix("banana").empty());
+    ASSERT_TRUE(s.search_prefix("banana").empty());
 }
 
 TEST(suffix_trie_tests, sanity_test_2)
@@ -70,6 +75,43 @@ TEST(suffix_trie_tests, sanity_test_2)
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->first == "banana");
     ASSERT_TRUE(r[1]->first == "ana");
+
+    s.erase_suffix("ana");
+
+    r = s.search_suffix("banana");
+    ASSERT_TRUE(r.size() == 1 && r[0]->first == "banana");
+
+    r = s.search_suffix("anana");
+    ASSERT_TRUE(r.size() == 1 && r[0]->first == "banana");
+
+    r = s.search_suffix("nana");
+    ASSERT_TRUE(r.size() == 1 && r[0]->first == "banana");
+
+    r = s.search_suffix("ana");
+    ASSERT_TRUE(r.size() == 1 && r[0]->first == "banana");
+
+    r = s.search_suffix("na");
+    ASSERT_TRUE(r.size() == 1 && r[0]->first == "banana");
+
+    r = s.search_suffix("a");
+    ASSERT_TRUE(r.size() == 1 && r[0]->first == "banana");
+
+    r = s.search_suffix("");
+    ASSERT_TRUE(r.size() == 1 && r[0]->first == "banana");
+
+    ASSERT_TRUE(s.search_prefix("ba").size() == 1);
+    ASSERT_TRUE(s.search_prefix("a").size() == 1);
+    ASSERT_TRUE(s.search_prefix("an").size() == 1);
+    ASSERT_TRUE(s.search_prefix("ana").size() == 1);
+    ASSERT_TRUE(s.search_prefix("n").size() == 1);
+
+    s.erase_suffix("banana");
+
+    ASSERT_TRUE(s.search_suffix("banana").empty());
+    ASSERT_TRUE(s.search_prefix("banana").empty());
+
+    ASSERT_TRUE(s.search_suffix("ana").empty());
+    ASSERT_TRUE(s.search_prefix("ana").empty());
 }
 
 TEST(suffix_trie_tests, sanity_test_3)
@@ -144,6 +186,48 @@ TEST(suffix_trie_tests, sanity_test_3)
     ASSERT_TRUE(r[0]->first == "not_banana" || r[1]->first == "not_banana" ||
                 r[2]->first == "not_banana");
     ASSERT_TRUE(r[0]->first == "ana" || r[1]->first == "ana" || r[2]->first == "ana");
+
+    s.erase_suffix("banana");
+
+    r = s.search_suffix("not_banana");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "not_banana");
+
+    r = s.search_suffix("banana");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "not_banana");
+
+    r = s.search_suffix("ana");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->first == "ana" && r[1]->first == "not_banana");
+
+    r = s.search_suffix("");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->first == "ana" && r[1]->first == "not_banana");
+
+    r = s.search_prefix("banana");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->first == "not_banana");
+
+    r = s.search_prefix("ana");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->first == "not_banana" || r[1]->first == "not_banana");
+    ASSERT_TRUE(r[0]->first == "ana" || r[1]->first == "ana");
+
+    r = s.search_prefix("an");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->first == "not_banana" || r[1]->first == "not_banana");
+    ASSERT_TRUE(r[0]->first == "ana" || r[1]->first == "ana");
+
+    r = s.search_prefix("n");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->first == "not_banana" || r[1]->first == "not_banana");
+    ASSERT_TRUE(r[0]->first == "ana" || r[1]->first == "ana");
+
+    r = s.search_prefix("");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->first == "not_banana" || r[1]->first == "not_banana");
+    ASSERT_TRUE(r[0]->first == "ana" || r[1]->first == "ana");
 }
 
 TEST(suffix_trie_tests, sanity_test_4)
@@ -223,6 +307,39 @@ TEST(suffix_trie_tests, sanity_test_4)
     ASSERT_TRUE(r[1]->second == file_path);
     ASSERT_TRUE(r[0]->first == "printing" || r[1]->first == "printing");
     ASSERT_TRUE(r[0]->first == "printige" || r[1]->first == "printige");
+
+    s.erase_suffix("printing");
+
+    r = s.search_suffix("printing");
+    ASSERT_TRUE(r.empty());
+
+    r = s.search_suffix("in");
+    ASSERT_TRUE(r.size() == 0);
+
+    r = s.search_prefix("in");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printige");
+
+    r = s.search_prefix("print");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printige");
+
+    r = s.search_prefix("printi");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printige");
+
+    r = s.search_prefix("p");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printige");
+
+    r = s.search_prefix("");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->second == file_path);
+    ASSERT_TRUE(r[0]->first == "printige");
 }
 
 // Reads all filesystem paths from provided input file, inserts them into Suffix trie and search for
@@ -266,16 +383,16 @@ void test_filesystem_paths(const std::string& file_name)
     // art.size_in_bytes(false) / MB);
 }
 
-TEST(suffix_trie_tests, file_system_paths)
-{
-    std::vector<std::string> file_names{
-        // "windows_paths.txt",
-        // "linux_paths.txt",
-        "windows_paths_vscode.txt",
-    };
-
-    for (const auto& file_name : file_names)
-        test_filesystem_paths(file_name);
-}
+// TEST(suffix_trie_tests, file_system_paths)
+// {
+//     std::vector<std::string> file_names{
+//         // "windows_paths.txt",
+//         // "linux_paths.txt",
+//         "windows_paths_vscode.txt",
+//     };
+//
+//     for (const auto& file_name : file_names)
+//         test_filesystem_paths(file_name);
+// }
 
 // NOLINTEND

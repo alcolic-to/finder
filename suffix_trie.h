@@ -1,6 +1,4 @@
 #include <filesystem>
-#include <functional>
-#include <list>
 #include <map>
 #include <ranges>
 #include <unordered_map>
@@ -42,10 +40,7 @@ using art_value_type = std::vector<suffix_map_it<T>>;
 template<class T>
 class result_it {
 public:
-    result_it(T iterator, bool ok) : m_iterator{iterator}, m_ok{ok}
-    {
-        // assert(m_iterator != nullptr);
-    }
+    result_it(T iterator, bool ok) : m_iterator{iterator}, m_ok{ok} {}
 
     T get() noexcept { return m_iterator; }
 
@@ -145,11 +140,31 @@ public:
 
     // Erases single string from suffix trie.
     //
-    void erase_suffix(const std::string& str)
+    void erase_suffix(const std::string& suffix)
     {
-        // Some code.
-        //
-        // m_root.reset();
+        auto entry = m_$.find(suffix);
+        if (entry == m_$.end())
+            return;
+
+        uint8_t* suffix_start = (uint8_t*)suffix.data();
+        uint8_t* end = suffix_start + suffix.size();
+        uint8_t* start = end;
+
+        while (start >= suffix_start) {
+            auto leaf = ART::search(start, end - start);
+            assert(leaf != nullptr);
+
+            auto& vec = leaf->value();
+            assert(std::ranges::find(vec, entry) != vec.end());
+
+            std::erase(vec, entry);
+            if (vec.empty())
+                ART::erase(start, end - start);
+
+            --start;
+        }
+
+        m_$.erase(entry);
     }
 
     // Returns a vector of string/value matching str prefix.
@@ -186,10 +201,6 @@ public:
     const auto& $() const noexcept { return m_$; }
 
 private:
-    // Always string for key for now. When we extend art to hold different key types, we will change
-    // this. Since elements can be rehashed, we must use unique_ptr in order to prevent dangling
-    // pointers from ART leaves.
-    //
     suffix_map<T> m_$;
 };
 
