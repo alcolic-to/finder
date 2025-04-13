@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <ranges>
 #include <string_view>
 #include <unordered_set>
@@ -112,6 +113,8 @@ using namespace suffix_trie;
 
 int main(int argc, char* argv[])
 {
+    // insert("a", "a");
+
     // Suffix_trie trie;
 
     // for (std::string s{"Aleksandar"}; !s.empty(); s = s.substr(0))
@@ -208,7 +211,7 @@ int main(int argc, char* argv[])
 
                 // std::unordered_set<std::string_view> results;
                 auto r = [&] {
-                    Stopwatch<true, microseconds> s;
+                    Stopwatch<true, microseconds> s{"Search"};
                     return trie.search(str_for_match);
                 }();
 

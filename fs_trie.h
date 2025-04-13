@@ -1,5 +1,6 @@
 
 #include <filesystem>
+#include <initializer_list>
 #include <map>
 #include <ranges>
 #include <unordered_map>
@@ -15,9 +16,14 @@ namespace fs = std::filesystem;
 //
 class FS_trie {
 public:
-    void insert_file_path(std::string filename, const std::string& filepath)
+    void insert_file_path(const fs::path& path)
     {
-        auto res = m_trie.insert_suffix(std::move(filename), std::vector{filepath});
+        insert_file_path(path.filename().string(), path.string());
+    }
+
+    void insert_file_path(std::string filename, std::string filepath)
+    {
+        auto res = m_trie.insert_suffix(std::move(filename), 1, filepath);
         if (res)
             return;
 
@@ -26,6 +32,11 @@ public:
         auto& paths = res.get()->second;
         if (std::ranges::find(paths, filepath) == paths.end())
             paths.emplace_back(std::move(filepath));
+    }
+
+    void erase_file_path(const fs::path& path)
+    {
+        erase_file_path(path.filename().string(), path.string());
     }
 
     void erase_file_path(const std::string& filename, const std::string& filepath)

@@ -10,9 +10,7 @@
 
 namespace suffix_trie {
 
-// Suffix map holds full (suffix) strings with their related values. Since single suffix can have
-// multiple values (for example, same string can be contained in multiple file paths), we will store
-// vector of all values related to key string.
+// Suffix map holds full (suffix) strings with their related values.
 //
 template<class T>
 using suffix_map = std::map<std::string, T>;
@@ -22,14 +20,14 @@ using suffix_map = std::map<std::string, T>;
 template<class T>
 using suffix_map_it = suffix_map<T>::iterator;
 
-// Vector of pointers to different prefixes in a map.
-// One example for clarity:
-// Let's say we want to map suffix string to normal string (default behaviour) and assume that we
-// have 2 string entries: banana and ana. We will have 2 strings in suffix_map: banana and
-// ana, and in ART we will have all suffixes of both strings: "banana", "anana", "nana", "ana",
-// "na", "a", "". In art leaves "ana\0", "na\0", "a\0", "\0", we need to separate pointers to
-// strings banana and ana, hence we will store pointers for those 2 map entries in vector of
-// pointers in leaves.
+// Vector of pointers to different suffixes in a map. This vector is stored in ART leaves.
+// Example for clarity:
+// Let's say we want to map suffix string to normal string (Suffix_trie<std::string> -> default
+// behaviour) and assume that we have 2 string entries: banana and ana. We will have 2 strings in
+// suffix_map: banana and ana, and in ART we will have all suffixes of both strings: "banana",
+// "anana", "nana", "ana", "na", "a", "". In art leaves "ana\0", "na\0", "a\0", "\0", we need to
+// separate pointers to strings banana and ana, hence we will store pointers (iterators) for those 2
+// map entries in vector of pointers in leaves.
 //
 template<class T>
 using art_value_type = std::vector<suffix_map_it<T>>;
@@ -71,13 +69,14 @@ public:
     // This is done by inserting all suffixes of a string, where each leaf will
     // point to the physical string stored in results (m_$) list.
     //
-    template<class V = T>
-    result insert_suffix(std::string suffix, V&& value = V{})
+    template<class... Args>
+    result insert_suffix(std::string suffix, Args&&... args)
     {
         if (auto r = m_$.find(suffix); r != m_$.end())
             return {r, false};
 
-        auto entry = m_$.emplace(std::move(suffix), std::forward<V>(value));
+        auto entry = m_$.emplace(std::piecewise_construct, std::forward_as_tuple(std::move(suffix)),
+                                 std::forward_as_tuple(std::forward<Args>(args)...));
 
         uint8_t* begin = (uint8_t*)entry.first->first.data();
         uint8_t* end = begin + entry.first->first.size();
