@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // NOLINTBEGIN
@@ -931,6 +932,11 @@ public:
     std::string key_to_string() const noexcept
     {
         return std::string(m_key, m_key + m_key_size - 1);
+    }
+
+    std::string_view key_to_string_view() const noexcept
+    {
+        return std::string_view{(const char*)m_key, m_key_size - 1};
     }
 
 private:

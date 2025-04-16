@@ -14,6 +14,7 @@
 #include "art.h"
 #include "fs_trie.h"
 // #include "symbol_finder.h"
+#include "files.h"
 #include "trie.h"
 
 using namespace std::chrono;
@@ -108,31 +109,21 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 #endif
 }
 
-// using namespace suffix_trie;
-
 // NOLINTEND
 
 int main(int argc, char* argv[])
 {
     try {
-        FS_trie trie;
+        Files files;
         std::string path{R"(C:\Users\topac\.vscode)"};
 
         {
             Stopwatch s{"Scanning"};
-            for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path}) {
-                // if (dir_entry.is_regular_file()) {
-                //     std::vector v{file_to_vector(dir_entry.path().string())};
-
-                //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
-                // }
-
-                trie.insert_file_path(dir_entry.path().filename().string(),
-                                      dir_entry.path().string());
-            }
+            for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path})
+                files.insert(dir_entry);
         }
 
-        std::cout << "Entries count: " << trie.search("").size() << "\n";
+        std::cout << "Entries count: " << files.search("").size() << "\n";
 
         std::string str_for_match;
         while (true) {
@@ -142,11 +133,11 @@ int main(int argc, char* argv[])
             // std::unordered_set<std::string_view> results;
             auto res = [&] {
                 Stopwatch<true, microseconds> s{"Search"};
-                return trie.search(str_for_match);
+                return files.search(str_for_match);
             }();
 
-            for (const auto* path : res)
-                std::cout << *path << "\n";
+            for (const auto* file_info : res)
+                std::cout << file_info->path() << "\n";
 
             std::cout << "Results size: " << res.size() << "\n";
         }

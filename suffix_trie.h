@@ -18,6 +18,19 @@ namespace suffix_trie {
 template<class T = void*>
 class Suffix_leaf {
 public:
+    const T* value() const noexcept { return m_value.get(); }
+
+    T* value() noexcept { return m_value.get(); }
+
+    auto& leaves() noexcept { return m_leaf_ptrs; }
+
+    const auto& leaves() const noexcept { return m_leaf_ptrs; }
+
+    auto& ptr() noexcept { return m_value; }
+
+    const auto& ptr() const noexcept { return m_value; }
+
+private:
     std::unique_ptr<T> m_value{nullptr};
     std::vector<typename art::ART<Suffix_leaf>::Leaf*> m_leaf_ptrs;
 };
@@ -33,7 +46,34 @@ public:
     using Suffix_leaf = Suffix_leaf<T>;
     using ART = art::ART<Suffix_leaf>;
     using Leaf = ART::Leaf;
-    using result = ART::result;
+
+    // Class that wraps insert result.
+    // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
+    // for more details).
+    //
+    class result {
+    public:
+        result(Suffix_leaf* value, bool ok) : m_value{value}, m_ok{ok}
+        {
+            assert(m_value != nullptr);
+        }
+
+        Suffix_leaf* get() noexcept { return m_value; }
+
+        const Suffix_leaf* get() const noexcept { return m_value; }
+
+        constexpr bool ok() const noexcept { return m_ok; }
+
+        Suffix_leaf* operator->() noexcept { return get(); }
+
+        const Suffix_leaf* operator->() const noexcept { return get(); }
+
+        constexpr operator bool() const noexcept { return ok(); }
+
+    private:
+        Suffix_leaf* m_value;
+        bool m_ok;
+    };
 
     // Inserts full suffix string (holding T value) and all of it's suffixes which will point to
     // full suffix.
@@ -43,9 +83,9 @@ public:
     {
         auto r = ART::insert(suffix, {}); // TODO: Implement emplace in ART and avoid this nonsence.
 
-        auto& value_ptr = r->value().m_value;
+        auto& value_ptr = r->value().ptr();
         if (value_ptr) // Suffix already exist. Let caller decide what to do.
-            return r;
+            return {&r->value(), false};
 
         value_ptr = std::make_unique<T>(std::forward<V>(value));
         Leaf* leaf = r.get();
@@ -56,15 +96,15 @@ public:
         while (++begin <= end) {
             // TODO: Implement emplace in ART and avoid this nonsence.
             auto res = ART::insert(begin, end - begin, {});
-            auto& ptrs = res->value().m_leaf_ptrs;
+            auto& leaves = res->value().leaves();
 
             if (res) // Vector entry does not exist, so just push back new pointer.
-                ptrs.push_back(leaf);
-            else if (std::ranges::find(ptrs, leaf) == ptrs.end())
-                ptrs.push_back(leaf);
+                leaves.push_back(leaf);
+            else if (std::ranges::find(leaves, leaf) == leaves.end())
+                leaves.push_back(leaf);
         }
 
-        return result{leaf, true};
+        return result{&r->value(), true};
     }
 
     // Erase full string with value and all of it's suffixes.
@@ -75,7 +115,7 @@ public:
         if (!main_leaf)
             return;
 
-        auto& value_ptr = main_leaf->value().m_value;
+        auto& value_ptr = main_leaf->value().ptr();
         if (!value_ptr) // Check if there is a value in this leaf.
             return;
 
@@ -87,18 +127,18 @@ public:
             Leaf* leaf = ART::search(start, end - start);
             assert(leaf != nullptr);
 
-            auto& ptrs = leaf->value().m_leaf_ptrs;
+            auto& ptrs = leaf->value().leaves();
             assert(std::ranges::find(ptrs, main_leaf) != ptrs.end());
 
             std::erase(ptrs, main_leaf);
-            if (ptrs.empty() && !leaf->value().m_value)
+            if (ptrs.empty() && !leaf->value().ptr())
                 ART::erase(start, end - start);
 
             --start;
         }
 
         value_ptr.reset();
-        if (main_leaf->value().m_leaf_ptrs.empty())
+        if (main_leaf->value().leaves().empty())
             ART::erase(suffix);
     }
 
@@ -109,12 +149,12 @@ public:
         std::vector<const T*> results;
 
         if (Leaf* leaf = ART::search(str)) {
-            T* value = leaf->value().m_value.get();
+            T* value = leaf->value().ptr().get();
             if (value)
                 results.push_back(value);
 
-            for (Leaf* leaf_ptr : leaf->value().m_leaf_ptrs) {
-                value = leaf_ptr->value().m_value.get();
+            for (Leaf* leaf_ptr : leaf->value().leaves()) {
+                value = leaf_ptr->value().ptr().get();
                 assert(value);
                 if (value && std::ranges::find(results, value) == results.end())
                     results.push_back(value);
@@ -132,12 +172,12 @@ public:
 
         const auto& leaves = ART::search_prefix(str);
         for (const auto& leaf : leaves) {
-            T* value = leaf->value().m_value.get();
+            T* value = leaf->value().ptr().get();
             if (value && std::ranges::find(results, value) == results.end())
                 results.push_back(value);
 
-            for (Leaf* leaf_ptr : leaf->value().m_leaf_ptrs) {
-                value = leaf_ptr->value().m_value.get();
+            for (Leaf* leaf_ptr : leaf->value().leaves()) {
+                value = leaf_ptr->value().ptr().get();
                 assert(value);
                 if (std::ranges::find(results, value) == results.end())
                     results.push_back(value);

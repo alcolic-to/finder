@@ -3,7 +3,6 @@
 #include <format>
 #include <fstream>
 #include <gtest/gtest.h>
-#include <iterator>
 
 #include "fs_trie.h"
 #include "test_util.h"
@@ -123,9 +122,6 @@ TEST(fs_trie_tests, file_system_paths)
     ASSERT_TRUE(trie.search("cpp").size() == cpp_files_count);
 }
 
-// Reads all filesystem paths from provided input file, inserts them into trie and search for
-// them 1 by 1 while verifying searches.
-//
 void test_fs_search(const std::string& file_name)
 {
     FS_trie trie;
@@ -145,6 +141,12 @@ void test_fs_search(const std::string& file_name)
 
     std::cout << "Paths count: " << paths.size() << "\n";
 
+    constexpr size_t MB = 1024 * 1024;
+
+    std::cout << std::format("Files size:    {}MB\n", trie.size() / MB);
+    // std::cout << std::format("File finder size:    {}MB\n", files.file_finder_size() / MB);
+    // std::cout << std::format("Refs size:    {}MB\n", files.files_refs_size() / MB);
+
     std::string str_for_match;
     while (true) {
         std::cout << ": ";
@@ -159,16 +161,6 @@ void test_fs_search(const std::string& file_name)
 
         std::cout << "Search time: " << duration_cast<microseconds>(elapsed) << "\n";
     }
-
-    // ASSERT_TRUE(r->value().size() == 10000);
-    // }
-
-    // constexpr size_t MB = 1024 * 1024;
-
-    // std::cout << std::format("\nEntries count:           {}K\n", paths.size() / 1000);
-    // std::cout << std::format("ART size with leaves:    {}MB\n", art.size_in_bytes(true) /
-    // MB); std::cout << std::format("ART size without leaves: {}MB\n\n",
-    // art.size_in_bytes(false) / MB);
 }
 
 TEST(fs_trie_tests, fs_search)

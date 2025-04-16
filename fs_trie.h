@@ -32,7 +32,7 @@ public:
 
         // Filename already exist in a suffix trie, so just add path.
         //
-        auto& paths = *res->value().m_value;
+        auto& paths = *res->value();
         if (std::ranges::find(paths, file_path) == paths.end())
             paths.emplace_back(std::move(file_path));
     }
@@ -48,7 +48,7 @@ public:
         if (!res)
             return;
 
-        auto& file_paths = *res->value().m_value;
+        auto& file_paths = *res->value().value();
 
         // Check if file path exist in a paths vector.
         //
@@ -74,6 +74,8 @@ public:
 
         return results;
     }
+
+    auto size(bool full_leaves = true) { return ART::size_in_bytes(full_leaves); }
 };
 
 // NOLINTEND
