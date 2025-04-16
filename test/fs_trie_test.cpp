@@ -14,38 +14,39 @@ TEST(fs_trie_tests, sanity_test_1)
 {
     FS_trie trie;
 
-    const std::string filename = "my_file_1";
-    std::string filepath = R"(C:\User\win_user_1\)" + filename;
+    const std::string file_name = "my_file_1";
+    std::string file_path = R"(C:\User\win_user_1\)" + file_name;
 
-    trie.insert_file_path(filename, filepath);
+    trie.insert_file_path(file_name, file_path);
 
     auto r = trie.search("my_file_1");
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->first == filename && r[0]->second[0] == filepath);
+    ASSERT_TRUE(*r[0] == file_path);
 
     r = trie.search("m");
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->first == filename && r[0]->second[0] == filepath);
+    ASSERT_TRUE(*r[0] == file_path);
 
     r = trie.search("my");
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->first == filename && r[0]->second[0] == filepath);
+    ASSERT_TRUE(*r[0] == file_path);
 
     r = trie.search("file");
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->first == filename && r[0]->second[0] == filepath);
+    ASSERT_TRUE(*r[0] == file_path);
 
     r = trie.search("_");
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->first == filename && r[0]->second[0] == filepath);
+    ASSERT_TRUE(*r[0] == file_path);
 
     r = trie.search("1");
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->first == filename && r[0]->second[0] == filepath);
+    ASSERT_TRUE(*r[0] == file_path);
 
-    trie.erase_file_path(filename, filepath);
+    trie.erase_file_path(file_name, file_path);
 
-    ASSERT_TRUE(trie.$().size() == 0);
+    r = trie.search("");
+    ASSERT_TRUE(r.size() == 0);
 
     r = trie.search("my_file_1");
     ASSERT_TRUE(r.size() == 0);
@@ -55,49 +56,48 @@ TEST(fs_trie_tests, sanity_test_2)
 {
     FS_trie trie;
 
-    std::string filename_1 = "attach.cpp";
-    std::string filepath_1 =
+    std::string file_name = "attach.cpp";
+
+    std::string file_path_1 =
         R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac\)" +
-        filename_1;
+        file_name;
 
-    std::string filepath_2 =
+    std::string file_path_2 =
         R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\windows\)" +
-        filename_1;
+        file_name;
 
-    trie.insert_file_path(filename_1, filepath_1);
-    trie.insert_file_path(filename_1, filepath_2);
+    trie.insert_file_path(file_name, file_path_1);
+    trie.insert_file_path(file_name, file_path_2);
 
     auto r = trie.search("attach.cpp");
-    ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->second.size() == 2);
-
-    ASSERT_TRUE(r[0]->first == filename_1 && r[0]->second[0] == filepath_1 &&
-                r[0]->second[1] == filepath_2);
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(*r[0] == file_path_1 || *r[1] == file_path_1);
+    ASSERT_TRUE(*r[0] == file_path_2 || *r[1] == file_path_2);
 
     r = trie.search("attach");
-    ASSERT_TRUE(r[0]->first == filename_1 && r[0]->second[0] == filepath_1 &&
-                r[0]->second[1] == filepath_2);
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(*r[0] == file_path_1 || *r[1] == file_path_1);
+    ASSERT_TRUE(*r[0] == file_path_2 || *r[1] == file_path_2);
 
     r = trie.search("cpp");
-    ASSERT_TRUE(r[0]->first == filename_1 && r[0]->second[0] == filepath_1 &&
-                r[0]->second[1] == filepath_2);
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(*r[0] == file_path_1 || *r[1] == file_path_1);
+    ASSERT_TRUE(*r[0] == file_path_2 || *r[1] == file_path_2);
 
     r = trie.search(".");
-    ASSERT_TRUE(r[0]->first == filename_1 && r[0]->second[0] == filepath_1 &&
-                r[0]->second[1] == filepath_2);
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(*r[0] == file_path_1 || *r[1] == file_path_1);
+    ASSERT_TRUE(*r[0] == file_path_2 || *r[1] == file_path_2);
 
-    trie.erase_file_path(filename_1, filepath_1);
+    trie.erase_file_path(file_name, file_path_1);
 
     r = trie.search("attach.cpp");
     ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->second.size() == 1);
-
-    ASSERT_TRUE(r[0]->first == filename_1 && r[0]->second.size() == 1 &&
-                r[0]->second[0] == filepath_2);
+    ASSERT_TRUE(*r[0] == file_path_2);
 
     r = trie.search("cpp");
-    ASSERT_TRUE(r[0]->first == filename_1 && r[0]->second.size() == 1 &&
-                r[0]->second[0] == filepath_2);
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(*r[0] == file_path_2);
 }
 
 TEST(fs_trie_tests, file_system_paths)
@@ -108,10 +108,19 @@ TEST(fs_trie_tests, file_system_paths)
                                  "/test/input_files/windows_paths_vscode.txt"};
     ASSERT_TRUE(in_file_stream.is_open());
 
-    for (std::string file_path; std::getline(in_file_stream, file_path);)
-        trie.insert_file_path(file_path);
+    size_t cpp_files_count = 0;
 
-    ASSERT_TRUE(trie.search("cpp").size() == 26);
+    for (std::string file_path; std::getline(in_file_stream, file_path);) {
+        auto path = std::filesystem::path(file_path);
+
+        auto file_name = path.filename().string();
+        if (file_name.find("cpp") != std::string::npos)
+            ++cpp_files_count;
+
+        trie.insert_file_path(path);
+    }
+
+    ASSERT_TRUE(trie.search("cpp").size() == cpp_files_count);
 }
 
 // Reads all filesystem paths from provided input file, inserts them into trie and search for
@@ -145,11 +154,8 @@ void test_fs_search(const std::string& file_name)
         auto r = trie.search(str_for_match);
         auto elapsed = s.elapsed();
 
-        for (auto& entry : r) {
-            // std::cout << "File name: " << entry->first << "\n";
-            for (auto& path : entry->second)
-                std::cout << path << "\n";
-        }
+        for (auto* path : r)
+            std::cout << *path << "\n";
 
         std::cout << "Search time: " << duration_cast<microseconds>(elapsed) << "\n";
     }
@@ -167,7 +173,7 @@ void test_fs_search(const std::string& file_name)
 
 TEST(fs_trie_tests, fs_search)
 {
-    GTEST_SKIP() << "Skipping filesystem path search test, because it is for testing only.";
+    GTEST_SKIP() << "Skipping filesystem path search test, because it is for manual testing only.";
 
     std::vector<std::string> file_names{
         "linux_paths.txt",

@@ -13,6 +13,7 @@
 
 #include "art.h"
 #include "fs_trie.h"
+// #include "symbol_finder.h"
 #include "trie.h"
 
 using namespace std::chrono;
@@ -107,142 +108,51 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 #endif
 }
 
-using namespace suffix_trie;
+// using namespace suffix_trie;
 
 // NOLINTEND
 
 int main(int argc, char* argv[])
 {
-    // insert("a", "a");
-
-    // Suffix_trie trie;
-
-    // for (std::string s{"Aleksandar"}; !s.empty(); s = s.substr(0))
-    //     ;
-    // trie.
-    // ART<int> art;
-
-    // art.insert("Aleksandar");
-
-    // std::string s{"banana"};
-    // art.insert((uint8_t*)s.data(), s.size());
-
-    // s = "ana";
-    // art.insert((uint8_t*)s.data(), s.size());
-
-    // s = "anana";
-    // art.insert((uint8_t*)s.data(), s.size());
-
-    // s = "ananas";
-    // art.insert((uint8_t*)s.data(), s.size());
-
-    // std::string s{"aaaaaa"};
-    // art.insert((uint8_t*)s.data(), s.size());
-
-    // s = "aaaaa";
-    // art.insert((uint8_t*)s.data(), s.size());
-
-    // s = "a";
-    // art.insert((uint8_t*)s.data(), s.size());
-
-    // s = "aaaaaaaa";
-    // art.insert((uint8_t*)s.data(), s.size());
-
-    // Leaf* l = art.search((uint8_t*)s.data(), s.size());
-    // std::cout << l->m_key << "\n";
-
-    // s = "a", l = art.search((uint8_t*)s.data(), s.size());
-    // std::cout << l->m_key << "\n";
-
-    // s = "aaaaa", l = art.search((uint8_t*)s.data(), s.size());
-    // std::cout << l->m_key << "\n";
-
-    // s = "aaaaaa", l = art.search((uint8_t*)s.data(), s.size());
-    // std::cout << l->m_key << "\n";
-
-    // std::cout << "Added tests and benchmark.\n";
-
-    // std::cout << "Hello, new cpp project.\n" << __FILE__;
-
-    // Stopwatch<true, microseconds> s;
-    //
-    // std::vector<char> file{file_to_vector(__FILE__)};
-    // std::cout << "Done. " << file[0] << "\n";
-
-    // Trie trie;
-    // trie.insert("banana");
-    // trie.insert("BANANA");
-    // trie.insert("ananas");
-
-    // for (const auto& it : trie.find<Options::icase>("ban"))
-    //     std::cout << it << "\n";
-
-    // trie.delete_suffix("ananas");
-    // trie.delete_suffix("banana");
-
-    // auto* node = trie.find("n");
-
-    // if (node != nullptr)
-    //     for (const auto& r : node->all_results())
-    //         std::cout << r << "\n";
-    // else
-    //     std::cout << "Not found\n";
-
     try {
         FS_trie trie;
         std::string path{R"(C:\Users\topac\.vscode)"};
-        for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path}) {
-            // if (dir_entry.is_regular_file()) {
-            //     std::vector v{file_to_vector(dir_entry.path().string())};
-
-            //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
-            // }
-
-            trie.insert_file_path(dir_entry.path().filename().string(), dir_entry.path().string());
-        }
-
-        std::cout << "All $s: " << trie.$().size() << "\n";
-
-        std::string str_for_match;
 
         {
-            while (true) {
-                std::cin >> str_for_match;
+            Stopwatch s{"Scanning"};
+            for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path}) {
+                // if (dir_entry.is_regular_file()) {
+                //     std::vector v{file_to_vector(dir_entry.path().string())};
 
-                // std::unordered_set<std::string_view> results;
-                auto r = [&] {
-                    Stopwatch<true, microseconds> s{"Search"};
-                    return trie.search(str_for_match);
-                }();
-
-                for (auto& entry : r) {
-                    // std::cout << "File name: " << entry->first << "\n";
-                    for (auto& path : entry->second)
-                        std::cout << path << "\n";
-                }
-
-                // {
-                //     Stopwatch<true, microseconds> s;
-                //     results = trie.find<Options::icase>(str_for_match);
+                //     std::cout << dir_entry.path().string() << ": " << v[v.size() - 5] << "\n";
                 // }
 
-                // dont_optimize(results);
-                // for (const auto& r : results)
-                //     std::cout << r << "\n";
-
-                // std::ranges::sort(results);
-                // for (const auto& r : results)
-                //     std::cout << r << "\n";
-
-                // std::cout << "Results size: " << results.size() << "\n";
-                // std::cout << "Results size: "
-                //           << std::unordered_set(results.begin(), results.end()).size() <<
-                //           "\n";
+                trie.insert_file_path(dir_entry.path().filename().string(),
+                                      dir_entry.path().string());
             }
+        }
+
+        std::cout << "Entries count: " << trie.search("").size() << "\n";
+
+        std::string str_for_match;
+        while (true) {
+            std::cout << ": ";
+            std::cin >> str_for_match;
+
+            // std::unordered_set<std::string_view> results;
+            auto res = [&] {
+                Stopwatch<true, microseconds> s{"Search"};
+                return trie.search(str_for_match);
+            }();
+
+            for (const auto* path : res)
+                std::cout << *path << "\n";
+
+            std::cout << "Results size: " << res.size() << "\n";
         }
     }
     catch (const std::filesystem::filesystem_error& ex) {
-        std::cout << "Exception: std::filesystem::filesystem_error" << ex.what() << "\n";
+        std::cout << "Exception: std::filesystem::filesystem_error " << ex.what() << "\n";
         std::cout << "Exception: " << ex.code() << "\n";
         std::cout << "Exception: " << ex.path2() << "\n";
         std::cout << "Exception: " << ex.path1() << "\n";
