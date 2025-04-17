@@ -42,6 +42,19 @@ TEST(art_tests, sanity_test_2)
     ASSERT_TRUE(art.search("my_vector5")->value() == &v5);
 }
 
+TEST(art_tests, common_header_test)
+{
+    art::ART art;
+
+    art.insert("aaaaaaaaabbbbbbbbb");
+    art.insert("aaaaaaaaabbbbbbbbc");
+
+    assert_search(art, "aaaaaaaaabbbbbbbbb");
+    assert_search(art, "aaaaaaaaabbbbbbbbc");
+
+    assert_failed_search(art, "aaaaaaaaaaaa");
+}
+
 TEST(art_tests, int_ranges)
 {
     art::ART art;

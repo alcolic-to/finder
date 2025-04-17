@@ -113,6 +113,12 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 
 int main(int argc, char* argv[])
 {
+    // art::ART trie;
+
+    // trie.insert("aaaaaaaaabbbbbbbbb");
+    // trie.insert("aaaaaaaaabbbbbbbbc");
+    // auto r = trie.search("aaaaaaaaaaaa");
+
     try {
         Files files;
         std::string path{R"(C:\Users\topac\.vscode)"};

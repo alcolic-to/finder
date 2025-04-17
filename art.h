@@ -1458,6 +1458,9 @@ private:
 
         depth += node->m_prefix_len;
 
+        if (depth >= key.size())
+            return nullptr;
+
         entry_ptr* next = node->find_child(key[depth]);
         if (next)
             return search(*next, key, depth + 1);
@@ -1496,6 +1499,9 @@ private:
             return;
 
         depth += node->m_prefix_len;
+
+        if (depth >= prefix.size())
+            return;
 
         entry_ptr* next = node->find_child(prefix[depth]);
         if (next)
