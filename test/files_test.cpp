@@ -19,6 +19,7 @@ TEST(files_test, sanity_test_1)
     const std::string file = file_path + "\\" + file_name;
 
     files.insert(file);
+    ASSERT_TRUE(!files.insert(file));
 
     auto r = files.search("my_file_1");
     ASSERT_TRUE(r.size() == 1);

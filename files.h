@@ -18,10 +18,9 @@ public:
 
     File_info(std::string file_name) : m_name{std::move(file_name)} {}
 
-    File_info(std::string file_name, std::string_view file_path, size_t size)
+    File_info(std::string file_name, std::string_view file_path)
         : m_name{std::move(file_name)}
         , m_path{std::move(file_path)}
-        , m_size{size}
     {
         if (!file_path.ends_with(file_name))
             throw std::runtime_error{"File path does not end with file name."};
@@ -36,7 +35,6 @@ public:
 private:
     std::string m_name;      // File name with extension.
     std::string_view m_path; // Full file path.
-    size_t m_size = 0;
 };
 
 // Class that holds all file system files, their paths, size infos, etc.
@@ -44,9 +42,34 @@ private:
 //
 class Files {
 public:
-    void insert(const fs::path& path)
+    // Class that wraps insert result.
+    // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
+    // for more details).
+    //
+    class result {
+    public:
+        result(File_info* value, bool ok) : m_value{value}, m_ok{ok} { assert(m_value != nullptr); }
+
+        File_info* get() noexcept { return m_value; }
+
+        const File_info* get() const noexcept { return m_value; }
+
+        constexpr bool ok() const noexcept { return m_ok; }
+
+        File_info* operator->() noexcept { return get(); }
+
+        const File_info* operator->() const noexcept { return get(); }
+
+        constexpr operator bool() const noexcept { return ok(); }
+
+    private:
+        File_info* m_value;
+        bool m_ok;
+    };
+
+    result insert(const fs::path& path)
     {
-        insert(path.filename().string(), path.parent_path().string());
+        return insert(path.filename().string(), path.parent_path().string());
     }
 
     void erase(const fs::path& path)
@@ -66,6 +89,8 @@ public:
         return results;
     }
 
+    auto files_count() { return m_files.size(); }
+
     auto files_size()
     {
         return m_files.size() * (sizeof(File_info) + sizeof(std::unique_ptr<File_info>));
@@ -82,10 +107,10 @@ public:
     }
 
 private:
-    void insert(std::string file_name, std::string file_path)
+    result insert(std::string file_name, std::string file_path)
     {
         if (File_info* res = search(file_name, file_path); res != nullptr) // File already exist.
-            return;
+            return {res, false};
 
         m_files.push_back(std::make_unique<File_info>(std::move(file_name)));
         File_info* file = m_files.back().get();
@@ -99,11 +124,13 @@ private:
         // TODO: Create emplace to avoid this nonsence.
         auto ff_res = m_file_finder.insert_suffix(file->name(), std::vector{file});
         if (ff_res)
-            return;
+            return {file, true};
 
         auto& file_infos = *ff_res->value();
         assert(std::ranges::find(file_infos, file) == file_infos.end());
         file_infos.emplace_back(file);
+
+        return {file, true};
     }
 
     void erase(const std::string& file_name, const std::string& file_path)

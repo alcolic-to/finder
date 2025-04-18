@@ -12,66 +12,11 @@
 #include <vector>
 
 #include "art.h"
-#include "fs_trie.h"
-// #include "symbol_finder.h"
 #include "files.h"
-#include "trie.h"
+#include "fs_trie.h"
+#include "symbol_finder.h"
 
-using namespace std::chrono;
-using namespace std::chrono_literals;
-using Clock = steady_clock;
-using Time_point = std::chrono::time_point<Clock>;
-
-inline Time_point now() noexcept
-{
-    return Clock::now();
-}
-
-template<bool print = true, typename Unit = milliseconds>
-class Stopwatch {
-public:
-    explicit Stopwatch(std::string name = "Stopwatch") noexcept
-        : m_name{std::move(name)}
-        , m_start{now()}
-    {
-    }
-
-    ~Stopwatch() noexcept
-    {
-        if constexpr (print) {
-            auto out = elapsed_units().count();
-            std::cout << m_name << " elapsed time: " << out << " " << unit_name() << "\n";
-        }
-    }
-
-    Stopwatch(const Stopwatch& rhs) = delete;
-    Stopwatch& operator=(const Stopwatch& rhs) = delete;
-    Stopwatch(Stopwatch&& rhs) noexcept = delete;
-    Stopwatch& operator=(Stopwatch&& rhs) = delete;
-
-    void restart() noexcept { m_start = now(); }
-
-    [[nodiscard]] auto elapsed() const noexcept { return now() - m_start; }
-
-    [[nodiscard]] auto elapsed_units() const noexcept { return duration_cast<Unit>(elapsed()); }
-
-    [[nodiscard]] std::string unit_name() const noexcept
-    {
-        // clang-format off
-        if      constexpr (std::is_same_v<Unit, hours>)        return "hour(s)";
-        else if constexpr (std::is_same_v<Unit, minutes>)      return "minute(s)";
-        else if constexpr (std::is_same_v<Unit, seconds>)      return "second(s)";
-        else if constexpr (std::is_same_v<Unit, milliseconds>) return "millisecond(s)";
-        else if constexpr (std::is_same_v<Unit, microseconds>) return "microsecond(s)";
-        else if constexpr (std::is_same_v<Unit, nanoseconds>)  return "nanosecond(s)";
-        else                                                   return "unknown unit";
-        // clang-format on
-    }
-
-private:
-    std::string m_name;
-    Clock::time_point m_start;
-};
+// NOLINTBEGIN
 
 std::string file_to_string(const std::string& path)
 {
@@ -113,48 +58,59 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 
 int main(int argc, char* argv[])
 {
-    // art::ART trie;
+    // std::string path{R"(C:\Users\topac\.vscode)"};
+    // std::string path{R"(C:\Users\topac\Development\tracy)"};
+    // std::string path{R"(C:\Users\topac\Development\sqlite)"};
+    std::string path{R"(C:\)"};
+    // std::string path{R"(C:\Users\topac\Development)"};
+    // std::string path{R"(C:\Users\topac\Development\trie)"};
 
-    // trie.insert("aaaaaaaaabbbbbbbbb");
-    // trie.insert("aaaaaaaaabbbbbbbbc");
-    // auto r = trie.search("aaaaaaaaaaaa");
+    std::string input;
+    std::string root;
+    std::string options;
+    std::string regex;
 
-    try {
-        Files files;
-        std::string path{R"(C:\Users\topac\.vscode)"};
+    std::cout << std::format("Options: <root_dir> <-fs>\n: ");
+    std::getline(std::cin, input);
 
-        {
-            Stopwatch s{"Scanning"};
-            for (const auto& dir_entry : std::filesystem::recursive_directory_iterator{path})
-                files.insert(dir_entry);
+    std::stringstream ss{input};
+    ss >> root, ss >> options;
+
+    uint32_t i32_opt = 0;
+    if (options.find('f') != std::string::npos)
+        i32_opt |= Options::files;
+    if (options.find('s') != std::string::npos)
+        i32_opt |= Options::symbols;
+
+    Symbol_finder finder{std::move(root), Options{i32_opt}};
+    finder.print_memory_usage();
+
+    while (true) {
+        std::cout << ": ";
+        std::getline(std::cin, input);
+        std::stringstream ss{input};
+        ss >> options;
+
+        i32_opt = 0;
+        if (options.find('f') != std::string::npos)
+            i32_opt |= Options::files;
+        if (options.find('s') != std::string::npos)
+            i32_opt |= Options::symbols;
+
+        Options opt{i32_opt};
+
+        ss >> regex;
+        if (regex.empty()) {
+            std::cout << "Invalid search options. Find with <-fs> <regex>\n";
+            continue;
         }
 
-        std::cout << "Entries count: " << files.search("").size() << "\n";
+        if (opt.files_allowed())
+            finder.find_files(regex);
 
-        std::string str_for_match;
-        while (true) {
-            std::cout << ": ";
-            std::cin >> str_for_match;
-
-            // std::unordered_set<std::string_view> results;
-            auto res = [&] {
-                Stopwatch<true, microseconds> s{"Search"};
-                return files.search(str_for_match);
-            }();
-
-            for (const auto* file_info : res)
-                std::cout << file_info->path() << "\n";
-
-            std::cout << "Results size: " << res.size() << "\n";
-        }
-    }
-    catch (const std::filesystem::filesystem_error& ex) {
-        std::cout << "Exception: std::filesystem::filesystem_error " << ex.what() << "\n";
-        std::cout << "Exception: " << ex.code() << "\n";
-        std::cout << "Exception: " << ex.path2() << "\n";
-        std::cout << "Exception: " << ex.path1() << "\n";
-    }
-    catch (const std::exception& ex) {
-        std::cout << "Exception std::exception: " << ex.what() << "\n";
+        if (opt.symbols_allowed())
+            finder.find_symbols(regex);
     }
 }
+
+// NOLINTEND
