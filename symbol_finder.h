@@ -1,3 +1,4 @@
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -106,18 +107,235 @@ const std::vector<std::string> cpp_keywords = {
     // "??=", "??(", "??)", "??<", "??>", "??/", "??'", "??!", "??-"
 };
 
-static constexpr bool supported_file(const fs::path& file_path)
-{
-    std::string ext{file_path.extension().string()};
-    return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
-}
-
 static constexpr bool is_keyword(const std::string& s)
 {
     return std::ranges::find(cpp_keywords, s) != cpp_keywords.end();
 }
 
-static bool check_iteration(const auto& it, std::error_code& ec)
+enum class Token_t : uint8_t {
+    invalid = 0,
+    prep,
+    comment,
+    number,
+    char_lit,
+    str_lit,
+    non_word,
+    word
+};
+
+class Token {
+public:
+    std::string& str() noexcept { return m_str; }
+
+    const std::string& str() const noexcept { return m_str; }
+
+    Token_t& type() noexcept { return m_type; }
+
+    const Token_t& type() const noexcept { return m_type; }
+
+    size_t& pos() noexcept { return m_pos; }
+
+    const size_t& pos() const noexcept { return m_pos; }
+
+    void reset() noexcept
+    {
+        m_str.clear();
+        m_type = Token_t::invalid;
+        m_pos = 0;
+    }
+
+private:
+    std::string m_str;
+    Token_t m_type = Token_t::invalid;
+    size_t m_pos = 0;
+};
+
+// NOLINTBEGIN
+
+// Not even close to real tokenizer, but it returns some kind of tokens.
+//
+class NECTR_Tokenizer {
+public:
+    NECTR_Tokenizer() = default;
+
+    explicit NECTR_Tokenizer(std::string& s) : m_src{s.data()}, c{s.data()} {}
+
+    NECTR_Tokenizer& operator=(const std::string& s)
+    {
+        m_src = c = s.data();
+        return *this;
+    }
+
+    // clang-format off
+    //
+    bool operator>>(Token& t)
+    {
+        t.reset();
+
+        if (!skip_spaces())
+            return false;
+
+        t.pos() = pos();
+
+        if (ext_preprocessor(t))   return true;
+        if (ext_comment(t))        return true;
+        if (ext_number(t))         return true;
+        if (ext_string_literal(t)) return true;
+        if (ext_char_literal(t))   return true;
+        if (ext_non_word(t))       return true;
+        if (ext_word(t))           return true;
+
+        assert(!"Unreachable!");
+        return false;
+    }
+    //
+    // clang-format on
+
+private:
+    [[nodiscard]] size_t pos() const noexcept { return c - m_src; }
+
+    bool skip_spaces()
+    {
+        while (*c && std::isspace(*c))
+            ++c;
+
+        return *c;
+    }
+
+    static constexpr bool valid_word_ch(char ch) noexcept
+    {
+        return std::isalnum(ch) || ch == '$' || ch == '_';
+    }
+
+    bool ext_non_word(Token& t)
+    {
+        if (!*c || std::isspace(*c) || valid_word_ch(*c))
+            return false;
+
+        while (*c && !valid_word_ch(*c) && !std::isspace(*c))
+            t.str() += *c++;
+
+        t.type() = Token_t::non_word;
+        return true;
+    }
+
+    bool ext_word(Token& t)
+    {
+        if (!*c || std::isspace(*c) || !valid_word_ch(*c))
+            return false;
+
+        while (valid_word_ch(*c))
+            t.str() += *c++;
+
+        t.type() = Token_t::word;
+        return true;
+    }
+
+    bool ext_single_comment(Token& t)
+    {
+        if (*c != '/' || *(c + 1) != '/')
+            return false;
+
+        while (*c)
+            t.str() += *c++;
+
+        t.type() = Token_t::comment;
+        return true;
+    }
+
+    bool ext_multi_comment(Token& t)
+    {
+        if (*c != '/' || *(c + 1) != '*')
+            return false;
+
+        while (*c && !(*c == '*' && *(c + 1) == '/'))
+            t.str() += *c++;
+
+        if (*c)
+            t.str() += *c++;
+
+        if (*c)
+            t.str() += *c++;
+
+        t.type() = Token_t::comment;
+        return true;
+    }
+
+    bool ext_comment(Token& t) { return ext_single_comment(t) || ext_multi_comment(t); }
+
+    bool ext_number(Token& t)
+    {
+        if (!std::isdigit(*c))
+            return false;
+
+        while (std::isdigit(*c))
+            t.str() += *c++;
+
+        t.type() = Token_t::number;
+        return true;
+    }
+
+    bool ext_char_literal(Token& t)
+    {
+        if (*c != '\'')
+            return false;
+
+        t.str() += *c++;
+        while (*c && *c != '\'')
+            t.str() += *c++;
+
+        if (*c == '\'')
+            t.str() += *c++;
+
+        t.type() = Token_t::char_lit;
+        return true;
+    }
+
+    bool ext_string_literal(Token& t)
+    {
+        if (*c != '"')
+            return false;
+
+        t.str() += *c++;
+        while (*c && *c != '"')
+            t.str() += *c++;
+
+        if (*c == '"')
+            t.str() += *c++;
+
+        t.type() = Token_t::str_lit;
+        return true;
+    }
+
+    bool ext_preprocessor(Token& t)
+    {
+        if (*c != '#')
+            return false;
+
+        t.str() += *c++;
+        while (std::isalnum(*c))
+            t.str() += *c++;
+
+        t.type() = Token_t::prep;
+        return true;
+    }
+
+    const char* m_src = nullptr;
+    const char* c = nullptr;
+};
+
+// NOLINTEND
+
+static constexpr bool supported_file(const auto& dir_entry)
+{
+    if (!dir_entry->is_regular_file())
+        return false;
+
+    std::string ext{dir_entry->path().extension().string()};
+    return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
+}
+
+static constexpr bool check_iteration(const auto& it, std::error_code& ec)
 {
     try {
         if (ec) {
@@ -129,6 +347,10 @@ static bool check_iteration(const auto& it, std::error_code& ec)
         // Try converting path to string to see if exception will occur.
         // TODO: use std::wstring which should always succeed.
         [[maybe_unused]] const std::string& p = it->path().string();
+
+        // Skip all windows files in order to save space.
+        // if (p.starts_with("C:\\Windows\\"))
+        // return false;
     }
     catch (...) {
         std::cout << "Path to string conversion failed.\n";
@@ -174,12 +396,12 @@ public:
 
         std::error_code ec;
         for (dir_iter it(m_dir, it_opt, ec); it != dir_iter(); it.increment(ec)) {
-            if (!check_iteration(it, ec) || !files_allowed())
+            if (!files_allowed() || !check_iteration(it, ec))
                 continue;
 
             File_info* file = m_files.insert(it->path()).get();
 
-            if (!symbols_allowed() || !it->is_regular_file() || !supported_file(*it))
+            if (!symbols_allowed() || !supported_file(it))
                 continue;
 
             // TODO: Use file_to_string for quick file read.
@@ -192,15 +414,18 @@ public:
 
             // Parse each line from file and save tokens that are not keywords.
             //
+            NECTR_Tokenizer tokenizer;
+            Token token;
+
             size_t line_num = 1;
-            for (std::string fline, token; std::getline(ifs, fline); ++line_num) {
-                std::stringstream ss{fline};
-                while (ss >> token) {
-                    if (is_keyword(token))
+            for (std::string fline; std::getline(ifs, fline); ++line_num) {
+                tokenizer = fline;
+                while (tokenizer >> token) {
+                    if (token.type() != Token_t::word || is_keyword(token.str()))
                         continue;
 
                     // TODO: Save file line too.
-                    m_symbols.insert(std::move(token), file, line_num);
+                    m_symbols.insert(std::move(token.str()), file, line_num);
                 }
             }
         }
@@ -253,7 +478,11 @@ public:
         std::cout << "\nFiles memory usage:\n";
         std::cout << std::format("Files size:         {}MB\n", m_files.files_size() / MB);
         std::cout << std::format("Files paths size:   {}MB\n", m_files.file_paths_size() / MB);
-        std::cout << std::format("File finder size:   {}MB\n", m_files.file_finder_size() / MB);
+        std::cout << std::format("Files paths leaves: {}\n", m_files.file_paths_leaves_count());
+        std::cout << std::format("File finder size: F {}MB\n", m_files.file_finder_size() / MB);
+        std::cout << std::format("File finder size:   {}MB\n",
+                                 m_files.file_finder_size(false) / MB);
+        std::cout << std::format("Files finder leaves:{}\n", m_files.file_finder_leaves_count());
 
         std::cout << "\nSymbols memory usage:\n";
         std::cout << std::format("Symbols size:       {}MB\n", m_symbols.symbols_size() / MB);

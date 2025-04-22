@@ -1067,6 +1067,14 @@ public:
         return leaves;
     }
 
+    size_t leaves_count() const noexcept
+    {
+        size_t c = 0;
+        for_each_leaf([&](const Leaf* leaf) { ++c; });
+
+        return c;
+    }
+
     // Returns size of whole tree in bytes.
     // By default, it include whole leafs. Leaf keys can be disabled by passing false.
     //

@@ -58,13 +58,6 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 
 int main(int argc, char* argv[])
 {
-    // std::string path{R"(C:\Users\topac\.vscode)"};
-    // std::string path{R"(C:\Users\topac\Development\tracy)"};
-    // std::string path{R"(C:\Users\topac\Development\sqlite)"};
-    std::string path{R"(C:\)"};
-    // std::string path{R"(C:\Users\topac\Development)"};
-    // std::string path{R"(C:\Users\topac\Development\trie)"};
-
     std::string input;
     std::string root;
     std::string options;
@@ -90,6 +83,12 @@ int main(int argc, char* argv[])
         std::getline(std::cin, input);
         std::stringstream ss{input};
         ss >> options;
+        ss >> regex;
+
+        if (regex.empty()) {
+            std::cout << "Invalid search options. Find with <-fs> <regex>\n";
+            continue;
+        }
 
         i32_opt = 0;
         if (options.find('f') != std::string::npos)
@@ -99,18 +98,41 @@ int main(int argc, char* argv[])
 
         Options opt{i32_opt};
 
-        ss >> regex;
-        if (regex.empty()) {
-            std::cout << "Invalid search options. Find with <-fs> <regex>\n";
-            continue;
-        }
-
         if (opt.files_allowed())
             finder.find_files(regex);
 
         if (opt.symbols_allowed())
             finder.find_symbols(regex);
     }
+
+    // art::ART art_full;
+    // art::ART art_files_only;
+
+    // std::string dir = "C:\\";
+    // using dir_iter = fs::recursive_directory_iterator;
+    // constexpr auto it_opt = fs::directory_options::skip_permission_denied;
+
+    // std::error_code ec;
+    // for (dir_iter it(dir, it_opt, ec); it != dir_iter(); it.increment(ec)) {
+    //     if (!check_iteration(it, ec))
+    //         continue;
+
+    //     std::string s = it->path().string();
+    //     art_full.insert(it->path().string());
+    //     art_files_only.insert(it->path().filename().string());
+
+    //     // std::reverse(s.begin(), s.end());
+    //     // art.insert(s);
+    // }
+
+    // std::cout << "ART full size: " << art_full.size_in_bytes() / 1024 / 1024 << "MB\n";
+    // std::cout << "ART full leaves count: " << art_full.leaves_count() << "\n";
+
+    // std::cout << "ART files only size: " << art_files_only.size_in_bytes() / 1024 / 1024 <<
+    // "MB\n"; std::cout << "ART files only leaves count: " << art_files_only.leaves_count() <<
+    // "\n";
+
+    // std::cin >> dir;
 }
 
 // NOLINTEND
