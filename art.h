@@ -5,8 +5,6 @@
 #ifndef ART_H
 #define ART_H
 
-#pragma once
-
 #include <algorithm>
 #include <bit>
 #include <cassert>

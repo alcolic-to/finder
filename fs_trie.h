@@ -1,12 +1,11 @@
+#ifndef FS_TRIE_H
+#define FS_TRIE_H
 
 #include <filesystem>
 #include <ranges>
 #include <vector>
 
 #include "suffix_trie.h"
-
-#ifndef FS_TRIE_H
-#define FS_TRIE_H
 
 // NOLINTBEGIN
 

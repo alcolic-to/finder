@@ -18,44 +18,6 @@
 
 // NOLINTBEGIN
 
-std::string file_to_string(const std::string& path)
-{
-    std::ifstream f{path, std::ios_base::binary};
-    return std::string{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
-}
-
-std::vector<char> file_to_vector(const std::string& path)
-{
-    std::ifstream f{path, std::ios_base::binary};
-    return std::vector<char>{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
-}
-
-// Taken from google benchmark.
-//
-// NOLINTBEGIN
-#if defined(__GNUC__) || defined(__clang__)
-#define ALWAYS_INLINE __attribute__((always_inline))
-#elif defined(_MSC_VER) && !defined(__clang__)
-#define ALWAYS_INLINE __forceinline
-#define __func__ __FUNCTION__
-#else
-#define ALWAYS_INLINE
-#endif
-
-// Taken from google benchmark.
-//
-template<class Tp>
-inline ALWAYS_INLINE void dont_optimize(Tp&& value)
-{
-#if defined(__clang__)
-    asm volatile("" : "+r,m"(value) : : "memory");
-#else
-    asm volatile("" : "+m,r"(value) : : "memory");
-#endif
-}
-
-// NOLINTEND
-
 int main(int argc, char* argv[])
 {
     std::string input;

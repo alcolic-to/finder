@@ -1,3 +1,6 @@
+#ifndef SYMBOLS_H
+#define SYMBOLS_H
+
 #include <filesystem>
 #include <memory>
 #include <ranges>
@@ -6,24 +9,31 @@
 #include "files.h"
 #include "suffix_trie.h"
 
-#ifndef SYMBOLS_H
-#define SYMBOLS_H
-
 // NOLINTBEGIN
+
+class Line {
+public:
+    size_t m_line;
+    std::string m_preview; // Line preview which will be displayed with symbol in print.
+};
 
 class Symbol_refs {
 public:
-    Symbol_refs(File_info* file, size_t line) : m_file{file}, m_lines{line} {}
+    Symbol_refs(File_info* file, size_t line, std::string preview)
+        : m_file{file}
+        , m_lines{Line{line, std::move(preview)}}
+    {
+    }
 
     File_info* m_file;
-    std::vector<std::size_t> m_lines;
+    std::vector<Line> m_lines;
 };
 
 class Symbol {
 public:
-    Symbol(std::string name, File_info* file, size_t line)
+    Symbol(std::string name, File_info* file, size_t line, std::string preview)
         : m_name{std::move(name)}
-        , m_refs{{file, line}}
+        , m_refs{Symbol_refs{file, line, std::move(preview)}}
     {
     }
 
@@ -67,11 +77,11 @@ private:
 
 class Symbols {
 public:
-    result insert(std::string symbol_name, File_info* file, size_t line)
+    result insert(std::string symbol_name, File_info* file, size_t line, std::string preview)
     {
         auto* r = m_symbol_finder.search(symbol_name);
         if (r == nullptr)
-            return insert_non_existing(std::move(symbol_name), file, line);
+            return insert_non_existing(std::move(symbol_name), file, line, std::move(preview));
 
         Symbol* symbol = r->value();
         auto& sym_refs = symbol->refs();
@@ -80,20 +90,22 @@ public:
             std::ranges::find_if(sym_refs, [&](Symbol_refs& ref) { return ref.m_file == file; });
 
         if (files_it == sym_refs.end()) {
-            sym_refs.emplace_back(file, line);
+            sym_refs.emplace_back(file, line, std::move(preview));
             return {symbol, false};
         }
 
         auto& lines = files_it->m_lines;
-        if (std::ranges::find(lines, line) == lines.end())
-            lines.push_back(line);
+        if (std::ranges::find_if(lines, [&](Line& l) { return l.m_line == line; }) == lines.end())
+            lines.push_back(Line{line, std::move(preview)});
 
         return {symbol, false};
     }
 
-    result insert_non_existing(std::string symbol, File_info* file, size_t line)
+    result insert_non_existing(std::string symbol, File_info* file, size_t line,
+                               std::string preview)
     {
-        m_symbols.push_back(std::make_unique<Symbol>(std::move(symbol), file, line));
+        m_symbols.push_back(
+            std::make_unique<Symbol>(std::move(symbol), file, line, std::move(preview)));
         Symbol* new_symbol = m_symbols.back().get();
 
         m_symbol_finder.insert(new_symbol->name(), new_symbol);
@@ -117,7 +129,7 @@ public:
             return;
 
         auto& lines = sym_refs_it->m_lines;
-        auto lines_it = std::ranges::find(lines, line);
+        auto lines_it = std::ranges::find_if(lines, [&](Line& l) { return l.m_line == line; });
         if (lines_it == lines.end())
             return;
 

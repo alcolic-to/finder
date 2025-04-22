@@ -1,12 +1,12 @@
+#ifndef FILES_H
+#define FILES_H
+
 #include <filesystem>
 #include <memory>
 #include <ranges>
 #include <vector>
 
 #include "suffix_trie.h"
-
-#ifndef FILES_H
-#define FILES_H
 
 // NOLINTBEGIN
 

@@ -1,11 +1,11 @@
+#ifndef SUFFIX_TRIE_H
+#define SUFFIX_TRIE_H
+
 #include <memory>
 #include <ranges>
 #include <vector>
 
 #include "art.h"
-
-#ifndef SUFFIX_TRIE_H
-#define SUFFIX_TRIE_H
 
 // NOLINTBEGIN
 
