@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
         i32_opt |= Options::symbols;
 
     Symbol_finder finder{std::move(root), Options{i32_opt}};
-    finder.print_memory_usage();
+    // finder.print_memory_usage();
 
     while (true) {
         std::cout << ": ";

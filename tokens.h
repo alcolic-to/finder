@@ -154,7 +154,25 @@ private:
         return true;
     }
 
-    bool ext_comment(Token& t) { return ext_single_comment(t) || ext_multi_comment(t); }
+    // TODO: Make multicomment /**/ extract this too, because this will take
+    // line even if it is multiplication.
+    //
+    bool ext_part_comment(Token& t)
+    {
+        if (*c != '*')
+            return false;
+
+        while (*c)
+            t.str() += *c++;
+
+        t.type() = Token_t::comment;
+        return true;
+    }
+
+    bool ext_comment(Token& t)
+    {
+        return ext_single_comment(t) || ext_multi_comment(t) || ext_part_comment(t);
+    }
 
     bool ext_number(Token& t)
     {
