@@ -152,7 +152,6 @@ public:
                     if (token.type() != Token_t::word || is_keyword(token.str()))
                         continue;
 
-                    // TODO: Save file line too.
                     m_symbols.insert(std::move(token.str()), file, line_num, fline);
                 }
             }

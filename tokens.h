@@ -105,8 +105,16 @@ private:
         if (!*c || std::isspace(*c) || valid_word_ch(*c))
             return false;
 
-        while (*c && !valid_word_ch(*c) && !std::isspace(*c))
-            t.str() += *c++;
+        // Take just one token if we are the bracket to avoid taking ); or }; or (" etc.
+        //
+        bool non_bracket = *c != '(' && *c != ')' && *c != '[' && *c != ']' && *c != '{' &&
+                           *c != '}' && *c != '<' && *c != '>';
+
+        t.str() += *c++;
+
+        if (non_bracket)
+            while (*c && !valid_word_ch(*c) && !std::isspace(*c))
+                t.str() += *c++;
 
         t.type() = Token_t::non_word;
         return true;
@@ -224,6 +232,8 @@ private:
             return false;
 
         t.str() += *c++;
+        skip_spaces();
+
         while (std::isalnum(*c))
             t.str() += *c++;
 
