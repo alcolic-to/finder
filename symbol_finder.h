@@ -214,6 +214,15 @@ public:
         std::cout << "\nSymbols memory usage:\n";
         std::cout << std::format("Symbols size:       {}MB\n", m_symbols.symbols_size() / MB);
         std::cout << std::format("Symbol finder size: {}MB\n", m_symbols.symbol_finder_size() / MB);
+
+        std::cout << "File finder info. (Suffix tree).\n";
+        std::cout << std::format("Nodes count:  {}\n", m_files.m_file_finder.nodes_count());
+        std::cout << std::format("Leaves count: {}\n", m_files.m_file_finder.leaves_count());
+
+        // m_files.m_file_finder.print_links();
+
+        // std::cout << "Symbol finder size: " << m_symbols.m_symbol_searcher.size_in_bytes() <<
+        // "\n"; m_symbols.m_symbol_searcher.print_links();
     }
 
 private:

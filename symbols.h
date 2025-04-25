@@ -86,6 +86,10 @@ public:
         Symbol* symbol = r->value();
         auto& sym_refs = symbol->refs();
 
+        // ***
+        // m_symbol_searcher.insert_suffix(symbol_name, symbol);
+        // ***
+
         auto files_it =
             std::ranges::find_if(sym_refs, [&](Symbol_refs& ref) { return ref.m_file == file; });
 
@@ -109,6 +113,7 @@ public:
         Symbol* new_symbol = m_symbols.back().get();
 
         m_symbol_finder.insert(new_symbol->name(), new_symbol);
+        // m_symbol_searcher.insert_suffix(new_symbol->name(), new_symbol);
 
         return {new_symbol, true};
     }
@@ -178,6 +183,8 @@ private:
     // TODO: CHeck memory usage with suffix trie of symbols.
     //
     art::ART<Symbol*> m_symbol_finder;
+
+    // suffix_trie::Suffix_trie<Symbol*> m_symbol_searcher;
 };
 
 // NOLINTEND

@@ -1,6 +1,7 @@
 #ifndef SUFFIX_TRIE_H
 #define SUFFIX_TRIE_H
 
+#include <iostream>
 #include <memory>
 #include <ranges>
 #include <vector>
@@ -16,31 +17,22 @@ namespace suffix_trie {
 // terminal leaves.
 //
 template<class T = void*>
-class Suffix_leaf {
+class Suffix_leaf_2 {
 public:
-    const T* value() const noexcept { return m_value.get(); }
-
-    T* value() noexcept { return m_value.get(); }
-
     auto& leaves() noexcept { return m_leaf_ptrs; }
 
     const auto& leaves() const noexcept { return m_leaf_ptrs; }
-
-    auto& ptr() noexcept { return m_value; }
-
-    const auto& ptr() const noexcept { return m_value; }
 
     // Only include parts not included in ART size_in_bytes.
     //
     const size_t size_in_bytes() const noexcept
     {
         return (m_value ? sizeof(T) : 0) +
-               m_leaf_ptrs.size() * sizeof(std::vector<typename art::ART<Suffix_leaf>::Leaf*>);
+               m_leaf_ptrs.size() * sizeof(std::vector<typename art::ART<Suffix_leaf_2>::Leaf*>);
     }
 
 private:
-    std::unique_ptr<T> m_value{nullptr};
-    std::vector<typename art::ART<Suffix_leaf>::Leaf*> m_leaf_ptrs;
+    std::vector<typename art::ART<Suffix_leaf_2>::Leaf*> m_leaf_ptrs;
 };
 
 // Suffix trie. It is a key/value container which holds full key (string by default) which holds
@@ -49,10 +41,10 @@ private:
 // gives us powerfull search possibilities.
 //
 template<class T = void*>
-class Suffix_trie : public art::ART<Suffix_leaf<T>> {
+class Suffix_trie_2 : public art::ART<Suffix_leaf_2<T>> {
 public:
-    using Suffix_leaf = Suffix_leaf<T>;
-    using ART = art::ART<Suffix_leaf>;
+    using Suffix_leaf_2 = Suffix_leaf_2<T>;
+    using ART = art::ART<Suffix_leaf_2>;
     using Leaf = ART::Leaf;
 
     // Class that wraps insert result.
@@ -61,25 +53,25 @@ public:
     //
     class result {
     public:
-        result(Suffix_leaf* value, bool ok) : m_value{value}, m_ok{ok}
+        result(Suffix_leaf_2* value, bool ok) : m_value{value}, m_ok{ok}
         {
             assert(m_value != nullptr);
         }
 
-        Suffix_leaf* get() noexcept { return m_value; }
+        Suffix_leaf_2* get() noexcept { return m_value; }
 
-        const Suffix_leaf* get() const noexcept { return m_value; }
+        const Suffix_leaf_2* get() const noexcept { return m_value; }
 
         constexpr bool ok() const noexcept { return m_ok; }
 
-        Suffix_leaf* operator->() noexcept { return get(); }
+        Suffix_leaf_2* operator->() noexcept { return get(); }
 
-        const Suffix_leaf* operator->() const noexcept { return get(); }
+        const Suffix_leaf_2* operator->() const noexcept { return get(); }
 
         constexpr operator bool() const noexcept { return ok(); }
 
     private:
-        Suffix_leaf* m_value;
+        Suffix_leaf_2* m_value;
         bool m_ok;
     };
 
@@ -199,7 +191,7 @@ public:
     {
         size_t dist[512] = {};
         ART::for_each_leaf([&](const ART::Leaf* leaf) {
-            const Suffix_leaf& sl = leaf->value();
+            const Suffix_leaf_2& sl = leaf->value();
             auto& leaves = sl.leaves();
 
             if (leaves.size() >= 512)
@@ -221,6 +213,9 @@ public:
 
         return ART::size_in_bytes(full_leaves) + suff_size;
     }
+
+private:
+    std::vector<std::unique_ptr<T>> m_data;
 };
 
 } // namespace suffix_trie

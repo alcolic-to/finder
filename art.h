@@ -1065,6 +1065,14 @@ public:
         return leaves;
     }
 
+    size_t nodes_count() const noexcept
+    {
+        size_t c = 0;
+        for_each_node([&](const Node* node) { ++c; });
+
+        return c;
+    }
+
     size_t leaves_count() const noexcept
     {
         size_t c = 0;
