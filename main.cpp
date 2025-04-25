@@ -14,6 +14,7 @@
 #include "art.h"
 #include "files.h"
 #include "fs_trie.h"
+#include "suffix_trie.h"
 #include "symbol_finder.h"
 
 // NOLINTBEGIN
@@ -38,7 +39,7 @@ int main(int argc, char* argv[])
         i32_opt |= Options::symbols;
 
     Symbol_finder finder{std::move(root), Options{i32_opt}};
-    // finder.print_memory_usage();
+    finder.print_memory_usage();
 
     while (true) {
         std::cout << ": ";
@@ -69,6 +70,11 @@ int main(int argc, char* argv[])
 
     // art::ART art_full;
     // art::ART art_files_only;
+    // std::string file_names_string;
+    // std::string file_names_suffixes_string;
+    // std::string file_paths_string;
+    // art::ART files_suffixes;
+    // // suffix_trie::Suffix_trie_2 files_suffixes;
 
     // std::string dir = "C:\\";
     // using dir_iter = fs::recursive_directory_iterator;
@@ -83,16 +89,44 @@ int main(int argc, char* argv[])
     //     art_full.insert(it->path().string());
     //     art_files_only.insert(it->path().filename().string());
 
+    //     file_paths_string += it->path().string();
+    //     file_names_string += it->path().filename().string();
+
+    //     std::string file_name = it->path().filename().string();
+
+    //     uint8_t* begin = (uint8_t*)file_name.data();
+    //     uint8_t* end = begin + file_name.size();
+
+    //     while (begin <= end) {
+    //         file_names_suffixes_string += std::string(begin, end);
+    //         files_suffixes.insert(begin, end - begin);
+
+    //         ++begin;
+    //     }
+
+    //     // files_suffixes.insert_suffix(it->path().filename().string());
+
     //     // std::reverse(s.begin(), s.end());
     //     // art.insert(s);
     // }
 
+    // std::cout << file_names_string << "\n";
+
+    // std::cout << "File name suffixes size: " << files_suffixes.size_in_bytes() << "\n";
+    // std::cout << "File name suffixes string size: " << file_names_suffixes_string.size() << "\n";
+
+    // std::cout << "File path string size: " << file_paths_string.size() << "\n";
+    // std::cout << "File name string size: " << file_names_string.size() << "\n";
+
     // std::cout << "ART full size: " << art_full.size_in_bytes() / 1024 / 1024 << "MB\n";
+    // std::cout << "ART full nodes count: " << art_full.nodes_count() << "\n";
     // std::cout << "ART full leaves count: " << art_full.leaves_count() << "\n";
 
     // std::cout << "ART files only size: " << art_files_only.size_in_bytes() / 1024 / 1024 <<
-    // "MB\n"; std::cout << "ART files only leaves count: " << art_files_only.leaves_count() <<
-    // "\n";
+    // "MB\n"; std::cout << "ART files only nodes count: " << art_files_only.nodes_count() << "\n";
+    // std::cout << "ART files only leaves count: " << art_files_only.leaves_count() << "\n";
+
+    // // std::cout << "File name suffixes size: " << files_suffixes.size_in_bytes() << "\n";
 
     // std::cin >> dir;
 }
