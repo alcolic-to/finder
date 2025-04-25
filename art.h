@@ -5,8 +5,6 @@
 #ifndef ART_H
 #define ART_H
 
-#pragma once
-
 #include <algorithm>
 #include <bit>
 #include <cassert>
@@ -1065,6 +1063,22 @@ public:
 
         search_prefix(key, leaves);
         return leaves;
+    }
+
+    size_t nodes_count() const noexcept
+    {
+        size_t c = 0;
+        for_each_node([&](const Node* node) { ++c; });
+
+        return c;
+    }
+
+    size_t leaves_count() const noexcept
+    {
+        size_t c = 0;
+        for_each_leaf([&](const Leaf* leaf) { ++c; });
+
+        return c;
     }
 
     // Returns size of whole tree in bytes.

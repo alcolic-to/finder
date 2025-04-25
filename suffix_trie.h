@@ -1,11 +1,11 @@
+#ifndef SUFFIX_TRIE_H
+#define SUFFIX_TRIE_H
+
 #include <memory>
 #include <ranges>
 #include <vector>
 
 #include "art.h"
-
-#ifndef SUFFIX_TRIE_H
-#define SUFFIX_TRIE_H
 
 // NOLINTBEGIN
 
@@ -29,6 +29,14 @@ public:
     auto& ptr() noexcept { return m_value; }
 
     const auto& ptr() const noexcept { return m_value; }
+
+    // Only include parts not included in ART size_in_bytes.
+    //
+    const size_t size_in_bytes() const noexcept
+    {
+        return (m_value ? sizeof(T) : 0) +
+               m_leaf_ptrs.size() * sizeof(std::vector<typename art::ART<Suffix_leaf>::Leaf*>);
+    }
 
 private:
     std::unique_ptr<T> m_value{nullptr};
@@ -185,6 +193,33 @@ public:
         }
 
         return results;
+    }
+
+    void print_links()
+    {
+        size_t dist[512] = {};
+        ART::for_each_leaf([&](const ART::Leaf* leaf) {
+            const Suffix_leaf& sl = leaf->value();
+            auto& leaves = sl.leaves();
+
+            if (leaves.size() >= 512)
+                std::cout << "Links number too big: " << leaves.size()
+                          << ". Value: " << leaf->key_to_string() << "\n";
+            else
+                ++dist[leaves.size()];
+        });
+
+        for (int i = 0; i < 512; ++i)
+            std::cout << i << ": " << dist[i] << "\n";
+    }
+
+    size_t size_in_bytes(bool full_leaves = true)
+    {
+        size_t suff_size = 0;
+        ART::for_each_leaf(
+            [&](const ART::Leaf* leaf) { suff_size += leaf->value().size_in_bytes(); });
+
+        return ART::size_in_bytes(full_leaves) + suff_size;
     }
 };
 

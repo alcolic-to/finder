@@ -1,12 +1,12 @@
+#ifndef FILES_H
+#define FILES_H
+
 #include <filesystem>
 #include <memory>
 #include <ranges>
 #include <vector>
 
 #include "suffix_trie.h"
-
-#ifndef FILES_H
-#define FILES_H
 
 // NOLINTBEGIN
 
@@ -95,6 +95,10 @@ public:
     {
         return m_files.size() * (sizeof(File_info) + sizeof(std::unique_ptr<File_info>));
     }
+
+    auto file_paths_leaves_count() { return m_file_paths.leaves_count(); }
+
+    auto file_finder_leaves_count() { return m_file_finder.leaves_count(); }
 
     auto file_paths_size(bool full_leaves = true)
     {
@@ -190,11 +194,11 @@ private:
     }
 
 private:
-    // Vector of file pointers for quick reach of all files.
+    // Vector of files.
     //
     std::vector<std::unique_ptr<File_info>> m_files;
 
-    // Trie that will hold files where key is full file path.
+    // Trie that will hold file pointers, where key is the full file path.
     ///
     art::ART<std::vector<File_info*>> m_file_paths;
 

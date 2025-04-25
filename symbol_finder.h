@@ -1,76 +1,19 @@
+#ifndef SYMBOL_FINDER_H
+#define SYMBOL_FINDER_H
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <ranges>
-#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "files.h"
-#include "suffix_trie.h"
 #include "symbols.h"
-
-#ifndef SYMBOL_FINDER_H
-#define SYMBOL_FINDER_H
-
-using namespace std::chrono;
-using namespace std::chrono_literals;
-using Clock = steady_clock;
-using Time_point = std::chrono::time_point<Clock>;
-
-inline Time_point now() noexcept
-{
-    return Clock::now();
-}
-
-template<bool print = true, typename Unit = milliseconds>
-class Stopwatch {
-public:
-    explicit Stopwatch(std::string name = "Stopwatch") noexcept
-        : m_name{std::move(name)}
-        , m_start{now()}
-    {
-    }
-
-    ~Stopwatch() noexcept
-    {
-        if constexpr (print) {
-            auto out = elapsed_units().count();
-            std::cout << m_name << " elapsed time: " << out << " " << unit_name() << "\n";
-        }
-    }
-
-    Stopwatch(const Stopwatch& rhs) = delete;
-    Stopwatch& operator=(const Stopwatch& rhs) = delete;
-    Stopwatch(Stopwatch&& rhs) noexcept = delete;
-    Stopwatch& operator=(Stopwatch&& rhs) = delete;
-
-    void restart() noexcept { m_start = now(); }
-
-    [[nodiscard]] auto elapsed() const noexcept { return now() - m_start; }
-
-    [[nodiscard]] auto elapsed_units() const noexcept { return duration_cast<Unit>(elapsed()); }
-
-    [[nodiscard]] std::string unit_name() const noexcept
-    {
-        // clang-format off
-        if      constexpr (std::is_same_v<Unit, hours>)        return "hour(s)";
-        else if constexpr (std::is_same_v<Unit, minutes>)      return "minute(s)";
-        else if constexpr (std::is_same_v<Unit, seconds>)      return "second(s)";
-        else if constexpr (std::is_same_v<Unit, milliseconds>) return "millisecond(s)";
-        else if constexpr (std::is_same_v<Unit, microseconds>) return "microsecond(s)";
-        else if constexpr (std::is_same_v<Unit, nanoseconds>)  return "nanosecond(s)";
-        else                                                   return "unknown unit";
-        // clang-format on
-    }
-
-private:
-    std::string m_name;
-    Clock::time_point m_start;
-};
+#include "tokens.h"
+#include "util.h"
 
 const std::vector<std::string> cpp_keywords = {
     // Keywords
@@ -106,18 +49,21 @@ const std::vector<std::string> cpp_keywords = {
     // "??=", "??(", "??)", "??<", "??>", "??/", "??'", "??!", "??-"
 };
 
-static constexpr bool supported_file(const fs::path& file_path)
-{
-    std::string ext{file_path.extension().string()};
-    return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
-}
-
 static constexpr bool is_keyword(const std::string& s)
 {
     return std::ranges::find(cpp_keywords, s) != cpp_keywords.end();
 }
 
-static bool check_iteration(const auto& it, std::error_code& ec)
+static constexpr bool supported_file(const auto& dir_entry)
+{
+    if (!dir_entry->is_regular_file())
+        return false;
+
+    std::string ext{dir_entry->path().extension().string()};
+    return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
+}
+
+static constexpr bool check_iteration(const auto& it, std::error_code& ec)
 {
     try {
         if (ec) {
@@ -129,6 +75,10 @@ static bool check_iteration(const auto& it, std::error_code& ec)
         // Try converting path to string to see if exception will occur.
         // TODO: use std::wstring which should always succeed.
         [[maybe_unused]] const std::string& p = it->path().string();
+
+        // Skip all windows files in order to save space.
+        // if (p.starts_with("C:\\Windows\\"))
+        // return false;
     }
     catch (...) {
         std::cout << "Path to string conversion failed.\n";
@@ -174,12 +124,12 @@ public:
 
         std::error_code ec;
         for (dir_iter it(m_dir, it_opt, ec); it != dir_iter(); it.increment(ec)) {
-            if (!check_iteration(it, ec) || !files_allowed())
+            if (!files_allowed() || !check_iteration(it, ec))
                 continue;
 
             File_info* file = m_files.insert(it->path()).get();
 
-            if (!symbols_allowed() || !it->is_regular_file() || !supported_file(*it))
+            if (!symbols_allowed() || !supported_file(it))
                 continue;
 
             // TODO: Use file_to_string for quick file read.
@@ -192,15 +142,17 @@ public:
 
             // Parse each line from file and save tokens that are not keywords.
             //
+            NECTR_Tokenizer tokenizer;
+            Token token;
+
             size_t line_num = 1;
-            for (std::string fline, token; std::getline(ifs, fline); ++line_num) {
-                std::stringstream ss{fline};
-                while (ss >> token) {
-                    if (is_keyword(token))
+            for (std::string fline; std::getline(ifs, fline); ++line_num) {
+                tokenizer = fline;
+                while (tokenizer >> token) {
+                    if (token.type() != Token_t::word || is_keyword(token.str()))
                         continue;
 
-                    // TODO: Save file line too.
-                    m_symbols.insert(std::move(token), file, line_num);
+                    m_symbols.insert(std::move(token.str()), file, line_num, fline);
                 }
             }
         }
@@ -241,9 +193,9 @@ public:
 
         const auto& files = symbol->refs();
         for (const auto& file : files)
-            for (size_t line : file.m_lines)
-                std::cout << std::format("{}\\{} Line: {}\n", file.m_file->path(),
-                                         file.m_file->name(), line);
+            for (const auto& line : file.m_lines)
+                std::cout << std::format("{}\\{} {}: {}\n", file.m_file->path(),
+                                         file.m_file->name(), line.m_line, line.m_preview);
     }
 
     void print_memory_usage()
@@ -253,11 +205,24 @@ public:
         std::cout << "\nFiles memory usage:\n";
         std::cout << std::format("Files size:         {}MB\n", m_files.files_size() / MB);
         std::cout << std::format("Files paths size:   {}MB\n", m_files.file_paths_size() / MB);
-        std::cout << std::format("File finder size:   {}MB\n", m_files.file_finder_size() / MB);
+        std::cout << std::format("Files paths leaves: {}\n", m_files.file_paths_leaves_count());
+        std::cout << std::format("File finder size: F {}MB\n", m_files.file_finder_size() / MB);
+        std::cout << std::format("File finder size:   {}MB\n",
+                                 m_files.file_finder_size(false) / MB);
+        std::cout << std::format("Files finder leaves:{}\n", m_files.file_finder_leaves_count());
 
         std::cout << "\nSymbols memory usage:\n";
         std::cout << std::format("Symbols size:       {}MB\n", m_symbols.symbols_size() / MB);
         std::cout << std::format("Symbol finder size: {}MB\n", m_symbols.symbol_finder_size() / MB);
+
+        std::cout << "File finder info. (Suffix tree).\n";
+        std::cout << std::format("Nodes count:  {}\n", m_files.m_file_finder.nodes_count());
+        std::cout << std::format("Leaves count: {}\n", m_files.m_file_finder.leaves_count());
+
+        // m_files.m_file_finder.print_links();
+
+        // std::cout << "Symbol finder size: " << m_symbols.m_symbol_searcher.size_in_bytes() <<
+        // "\n"; m_symbols.m_symbol_searcher.print_links();
     }
 
 private:
