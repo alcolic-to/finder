@@ -87,7 +87,7 @@ public:
         auto& sym_refs = symbol->refs();
 
         // ***
-        // m_symbol_searcher.insert_suffix(symbol_name, symbol);
+        m_symbol_searcher.insert_suffix(symbol_name, symbol);
         // ***
 
         auto files_it =
@@ -113,7 +113,7 @@ public:
         Symbol* new_symbol = m_symbols.back().get();
 
         m_symbol_finder.insert(new_symbol->name(), new_symbol);
-        // m_symbol_searcher.insert_suffix(new_symbol->name(), new_symbol);
+        m_symbol_searcher.insert_suffix(new_symbol->name(), new_symbol);
 
         return {new_symbol, true};
     }
@@ -170,7 +170,20 @@ public:
         return m_symbol_finder.size_in_bytes(full_leaves);
     }
 
-private:
+    void print_stats()
+    {
+        std::cout << "---------------------------------------\n";
+        std::cout << "Symbols count: " << m_symbols.size() << "\n";
+
+        std::cout << "Symbol finder stats:\n";
+        m_symbol_finder.print_stats();
+
+        std::cout << "Symbol searcher stats:\n";
+        m_symbol_searcher.print_stats();
+        std::cout << "---------------------------------------\n";
+    }
+
+public:
     std::vector<std::unique_ptr<Symbol>> m_symbols;
 
     // Trie that holds all suffixes of all symbols, which enables symbol search by symbol name.
@@ -184,7 +197,7 @@ private:
     //
     art::ART<Symbol*> m_symbol_finder;
 
-    // suffix_trie::Suffix_trie<Symbol*> m_symbol_searcher;
+    suffix_trie::Suffix_trie<Symbol*> m_symbol_searcher;
 };
 
 // NOLINTEND

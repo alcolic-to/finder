@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -1081,6 +1082,30 @@ public:
         return c;
     }
 
+    size_t nodes_size_in_bytes()
+    {
+        size_t size = 0;
+        ART::for_each_node([&](const Node* node) {
+            switch (node->m_type) { // clang-format off
+            case art::Node4_t:   size += sizeof(Node4);   break;
+            case art::Node16_t:  size += sizeof(Node16);  break;
+            case art::Node48_t:  size += sizeof(Node48);  break;
+            case art::Node256_t: size += sizeof(Node256); break;
+            default: assert(false);                       break;
+            } // clang-format on
+        });
+
+        return size;
+    }
+
+    size_t leaves_size_in_bytes()
+    {
+        size_t size = 0;
+        ART::for_each_leaf([&](const Leaf* leaf) { size += sizeof(Leaf) + leaf->key_size(); });
+
+        return size;
+    }
+
     // Returns size of whole tree in bytes.
     // By default, it include whole leafs. Leaf keys can be disabled by passing false.
     //
@@ -1104,6 +1129,17 @@ public:
         });
 
         return size;
+    }
+
+    void print_stats()
+    {
+        std::cout << "-------------------------------\n";
+        std::cout << "Trie size in bytes:   " << size_in_bytes() << "\n";
+        std::cout << "Nodes size in bytes:  " << nodes_size_in_bytes() << "\n";
+        std::cout << "Leaves size in bytes: " << leaves_size_in_bytes() << "\n";
+        std::cout << "Nodes count:          " << nodes_count() << "\n";
+        std::cout << "Leaves count:         " << leaves_count() << "\n";
+        std::cout << "-------------------------------\n";
     }
 
     // ********************************************************************************************
@@ -1147,6 +1183,38 @@ public:
         for_each<order, type>(m_root, callback);
     }
 
+    template<visit_type type>
+    void invoke(entry_ptr& entry,
+                const auto& callback) noexcept(noexcept(noexcept_check<type>(entry, callback)))
+    {
+        if constexpr (type == visit_type::any)
+            callback(entry);
+
+        if constexpr (type == visit_type::node)
+            if (entry.node())
+                callback(entry.node_ptr());
+
+        if constexpr (type == visit_type::leaf)
+            if (entry.leaf())
+                callback(entry.leaf_ptr());
+    }
+
+    template<visit_type type>
+    void invoke(const entry_ptr& entry, const auto& callback) const
+        noexcept(noexcept(noexcept_check<type>(entry, callback)))
+    {
+        if constexpr (type == visit_type::any)
+            callback(entry);
+
+        if constexpr (type == visit_type::node)
+            if (entry.node())
+                callback(entry.node_ptr());
+
+        if constexpr (type == visit_type::leaf)
+            if (entry.leaf())
+                callback(entry.leaf_ptr());
+    }
+
     // Visits all entries and invokes callback on them.
     //
     template<visit_order order = visit_order::pre_order, visit_type type = visit_type::any>
@@ -1156,18 +1224,8 @@ public:
         if (!entry)
             return;
 
-        if constexpr (order == visit_order::pre_order) {
-            if constexpr (type == visit_type::any)
-                callback(entry);
-
-            if constexpr (type == visit_type::node)
-                if (entry.node())
-                    callback(entry.node_ptr());
-
-            if constexpr (type == visit_type::leaf)
-                if (entry.leaf())
-                    callback(entry.leaf_ptr());
-        }
+        if constexpr (order == visit_order::pre_order)
+            invoke<type>(entry, callback);
 
         if (entry.node()) {
             Node* node = entry.node_ptr();
@@ -1187,18 +1245,8 @@ public:
                 for_each<order, type>(children[i], callback);
         }
 
-        if constexpr (order == visit_order::post_order) {
-            if constexpr (type == visit_type::any)
-                callback(entry);
-
-            if constexpr (type == visit_type::node)
-                if (entry.node())
-                    callback(entry.node_ptr());
-
-            if constexpr (type == visit_type::leaf)
-                if (entry.leaf())
-                    callback(entry.leaf_ptr());
-        }
+        if constexpr (order == visit_order::post_order)
+            invoke<type>(entry, callback);
     }
 
     // Const for_each version.
@@ -1210,18 +1258,8 @@ public:
         if (!entry)
             return;
 
-        if constexpr (order == visit_order::pre_order) {
-            if constexpr (type == visit_type::any)
-                callback(entry);
-
-            if constexpr (type == visit_type::node)
-                if (entry.node())
-                    callback(entry.node_ptr());
-
-            if constexpr (type == visit_type::leaf)
-                if (entry.leaf())
-                    callback(entry.leaf_ptr());
-        }
+        if constexpr (order == visit_order::pre_order)
+            invoke<type>(entry, callback);
 
         if (entry.node()) {
             Node* node = entry.node_ptr();
@@ -1241,18 +1279,8 @@ public:
                 for_each<order, type>(children[i], callback);
         }
 
-        if constexpr (order == visit_order::post_order) {
-            if constexpr (type == visit_type::any)
-                callback(entry);
-
-            if constexpr (type == visit_type::node)
-                if (entry.node())
-                    callback(entry.node_ptr());
-
-            if constexpr (type == visit_type::leaf)
-                if (entry.leaf())
-                    callback(entry.leaf_ptr());
-        }
+        if constexpr (order == visit_order::post_order)
+            invoke<type>(entry, callback);
     }
 
     template<visit_order order = visit_order::pre_order>

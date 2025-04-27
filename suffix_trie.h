@@ -1,6 +1,9 @@
 #ifndef SUFFIX_TRIE_H
 #define SUFFIX_TRIE_H
 
+#include <cstdint>
+#include <format>
+#include <iostream>
 #include <memory>
 #include <ranges>
 #include <vector>
@@ -35,7 +38,7 @@ public:
     const size_t size_in_bytes() const noexcept
     {
         return (m_value ? sizeof(T) : 0) +
-               m_leaf_ptrs.size() * sizeof(std::vector<typename art::ART<Suffix_leaf>::Leaf*>);
+               m_leaf_ptrs.size() * sizeof(typename art::ART<Suffix_leaf>::Leaf*);
     }
 
 private:
@@ -54,6 +57,11 @@ public:
     using Suffix_leaf = Suffix_leaf<T>;
     using ART = art::ART<Suffix_leaf>;
     using Leaf = ART::Leaf;
+    using Node = ART::Node;
+    using Node4 = ART::Node4;
+    using Node16 = ART::Node16;
+    using Node48 = ART::Node48;
+    using Node256 = ART::Node256;
 
     // Class that wraps insert result.
     // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
@@ -195,32 +203,84 @@ public:
         return results;
     }
 
-    void print_links()
+    void print_stats()
     {
-        size_t dist[512] = {};
+        constexpr size_t max_links = 16;
+        size_t dist[2][max_links];
+        for (int i = 0; i < 2; ++i)
+            for (int j = 0; j < max_links; ++j)
+                dist[i][j] = 0;
+
+        size_t high = 0;
+        size_t key_sizes = 0;
+        size_t it_count = 0;
+        size_t with_value = 0;
+        size_t without_value = 0;
+        size_t total_links_count = 0;
+
         ART::for_each_leaf([&](const ART::Leaf* leaf) {
             const Suffix_leaf& sl = leaf->value();
+
+            bool has_value = !!sl.ptr();
+            with_value += has_value;
+            without_value += !has_value;
+
             auto& leaves = sl.leaves();
 
-            if (leaves.size() >= 512)
-                std::cout << "Links number too big: " << leaves.size()
-                          << ". Value: " << leaf->key_to_string() << "\n";
-            else
-                ++dist[leaves.size()];
+            size_t links_count = std::min(leaves.size(), max_links - 1);
+            total_links_count += leaves.size();
+            high = std::max(high, leaves.size());
+
+            // if (leaves.size() >= max_links)
+            //     std::cout << "Links number too big: " << leaves.size()
+            //               << ". Value: " << leaf->key_to_string() << "\n";
+
+            ++dist[has_value][links_count];
+            ++it_count;
+            key_sizes += leaf->key_size();
         });
 
-        for (int i = 0; i < 512; ++i)
-            std::cout << i << ": " << dist[i] << "\n";
+        std::cout << "---------------------------------------\n";
+        std::cout << "Trie size in bytes:   " << size_in_bytes() << "\n";
+        std::cout << "Nodes size in bytes:  " << ART::nodes_size_in_bytes() << "\n";
+        std::cout << "Leaves size in bytes: " << leaves_size_in_bytes() << "\n";
+        std::cout << "Nodes count:          " << ART::nodes_count() << "\n";
+        std::cout << "Leaves count:         " << ART::leaves_count() << "\n";
+        std::cout << "Total key sizes:      " << key_sizes << "\n";
+        std::cout << "Avg key size:         " << key_sizes / it_count << "\n";
+        std::cout << "Leaves with value:    " << with_value << "\n";
+        std::cout << "Leaves without value: " << without_value << "\n";
+        std::cout << "Total links count:    " << total_links_count << "\n";
+        std::cout << "Max links per node:   " << high << "\n";
+
+        std::cout << "Links count:";
+        for (int i = 0; i < max_links - 1; ++i)
+            std::cout << std::format(" {:>7}", i);
+
+        std::cout << std::format(" >={:>5}", max_links);
+
+        std::cout << "\nValue 0:    ";
+        for (int i = 0; i < max_links; ++i)
+            std::cout << std::format(" {:>7}", dist[false][i]);
+
+        std::cout << "\nValue 1:    ";
+        for (int i = 0; i < 16; ++i)
+            std::cout << std::format(" {:>7}", dist[true][i]);
+
+        std::cout << "\n---------------------------------------\n";
     }
 
-    size_t size_in_bytes(bool full_leaves = true)
+    size_t leaves_size_in_bytes()
     {
-        size_t suff_size = 0;
-        ART::for_each_leaf(
-            [&](const ART::Leaf* leaf) { suff_size += leaf->value().size_in_bytes(); });
+        size_t size = 0;
+        ART::for_each_leaf([&](const ART::Leaf* leaf) {
+            size += sizeof(Leaf) + leaf->key_size() + leaf->value().size_in_bytes();
+        });
 
-        return ART::size_in_bytes(full_leaves) + suff_size;
+        return size;
     }
+
+    size_t size_in_bytes() { return ART::nodes_size_in_bytes() + leaves_size_in_bytes(); }
 };
 
 } // namespace suffix_trie
