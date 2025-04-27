@@ -274,7 +274,7 @@ public:
     {
         size_t size = 0;
         ART::for_each_leaf([&](const ART::Leaf* leaf) {
-            size += sizeof(Leaf) + leaf->key_size() + leaf->value().size_in_bytes();
+            size += sizeof(*leaf) + leaf->key_size() + leaf->value().size_in_bytes();
         });
 
         return size;
