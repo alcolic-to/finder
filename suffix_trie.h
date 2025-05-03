@@ -15,11 +15,6 @@
 
 namespace suffix_trie {
 
-// template<class T>
-// class SLeaf_value {
-// std::unique_ptr<T> m_value;
-// };
-
 template<class T>
 class SLeaf;
 
@@ -111,9 +106,9 @@ public:
         assert(!has_value());
 
         if (empty())
-            *this = SLeaf{value};
+            *this = value;
         else if (link())
-            *this = SLeaf{new Full_leaf{value, std::vector{link_ptr()}}};
+            *this = new Full_leaf{value, std::vector{link_ptr()}};
         else {
             assert(full_leaf());
             full_leaf_ptr()->m_value = value;
@@ -140,7 +135,7 @@ public:
         assert(links.size() >= 1);
 
         if (links.size() == 1) {
-            *this = SLeaf{links[0]};
+            *this = links[0];
             delete full_leaf;
         }
     }
@@ -148,11 +143,11 @@ public:
     void insert_link(SLeaf* leaf) noexcept
     {
         if (empty())
-            *this = SLeaf{leaf};
+            *this = leaf;
         else if (value())
-            *this = SLeaf{new Full_leaf{value_ptr(), std::vector{leaf}}};
+            *this = new Full_leaf{value_ptr(), std::vector{leaf}};
         else if (link())
-            *this = SLeaf{new Full_leaf{{}, std::vector{link_ptr(), leaf}}};
+            *this = new Full_leaf{{}, std::vector{link_ptr(), leaf}};
         else {
             auto& links = full_leaf_ptr()->m_links;
             if (std::ranges::find(links, leaf) == links.end())
@@ -238,38 +233,6 @@ private:
     void* m_ptr;
 };
 
-// Suffix leaf holds either value or a vector of pointers to other leaves. Node that single suffix
-// leaf can be both a terminal node holding a value, and a suffix node which holds pointers to
-// terminal leaves.
-//
-// template<class T = void*>
-// class Suffix_leaf {
-// public:
-// const T* value() const noexcept { return m_value.get(); }
-
-// T* value() noexcept { return m_value.get(); }
-
-// auto& leaves() noexcept { return m_leaf_ptrs; }
-
-// const auto& leaves() const noexcept { return m_leaf_ptrs; }
-
-// auto& ptr() noexcept { return m_value; }
-
-// const auto& ptr() const noexcept { return m_value; }
-
-// // Only include parts not included in ART size_in_bytes.
-// //
-// const size_t size_in_bytes() const noexcept
-// {
-// return (m_value ? sizeof(T) : 0) +
-// m_leaf_ptrs.size() * sizeof(typename art::ART<Suffix_leaf>::Leaf*);
-// }
-
-// private:
-// std::unique_ptr<T> m_value{nullptr};
-// std::vector<typename art::ART<Suffix_leaf>::Leaf*> m_leaf_ptrs;
-// };
-
 // Suffix trie. It is a key/value container which holds full key (string by default) which holds
 // value (T) and all suffixes of a key which points to a full key. This provides the ability to
 // search suffix strings instead of just exact key search. Combined with ART::prefix_search, this
@@ -313,6 +276,15 @@ public:
         bool m_ok;
     };
 
+    // I am too lazy to implement proper destruction. In order to do that, destructor of SLeaf
+    // should be implemented, and it will be invoked automatically when ART destroys it's nodes.
+    // That would save whole tree traversal, but who cares...
+    //
+    ~Suffix_trie()
+    {
+        ART::for_each_leaf([](ART::Leaf* leaf) { leaf->value().reset(); });
+    }
+
     // Inserts full suffix string (holding T value) and all of it's suffixes which will point to
     // full suffix.
     //
@@ -334,14 +306,6 @@ public:
             // TODO: Implement emplace in ART and avoid this nonsence.
             auto res = ART::insert(begin, end - begin, {});
             res->value().insert_link(&sleaf);
-
-            // Old code:
-            // auto& leaves = res->value().leaves();
-
-            // if (res) // Vector entry does not exist, so just push back new pointer.
-            // leaves.push_back(sleaf);
-            // else if (std::ranges::find(leaves, sleaf) == leaves.end())
-            // leaves.push_back(sleaf);
         }
 
         return result{&r->value(), true};
