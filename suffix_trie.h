@@ -197,6 +197,9 @@ public:
 
     void reset() noexcept
     {
+        if (empty())
+            return;
+
         if (value())
             delete value_ptr();
 
