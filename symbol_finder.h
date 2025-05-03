@@ -123,7 +123,7 @@ public:
         constexpr auto it_opt = fs::directory_options::skip_permission_denied;
 
         std::error_code ec;
-        for (dir_iter it(m_dir, it_opt, ec); it != dir_iter(); it.increment(ec)) {
+        for (dir_iter it{m_dir, it_opt, ec}; it != dir_iter{}; it.increment(ec)) {
             if (!files_allowed() || !check_iteration(it, ec))
                 continue;
 
@@ -140,7 +140,7 @@ public:
                 continue;
             }
 
-            // Parse each line from file and save tokens that are not keywords.
+            // Parse each line from file and save tokens.
             //
             NECTR_Tokenizer tokenizer;
             Token token;
@@ -156,6 +156,8 @@ public:
                 }
             }
         }
+
+        print_stats();
     }
 
     [[nodiscard]] Symbols& symbols() noexcept { return m_symbols; }
@@ -198,31 +200,14 @@ public:
                                          file.m_file->name(), line.m_line, line.m_preview);
     }
 
-    void print_memory_usage()
+    void print_stats()
     {
         static constexpr size_t MB = 1024ULL * 1024;
 
-        std::cout << "\nFiles memory usage:\n";
-        std::cout << std::format("Files size:         {}MB\n", m_files.files_size() / MB);
-        std::cout << std::format("Files paths size:   {}MB\n", m_files.file_paths_size() / MB);
-        std::cout << std::format("Files paths leaves: {}\n", m_files.file_paths_leaves_count());
-        std::cout << std::format("File finder size: F {}MB\n", m_files.file_finder_size() / MB);
-        std::cout << std::format("File finder size:   {}MB\n",
-                                 m_files.file_finder_size(false) / MB);
-        std::cout << std::format("Files finder leaves:{}\n", m_files.file_finder_leaves_count());
+        m_files.print_stats();
 
-        std::cout << "\nSymbols memory usage:\n";
-        std::cout << std::format("Symbols size:       {}MB\n", m_symbols.symbols_size() / MB);
-        std::cout << std::format("Symbol finder size: {}MB\n", m_symbols.symbol_finder_size() / MB);
-
-        std::cout << "File finder info. (Suffix tree).\n";
-        std::cout << std::format("Nodes count:  {}\n", m_files.m_file_finder.nodes_count());
-        std::cout << std::format("Leaves count: {}\n", m_files.m_file_finder.leaves_count());
-
-        // m_files.m_file_finder.print_links();
-
-        // std::cout << "Symbol finder size: " << m_symbols.m_symbol_searcher.size_in_bytes() <<
-        // "\n"; m_symbols.m_symbol_searcher.print_links();
+        if (symbols_allowed())
+            m_symbols.print_stats();
     }
 
 private:

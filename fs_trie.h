@@ -31,7 +31,7 @@ public:
 
         // Filename already exist in a suffix trie, so just add path.
         //
-        auto& paths = *res->value();
+        auto& paths = *res->get_value();
         if (std::ranges::find(paths, file_path) == paths.end())
             paths.emplace_back(std::move(file_path));
     }
@@ -47,7 +47,7 @@ public:
         if (!res)
             return;
 
-        auto& file_paths = *res->value().value();
+        auto& file_paths = *res->value().get_value();
 
         // Check if file path exist in a paths vector.
         //
