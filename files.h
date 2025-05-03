@@ -140,7 +140,9 @@ private:
         if (ff_res)
             return {file, true};
 
-        auto& file_infos = *ff_res->value();
+        assert(ff_res->get_value() != nullptr);
+
+        auto& file_infos = *ff_res->get_value();
         assert(std::ranges::find(file_infos, file) == file_infos.end());
         file_infos.emplace_back(file);
 
@@ -174,7 +176,7 @@ private:
         auto ff_res = m_file_finder.search(file->name());
         assert(ff_res);
 
-        auto& file_infos = *ff_res->value().value();
+        auto& file_infos = *ff_res->value().get_value();
         auto fi_it = std::ranges::find(file_infos, file);
         assert(fi_it != file_infos.end());
 

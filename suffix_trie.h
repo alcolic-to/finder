@@ -42,7 +42,7 @@ class SLeaf {
 private:
     static constexpr uintptr_t value_tag = 0;
     static constexpr uintptr_t link_tag = 1;
-    static constexpr uintptr_t full_leaf_tag = 1;
+    static constexpr uintptr_t full_leaf_tag = 2;
     static_assert(full_leaf_tag <= tag_bits);
 
 public:
@@ -88,30 +88,41 @@ public:
 
     constexpr operator bool() const noexcept { return m_ptr != nullptr; }
 
-    constexpr bool empty() const noexcept { return operator bool(); }
+    constexpr bool empty() const noexcept { return !operator bool(); }
+
+    T* get_value()
+    {
+        if (empty() || link())
+            return nullptr;
+
+        if (value())
+            return value_ptr();
+
+        return full_leaf_ptr()->m_value;
+    }
 
     constexpr bool has_value() const noexcept
     {
-        return value() || (full_leaf() && full_leaf_ptr()->m_value);
+        return !empty() && (value() || (full_leaf() && full_leaf_ptr()->m_value != nullptr));
     }
 
-    void reset() noexcept
+    void insert_value(T* value) noexcept
     {
-        if (value())
-            delete value_ptr();
+        assert(!has_value());
 
-        if (full_leaf()) {
-            Full_leaf* full_leaf = full_leaf_ptr();
-            if (full_leaf->m_value != nullptr)
-                delete full_leaf->m_value;
-
-            delete full_leaf;
+        if (empty())
+            *this = SLeaf{value};
+        else if (link())
+            *this = SLeaf{new Full_leaf{value, std::vector{link_ptr()}}};
+        else {
+            assert(full_leaf());
+            full_leaf_ptr()->m_value = value;
         }
-
-        m_ptr = nullptr;
     }
 
-    void reset_value() noexcept
+    // Deletes value and shrinks leaf if possible.
+    //
+    void delete_value() noexcept
     {
         if (empty() || link())
             return;
@@ -120,14 +131,18 @@ public:
             return reset();
 
         Full_leaf* full_leaf = full_leaf_ptr();
-        if (full_leaf->m_value != nullptr)
+        if (full_leaf->m_value != nullptr) {
             delete full_leaf->m_value;
+            full_leaf->m_value = nullptr;
+        }
 
         auto& links = full_leaf->m_links;
         assert(links.size() >= 1);
 
-        if (links.size() == 1)
+        if (links.size() == 1) {
             *this = SLeaf{links[0]};
+            delete full_leaf;
+        }
     }
 
     void insert_link(SLeaf* leaf) noexcept
@@ -165,42 +180,56 @@ public:
         std::erase(links, leaf);
 
         if (links.size() == 1) {
-            if (!full_leaf->m_value)
+            if (!full_leaf->m_value) {
                 *this = SLeaf{links[0]};
+                delete full_leaf;
+            }
 
             return;
         }
 
         if (links.empty()) {
-            if (full_leaf->m_value)
-                *this = SLeaf{full_leaf->m_value};
-            else
-                reset();
+            assert(full_leaf->m_value != nullptr);
+            *this = SLeaf{full_leaf->m_value};
+            delete full_leaf;
         }
     }
 
-    // Frees memory based on pointer type and sets pointer to other (nullptr by default).
-    //
-    // constexpr void reset(SLeaf other = nullptr) noexcept
-    // {
-    //     if (*this) {
-    //         if (node()) {
-    //             Node* n = node_ptr();
-    //             switch (n->m_type) { // clang-format off
-    //             case Node4_t:   delete n->node4();   break;
-    //             case Node16_t:  delete n->node16();  break;
-    //             case Node48_t:  delete n->node48();  break;
-    //             case Node256_t: delete n->node256(); break;
-    //             default: assert(!"Invalid case.");   break;
-    //             } // clang-format on
-    //         }
-    //         else {
-    //             delete leaf_ptr();
-    //         }
-    //     }
+    void reset() noexcept
+    {
+        if (value())
+            delete value_ptr();
 
-    //     *this = other;
-    // }
+        if (full_leaf()) {
+            Full_leaf* full_leaf = full_leaf_ptr();
+            if (full_leaf->m_value != nullptr)
+                delete full_leaf->m_value;
+
+            delete full_leaf;
+        }
+
+        m_ptr = nullptr;
+    }
+
+    size_t size_in_bytes() const noexcept
+    {
+        size_t size = sizeof(*this);
+
+        if (value())
+            size += sizeof(T);
+        else if (full_leaf()) {
+            Full_leaf* full_leaf = full_leaf_ptr();
+
+            size += sizeof(Full_leaf);
+
+            if (full_leaf->m_value)
+                size += sizeof(T);
+
+            size += full_leaf->m_links.size() * sizeof(SLeaf*);
+        }
+
+        return size;
+    }
 
 private:
     void* m_ptr;
@@ -247,6 +276,7 @@ template<class T = void*>
 class Suffix_trie : public art::ART<SLeaf<T>> {
 public:
     using SLeaf = SLeaf<T>;
+    using Full_leaf = Full_leaf<T>;
     using ART = art::ART<SLeaf>;
     using ART_leaf = ART::Leaf;
     using Node = ART::Node;
@@ -289,10 +319,10 @@ public:
         auto r = ART::insert(suffix, {}); // TODO: Implement emplace in ART and avoid this nonsence.
 
         auto& sleaf = r->value();
-        if (sleaf) // Suffix already exist. Let caller decide what to do.
-            return {&r->value(), false};
+        if (sleaf.get_value() != nullptr) // Suffix already exist. Let caller decide what to do.
+            return {&sleaf, false};
 
-        sleaf = new T{std::forward<V>(value)}; // TODO: Check if this works.
+        sleaf.insert_value(new T{std::forward<V>(value)});
 
         uint8_t* begin = (uint8_t*)suffix.data();
         uint8_t* end = begin + suffix.size();
@@ -343,7 +373,7 @@ public:
             --start;
         }
 
-        main_sleaf.reset_value();
+        main_sleaf.delete_value();
         if (main_sleaf.empty())
             ART::erase(suffix);
     }
@@ -354,17 +384,21 @@ public:
     {
         std::vector<const T*> results;
 
-        if (ART_leaf* leaf = ART::search(str)) {
-            T* value = leaf->value().ptr().get();
-            if (value)
-                results.push_back(value);
+        auto insert_value = [&](SLeaf* sleaf) {
+            T* v = sleaf->get_value();
+            if (v != nullptr && std::ranges::find(results, v) == results.end())
+                results.push_back(v);
+        };
 
-            for (ART_leaf* leaf_ptr : leaf->value().leaves()) {
-                value = leaf_ptr->value().ptr().get();
-                assert(value);
-                if (value && std::ranges::find(results, value) == results.end())
-                    results.push_back(value);
-            }
+        if (ART_leaf* leaf = ART::search(str)) {
+            SLeaf* sleaf = &leaf->value();
+            insert_value(sleaf);
+
+            if (sleaf->link())
+                insert_value(sleaf->link_ptr());
+            else if (sleaf->full_leaf())
+                for (SLeaf* link : sleaf->full_leaf_ptr()->m_links)
+                    insert_value(link);
         }
 
         return results;
@@ -376,18 +410,22 @@ public:
     {
         std::vector<const T*> results;
 
-        const auto& leaves = ART::search_prefix(str);
-        for (const auto& leaf : leaves) {
-            T* value = leaf->value().ptr().get();
-            if (value && std::ranges::find(results, value) == results.end())
-                results.push_back(value);
+        auto insert_value = [&](SLeaf* sleaf) {
+            T* v = sleaf->get_value();
+            if (v != nullptr && std::ranges::find(results, v) == results.end())
+                results.push_back(v);
+        };
 
-            for (ART_leaf* leaf_ptr : leaf->value().leaves()) {
-                value = leaf_ptr->value().ptr().get();
-                assert(value);
-                if (std::ranges::find(results, value) == results.end())
-                    results.push_back(value);
-            }
+        const auto& leaves = ART::search_prefix(str);
+        for (auto& leaf : leaves) {
+            SLeaf* sleaf = &leaf->value();
+            insert_value(sleaf);
+
+            if (sleaf->link())
+                insert_value(sleaf->link_ptr());
+            else if (sleaf->full_leaf())
+                for (SLeaf* link : sleaf->full_leaf_ptr()->m_links)
+                    insert_value(link);
         }
 
         return results;
@@ -408,25 +446,34 @@ public:
         size_t without_value = 0;
         size_t total_links_count = 0;
 
-        ART::for_each_leaf([&](const ART::Leaf* leaf) {
-            const SLeaf& sl = leaf->value();
+        ART::for_each_leaf([&](ART::Leaf* leaf) {
+            ++it_count;
 
-            bool has_value = !!sl.ptr();
+            SLeaf& sl = leaf->value();
+
+            bool has_value = sl.get_value() != nullptr;
             with_value += has_value;
             without_value += !has_value;
 
-            auto& leaves = sl.leaves();
+            size_t links_count = 0;
 
-            size_t links_count = std::min(leaves.size(), max_links - 1);
-            total_links_count += leaves.size();
-            high = std::max(high, leaves.size());
+            if (sl.link()) {
+                links_count = 1;
+                total_links_count += 1;
+                high = std::max(high, 1ULL);
+            }
+            else if (sl.full_leaf()) {
+                auto& leaves = sl.full_leaf_ptr()->m_links;
+                links_count = std::min(leaves.size(), max_links - 1);
+                total_links_count += leaves.size();
+                high = std::max(high, leaves.size());
 
-            // if (leaves.size() >= max_links)
-            //     std::cout << "Links number too big: " << leaves.size()
-            //               << ". Value: " << leaf->key_to_string() << "\n";
+                // if (leaves.size() >= max_links)
+                //     std::cout << "Links number too big: " << leaves.size()
+                //               << ". Value: " << leaf->key_to_string() << "\n";
+            }
 
             ++dist[has_value][links_count];
-            ++it_count;
             key_sizes += leaf->key_size();
         });
 
