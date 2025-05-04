@@ -147,7 +147,7 @@ public:
         else if (value())
             *this = new Full_leaf{value_ptr(), std::vector{leaf}};
         else if (link())
-            *this = new Full_leaf{{}, std::vector{link_ptr(), leaf}};
+            *this = new Full_leaf{nullptr, std::vector{link_ptr(), leaf}};
         else {
             auto& links = full_leaf_ptr()->m_links;
             if (std::ranges::find(links, leaf) == links.end())

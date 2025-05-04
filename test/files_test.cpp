@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "files.h"
-#include "test_util.h"
+#include "util.h"
 
 // NOLINTBEGIN
 

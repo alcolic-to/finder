@@ -205,7 +205,7 @@ private:
         return nullptr;
     }
 
-public:
+private:
     // Vector of files.
     //
     std::vector<std::unique_ptr<File_info>> m_files;
