@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
     if (options.find('s') != std::string::npos)
         i32_opt |= Options::symbols;
 
-    Symbol_finder finder{std::move(root), Options{i32_opt}};
+    Symbol_finder finder{root, Options{i32_opt}};
 
     while (true) {
         std::cout << ": ";

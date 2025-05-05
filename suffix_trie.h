@@ -18,6 +18,8 @@ namespace suffix_trie {
 template<class T>
 class SLeaf;
 
+// Full leaf which hold pointer to value and a vector of links to leaf nodes.
+//
 template<class T>
 class Full_leaf {
 public:
@@ -25,10 +27,9 @@ public:
     std::vector<SLeaf<T>*> m_links;
 };
 
-// Wrapper class that holds either pointer to node or pointer to leaf.
-// It is not a smart pointer, hence user must manage memory manually.
-// In order to simplify assigning another pointer with freeing current resources, reset() funtion is
-// implemented.
+// Wrapper class that holds either pointer to value, pointer to full leaf node or pointer to another
+// sleaf. It is not a smart pointer, hence user must manage memory manually. In order to simplify
+// assigning another pointer with freeing current resources, reset() funtion is implemented.
 //
 template<class T>
 class SLeaf {

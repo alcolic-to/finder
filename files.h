@@ -6,6 +6,7 @@
 #include <ranges>
 #include <vector>
 
+#include "small_string.h"
 #include "suffix_trie.h"
 
 // NOLINTBEGIN
@@ -16,24 +17,24 @@ class File_info {
 public:
     File_info() = default;
 
-    File_info(std::string file_name) : m_name{std::move(file_name)} {}
+    File_info(const std::string& file_name) : m_name{file_name} {}
 
-    File_info(std::string file_name, std::string_view file_path)
-        : m_name{std::move(file_name)}
+    File_info(const std::string& file_name, std::string_view file_path)
+        : m_name{file_name}
         , m_path{std::move(file_path)}
     {
         if (!file_path.ends_with(file_name))
             throw std::runtime_error{"File path does not end with file name."};
     }
 
-    [[nodiscard]] const std::string& name() const noexcept { return m_name; }
+    [[nodiscard]] const char* name() const noexcept { return m_name; }
 
     [[nodiscard]] const std::string_view path() const noexcept { return m_path; }
 
     void set_path(std::string_view path) { m_path = path; }
 
 private:
-    std::string m_name;      // File name with extension.
+    Small_string m_name;     // File name with extension.
     std::string_view m_path; // Full file path.
 };
 
@@ -126,7 +127,7 @@ private:
         if (File_info* res = search(file_name, file_path); res != nullptr) // File already exist.
             return {res, false};
 
-        m_files.push_back(std::make_unique<File_info>(std::move(file_name)));
+        m_files.push_back(std::make_unique<File_info>(file_name));
         File_info* file = m_files.back().get();
 
         auto res = m_file_paths.insert(file_path, std::vector{file});

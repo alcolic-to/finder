@@ -6,7 +6,6 @@
 #define ART_H
 
 #include <algorithm>
-#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <cstring>

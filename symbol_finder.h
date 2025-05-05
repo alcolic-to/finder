@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "files.h"
+#include "small_string.h"
 #include "symbols.h"
 #include "tokens.h"
 #include "util.h"
@@ -115,15 +116,15 @@ private:
 
 class Symbol_finder {
 public:
-    explicit Symbol_finder(std::string dir, Options opt = Options{})
-        : m_dir{std::move(dir)}
+    explicit Symbol_finder(const std::string& dir, Options opt = Options{})
+        : m_dir{dir}
         , m_options{opt}
     {
         using dir_iter = fs::recursive_directory_iterator;
         constexpr auto it_opt = fs::directory_options::skip_permission_denied;
 
         std::error_code ec;
-        for (dir_iter it{m_dir, it_opt, ec}; it != dir_iter{}; it.increment(ec)) {
+        for (dir_iter it{dir, it_opt, ec}; it != dir_iter{}; it.increment(ec)) {
             if (!files_allowed() || !check_iteration(it, ec))
                 continue;
 
@@ -152,7 +153,7 @@ public:
                     if (token.type() != Token_t::word || is_keyword(token.str()))
                         continue;
 
-                    m_symbols.insert(std::move(token.str()), file, line_num, fline);
+                    m_symbols.insert(token.str(), file, line_num, fline);
                 }
             }
         }
@@ -164,7 +165,7 @@ public:
 
     [[nodiscard]] Files& files() noexcept { return m_files; }
 
-    [[nodiscard]] const std::string& dir() const noexcept { return m_dir; }
+    [[nodiscard]] const char* dir() const noexcept { return m_dir; }
 
     [[nodiscard]] bool files_allowed() const noexcept { return m_options.files_allowed(); }
 
@@ -195,9 +196,10 @@ public:
 
         const auto& files = symbol->refs();
         for (const auto& file : files)
-            for (const auto& line : file.m_lines)
-                std::cout << std::format("{}\\{} {}: {}\n", file.m_file->path(),
-                                         file.m_file->name(), line.m_line, line.m_preview);
+            for (const auto& line : file.lines())
+                std::cout << std::format("{}\\{} {}: {}\n", file.file()->path(),
+                                         file.file()->name(), line.line(),
+                                         std::string(line.preview()));
     }
 
     void print_stats()
@@ -211,7 +213,7 @@ public:
     }
 
 private:
-    std::string m_dir;
+    Small_string m_dir;
     Files m_files;
     Symbols m_symbols;
     Options m_options;
