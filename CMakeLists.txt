@@ -30,8 +30,8 @@ include(cmake/project_config.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/compiler_options.cmake)
 
-set(CPP_FILES art.cpp)
-set(HPP_FILES art.h trie.h)
+set(CPP_FILES art.cpp console.cpp os.cpp)
+set(HPP_FILES art.h trie.h console.h os.h)
 set(ALL_FILES ${CPP_FILES} ${HPP_FILES})
 
 add_library(art_lib STATIC ${CPP_FILES})
