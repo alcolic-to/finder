@@ -204,8 +204,6 @@ public:
 
     void print_stats()
     {
-        static constexpr size_t MB = 1024ULL * 1024;
-
         m_files.print_stats();
 
         if (symbols_allowed())

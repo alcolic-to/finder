@@ -272,6 +272,34 @@ TEST(art_tests, different_key_sizes_big)
 }
 #endif
 
+TEST(art_tests, prefix_search)
+{
+    art::ART art;
+
+    std::string s1{"str1"};
+    std::string s2{"str2"};
+    std::string s3{"str3"};
+    std::string s4{"str4"};
+    std::string s5{"str5"};
+
+    art.insert(s1);
+    art.insert(s2);
+    art.insert(s3);
+    art.insert(s4);
+    art.insert(s5);
+
+    ASSERT_TRUE(art.search_prefix("").size() == 5);
+    ASSERT_TRUE(art.search_prefix("s").size() == 5);
+    ASSERT_TRUE(art.search_prefix("st").size() == 5);
+    ASSERT_TRUE(art.search_prefix("str").size() == 5);
+    ASSERT_TRUE(art.search_prefix("str1").size() == 1);
+    ASSERT_TRUE(art.search_prefix("str5").size() == 1);
+    ASSERT_TRUE(art.search_prefix("str", 1).size() == 1);
+    ASSERT_TRUE(art.search_prefix("str", 3).size() == 3);
+    ASSERT_TRUE(art.search_prefix("str", 5).size() == 5);
+    ASSERT_TRUE(art.search_prefix("str", 1024).size() == 5);
+}
+
 // Reads all filesystem paths from provided input file, inserts them into ART and search for them 1
 // by 1 while verifying searches.
 //

@@ -10,8 +10,11 @@
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "ptr_tag.h"
@@ -1020,22 +1023,31 @@ public:
         return search(key);
     }
 
-    [[nodiscard]] const std::vector<Leaf*> search_prefix(const std::string& s) const noexcept
+    // Finds all entries whose key starts with provided string. User can limit number of returned
+    // entries with limit parameter.
+    //
+    [[nodiscard]] const std::vector<Leaf*>
+    search_prefix(const std::string& prefix,
+                  size_t limit = std::numeric_limits<size_t>::max()) const noexcept
     {
         std::vector<Leaf*> leaves;
-        const Key key{(const uint8_t* const)s.data(), s.size()};
+        const Key key{(const uint8_t* const)prefix.data(), prefix.size()};
 
-        search_prefix(key, leaves);
+        search_prefix(key, leaves, limit);
         return leaves;
     }
 
-    [[nodiscard]] const std::vector<Leaf*> search_prefix(const uint8_t* const data,
-                                                         size_t size) const noexcept
+    // Finds all entries whose key starts with provided prefix with given size. User can limit
+    // number of returned entries with limit parameter.
+    //
+    [[nodiscard]] const std::vector<Leaf*>
+    search_prefix(const uint8_t* const prefix, size_t prefix_size,
+                  size_t limit = std::numeric_limits<size_t>::max()) const noexcept
     {
         std::vector<const Leaf*> leaves;
-        const Key key{data, size};
+        const Key key{prefix, prefix_size};
 
-        search_prefix(key, leaves);
+        search_prefix(key, leaves, limit);
         return leaves;
     }
 
@@ -1156,49 +1168,87 @@ public:
         for_each<order, type>(m_root, callback);
     }
 
+    bool invoke_internal(auto&& entry, const auto& callback) noexcept(noexcept(callback(entry)))
+    {
+        if constexpr (std::is_void_v<decltype(callback(entry))>) {
+            callback(entry);
+            return true;
+        }
+        else {
+            return callback(entry);
+        }
+    }
+
+    bool invoke_internal(auto&& entry, const auto& callback) const
+        noexcept(noexcept(callback(entry)))
+    {
+        if constexpr (std::is_void_v<decltype(callback(entry))>) {
+            callback(entry);
+            return true;
+        }
+        else {
+            return callback(entry);
+        }
+    }
+
+    // Invoked callable function and returns true if callback is void function, otherwise returns
+    // result of callback. This is done in order to be able to break iterations in for_each loop
+    // while allowing user to pass both void and bool functions. This is done for fun and it is not
+    // necessary at all.
+    //
     template<visit_type type>
-    void invoke(entry_ptr& entry,
+    bool invoke(entry_ptr& entry,
                 const auto& callback) noexcept(noexcept(noexcept_check<type>(entry, callback)))
     {
         if constexpr (type == visit_type::any)
-            callback(entry);
+            return invoke_internal(entry, callback);
 
-        if constexpr (type == visit_type::node)
+        if constexpr (type == visit_type::node) {
             if (entry.node())
-                callback(entry.node_ptr());
+                return invoke_internal(entry.node_ptr(), callback);
+        }
 
-        if constexpr (type == visit_type::leaf)
+        if constexpr (type == visit_type::leaf) {
             if (entry.leaf())
-                callback(entry.leaf_ptr());
+                return invoke_internal(entry.leaf_ptr(), callback);
+        }
+
+        return true;
     }
 
     template<visit_type type>
-    void invoke(const entry_ptr& entry, const auto& callback) const
+    bool invoke(const entry_ptr& entry, const auto& callback) const
         noexcept(noexcept(noexcept_check<type>(entry, callback)))
     {
         if constexpr (type == visit_type::any)
-            callback(entry);
+            return invoke_internal(entry, callback);
 
-        if constexpr (type == visit_type::node)
+        if constexpr (type == visit_type::node) {
             if (entry.node())
-                callback(entry.node_ptr());
+                return invoke_internal(entry.node_ptr(), callback);
+        }
 
-        if constexpr (type == visit_type::leaf)
+        if constexpr (type == visit_type::leaf) {
             if (entry.leaf())
-                callback(entry.leaf_ptr());
+                return invoke_internal(entry.leaf_ptr(), callback);
+        }
+
+        return true;
     }
 
     // Visits all entries and invokes callback on them.
     //
     template<visit_order order = visit_order::pre_order, visit_type type = visit_type::any>
-    void for_each(entry_ptr& entry,
+    bool for_each(entry_ptr& entry,
                   const auto& callback) noexcept(noexcept(noexcept_check<type>(entry, callback)))
     {
         if (!entry)
-            return;
+            return true;
 
-        if constexpr (order == visit_order::pre_order)
-            invoke<type>(entry, callback);
+        if constexpr (order == visit_order::pre_order) {
+            if (!invoke<type>(entry, callback))
+                return false;
+        }
 
         if (entry.node()) {
             Node* node = entry.node_ptr();
@@ -1215,24 +1265,31 @@ public:
             } // clang-format on
 
             for (size_t i = 0; i < children_len; ++i)
-                for_each<order, type>(children[i], callback);
+                if (!for_each<order, type>(children[i], callback))
+                    return false;
         }
 
-        if constexpr (order == visit_order::post_order)
-            invoke<type>(entry, callback);
+        if constexpr (order == visit_order::post_order) {
+            if (!invoke<type>(entry, callback))
+                return false;
+        }
+
+        return true;
     }
 
     // Const for_each version.
     //
     template<visit_order order = visit_order::pre_order, visit_type type = visit_type::any>
-    void for_each(const entry_ptr& entry, const auto& callback) const
+    bool for_each(const entry_ptr& entry, const auto& callback) const
         noexcept(noexcept(noexcept_check<type>(entry, callback)))
     {
         if (!entry)
-            return;
+            return true;
 
-        if constexpr (order == visit_order::pre_order)
-            invoke<type>(entry, callback);
+        if constexpr (order == visit_order::pre_order) {
+            if (!invoke<type>(entry, callback))
+                return false;
+        }
 
         if (entry.node()) {
             Node* node = entry.node_ptr();
@@ -1249,11 +1306,16 @@ public:
             } // clang-format on
 
             for (size_t i = 0; i < children_len; ++i)
-                for_each<order, type>(children[i], callback);
+                if (!for_each<order, type>(children[i], callback))
+                    return false;
         }
 
-        if constexpr (order == visit_order::post_order)
-            invoke<type>(entry, callback);
+        if constexpr (order == visit_order::post_order) {
+            if (!invoke<type>(entry, callback))
+                return false;
+        }
+
+        return true;
     }
 
     template<visit_order order = visit_order::pre_order>
@@ -1485,14 +1547,14 @@ private:
 
     bool empty() const noexcept { return m_root; }
 
-    void search_prefix(const Key& key, std::vector<Leaf*>& leaves) const noexcept
+    void search_prefix(const Key& key, std::vector<Leaf*>& leaves, size_t limit) const noexcept
     {
         if (m_root)
-            search_prefix(m_root, key, 0, leaves);
+            search_prefix(m_root, key, 0, leaves, limit);
     }
 
     void search_prefix(const entry_ptr& entry, const Key& prefix, size_t depth,
-                       std::vector<Leaf*>& leaves) const noexcept
+                       std::vector<Leaf*>& leaves, size_t limit) const noexcept
     {
         if (entry.leaf()) {
             Leaf* leaf = entry.leaf_ptr();
@@ -1507,8 +1569,14 @@ private:
 
         // All bytes except terminal byte matched, so just collect leaves.
         //
-        if (depth + cp_len == prefix.size() - 1)
-            return for_each_leaf(entry, [&](Leaf* leaf) { leaves.push_back(leaf); });
+        if (depth + cp_len == prefix.size() - 1) {
+            for_each_leaf(entry, [&](Leaf* leaf) {
+                leaves.push_back(leaf);
+                return leaves.size() < limit; // Limits number of iterations.
+            });
+
+            return;
+        }
 
         if (cp_len != hdrlen(node->m_prefix_len))
             return;
@@ -1520,7 +1588,7 @@ private:
 
         entry_ptr* next = node->find_child(prefix[depth]);
         if (next)
-            search_prefix(*next, prefix, depth + 1, leaves);
+            search_prefix(*next, prefix, depth + 1, leaves, limit);
     }
 
 protected:
