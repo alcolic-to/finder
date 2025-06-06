@@ -116,6 +116,8 @@ private:
 
 class Symbol_finder {
 public:
+    static constexpr size_t files_search_limit = 128;
+
     explicit Symbol_finder(const std::string& dir, Options opt = Options{})
         : m_dir{dir}
         , m_options{opt}
@@ -175,7 +177,7 @@ public:
     {
         auto files = [&] {
             Stopwatch<true, microseconds> s{"File search"};
-            return m_files.search(regex);
+            return m_files.search(regex, files_search_limit);
         }();
 
         for (const auto& file : files)

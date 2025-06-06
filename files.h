@@ -1,7 +1,9 @@
 #ifndef FILES_H
 #define FILES_H
 
+#include <cstddef>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <ranges>
 #include <vector>
@@ -68,6 +70,8 @@ public:
         bool m_ok;
     };
 
+    static constexpr size_t search_limit = 128;
+
     result insert(const fs::path& path)
     {
         return insert(path.filename().string(), path.parent_path().string());
@@ -78,14 +82,18 @@ public:
         erase(path.filename().string(), path.parent_path().string());
     }
 
-    auto search(const std::string& regex)
+    auto search(const std::string& regex, size_t limit = std::numeric_limits<size_t>::max())
     {
         std::vector<const File_info*> results;
 
-        auto info_vectors = m_file_finder.search_prefix(regex);
-        for (auto info_vector : info_vectors)
-            for (auto file_info : *info_vector)
+        auto info_vectors{m_file_finder.search_prefix(regex, limit)};
+        for (auto info_vector : info_vectors) {
+            for (auto file_info : *info_vector) {
                 results.push_back(file_info);
+                if (results.size() == limit)
+                    break;
+            }
+        }
 
         return results;
     }

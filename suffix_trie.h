@@ -4,8 +4,7 @@
 #include <cstdint>
 #include <format>
 #include <iostream>
-#include <memory>
-#include <ranges>
+#include <limits>
 #include <vector>
 
 #include "art.h"
@@ -373,8 +372,11 @@ public:
     }
 
     // Returns a vector of T* where key matches str prefix.
+    // Since prefix search can have a lot of entries, user can limit number of results.
     //
-    [[nodiscard]] auto search_prefix(const std::string& str) const noexcept
+    [[nodiscard]] auto
+    search_prefix(const std::string& str,
+                  size_t limit = std::numeric_limits<size_t>::max()) const noexcept
     {
         std::vector<const T*> results;
 
@@ -382,18 +384,25 @@ public:
             T* v = sleaf->get_value();
             if (v != nullptr && std::ranges::find(results, v) == results.end())
                 results.push_back(v);
+
+            return results.size() < limit;
         };
 
-        const auto& leaves = ART::search_prefix(str);
+        const auto& leaves = ART::search_prefix(str, limit);
         for (auto& leaf : leaves) {
             SLeaf* sleaf = &leaf->value();
-            insert_value(sleaf);
+            if (!insert_value(sleaf))
+                break;
 
-            if (sleaf->link())
-                insert_value(sleaf->link_ptr());
-            else if (sleaf->full_leaf())
+            if (sleaf->link()) {
+                if (!insert_value(sleaf->link_ptr()))
+                    break;
+            }
+            else if (sleaf->full_leaf()) {
                 for (SLeaf* link : sleaf->full_leaf_ptr()->m_links)
-                    insert_value(link);
+                    if (!insert_value(link))
+                        break;
+            }
         }
 
         return results;
