@@ -90,10 +90,6 @@ public:
 
     [[nodiscard]] constexpr bool empty() const noexcept { return m_data == nullptr; }
 
-    [[nodiscard]] constexpr bool small() const noexcept { return tag(m_data) == small_tag; }
-
-    [[nodiscard]] constexpr bool big() const noexcept { return tag(m_data) == big_tag; }
-
     [[nodiscard]] const char* data() const noexcept
     {
         return small() ? &m_sso[1] : static_cast<char*>(clear_tag(m_data));
@@ -104,6 +100,10 @@ public:
     [[nodiscard]] size_t size() const noexcept { return std::strlen(*this); }
 
 private:
+    [[nodiscard]] constexpr bool small() const noexcept { return tag(m_data) == small_tag; }
+
+    [[nodiscard]] constexpr bool big() const noexcept { return tag(m_data) == big_tag; }
+
     void ctr_from_big(const char* big, size_t size)
     {
         assert(size > small_limit);

@@ -60,7 +60,7 @@ static constexpr bool supported_file(const auto& dir_entry)
     if (!dir_entry->is_regular_file())
         return false;
 
-    std::string ext{dir_entry->path().extension().string()};
+    std::string ext{std::move(dir_entry->path().extension().string())};
     return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
 }
 
@@ -78,8 +78,8 @@ static constexpr bool check_iteration(const auto& it, std::error_code& ec)
         [[maybe_unused]] const std::string& p = it->path().string();
 
         // Skip all windows files in order to save space.
-        // if (p.starts_with("C:\\Windows\\"))
-        // return false;
+        if (p.starts_with("C:\\Windows\\"))
+            return false;
     }
     catch (...) {
         std::cout << "Path to string conversion failed.\n";
@@ -173,15 +173,14 @@ public:
 
     [[nodiscard]] bool symbols_allowed() const noexcept { return m_options.symbols_allowed(); }
 
-    void find_files(const std::string& regex)
+    auto find_files(const std::string& regex)
     {
-        auto files = [&] {
-            Stopwatch<true, microseconds> s{"File search"};
-            return m_files.search(regex, files_search_limit);
-        }();
+        // auto files = [&] {
+        // // Stopwatch<true, microseconds> s{"File search"};
+        // return m_files.search(regex);
+        // }();
 
-        for (const auto& file : files)
-            std::cout << std::format("{}\\{}\n", file->path(), file->name());
+        return m_files.search(regex, files_search_limit);
     }
 
     void find_symbols(const std::string& symbol_name)
