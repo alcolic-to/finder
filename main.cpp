@@ -7,6 +7,32 @@
 
 // NOLINTBEGIN
 
+bool scan_input(Console& console, std::string& query)
+{
+    int32_t input_ch;
+    while (true) {
+        console >> input_ch;
+
+        if (input_ch == 27) // ESC
+            return false;
+
+        if (input_ch == 8) { // backspace
+            if (query.empty())
+                continue;
+
+            query.pop_back();
+            break;
+        }
+
+        if (std::isprint(input_ch)) {
+            query += input_ch;
+            break;
+        }
+    }
+
+    return true;
+}
+
 int main()
 {
     Console console;
@@ -31,11 +57,11 @@ int main()
 
     Symbol_finder finder{root, Options{u32_opt}};
 
-    // Show all files.
+    // Show all files/symbols.
     //
     console.clear();
-    auto files{finder.find_files("")};
-    console.draw_search_results(files);
+    console.draw_search_results(finder.find_files(""));
+    // console.draw_symbol_search_results(finder.find_symbols(""));
 
     Cursor& cursor = console.cursor();
     std::string query;
@@ -47,24 +73,11 @@ int main()
         console.fill_line(' ');
         console << "Search: " << query;
 
-        for (int32_t input_ch;;) {
-            console >> input_ch;
+        if (!scan_input(console, query))
+            return 0;
 
-            if (input_ch == 27) // ESC
-                return 0;
-
-            if (input_ch == 8 && !query.empty()) { // backspace
-                query.pop_back();
-                break;
-            }
-            else if (std::isprint(input_ch)) {
-                query += input_ch;
-                break;
-            }
-        }
-
-        auto files{finder.find_files(query)};
-        console.draw_search_results(files);
+        console.draw_search_results(finder.find_files(query));
+        // console.draw_symbol_search_results(finder.find_symbols(query));
     }
 
     return 0;

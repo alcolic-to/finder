@@ -50,9 +50,10 @@ Console& Console::operator>>(int32_t& input)
     return *this;
 }
 
-void Console::fill_line(char ch)
+Console& Console::fill_line(char ch)
 {
     os::fill_console_line(m_handle, m_cursor.os_coord(), ch);
+    return *this;
 }
 
 Console& Console::getline(std::string& line)
@@ -61,7 +62,7 @@ Console& Console::getline(std::string& line)
     return *this;
 }
 
-void Console::clear()
+Console& Console::clear()
 {
     m_cursor.move_to<e_top>();
     m_cursor.move_to<e_left>();
@@ -77,4 +78,6 @@ void Console::clear()
 
     m_cursor.move_to<e_top>();
     m_cursor.move_to<e_left>();
+
+    return *this;
 }

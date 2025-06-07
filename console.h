@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "os.h"
+#include "symbols.h"
 
 // Horizontal and vertical coordinate limit values.
 //
@@ -115,12 +116,12 @@ public:
     Console& operator>>(std::string& s);
     Console& operator>>(int32_t& input);
 
-    void clear();
-    void fill_line(char ch);
+    Console& clear();
+    Console& fill_line(char ch);
     Console& getline(std::string& line);
 
     template<class T>
-    void draw_search_results(const std::vector<T>& v)
+    Console& draw_search_results(const std::vector<T>& v)
     {
         m_cursor.move_to<e_top>();
         m_cursor.move_to<e_left>();
@@ -140,6 +141,40 @@ public:
             m_cursor.move<d_down>();
             m_cursor.move_to<e_left>();
         }
+
+        return *this;
+    }
+
+    Console& draw_symbol_search_results(const Symbol* symbol)
+    {
+        m_cursor.move_to<e_top>();
+        m_cursor.move_to<e_left>();
+
+        if (symbol != nullptr) {
+            for (const auto& symref : symbol->refs()) {
+                for (const auto& line : symref.lines()) {
+                    fill_line(' ');
+
+                    *this << std::format("{}\\{} {}: {}\n", symref.file()->path(),
+                                         symref.file()->name(), line.number(),
+                                         std::string(line.preview()));
+
+                    m_cursor.move<d_down>();
+                    m_cursor.move_to<e_left>();
+
+                    if (m_cursor.y() == m_cursor.max_y() - 1)
+                        return *this;
+                }
+            }
+        }
+
+        while (m_cursor.y() != m_cursor.max_y() - 1) {
+            fill_line(' ');
+            m_cursor.move<d_down>();
+            m_cursor.move_to<e_left>();
+        }
+
+        return *this;
     }
 
     Cursor& cursor() { return m_cursor; }

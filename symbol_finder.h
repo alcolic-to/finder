@@ -183,24 +183,14 @@ public:
         return m_files.search(regex, files_search_limit);
     }
 
-    void find_symbols(const std::string& symbol_name)
+    Symbol* find_symbols(const std::string& symbol_name)
     {
-        auto* symbol = [&] {
-            Stopwatch<true, microseconds> s{"Symbol search"};
-            return m_symbols.search(symbol_name);
-        }();
+        // auto* symbol = [&] {
+        // Stopwatch<true, microseconds> s{"Symbol search"};
+        // return m_symbols.search(symbol_name);
+        // }();
 
-        if (symbol == nullptr) {
-            std::cout << "Symbol not found.\n";
-            return;
-        }
-
-        const auto& files = symbol->refs();
-        for (const auto& file : files)
-            for (const auto& line : file.lines())
-                std::cout << std::format("{}\\{} {}: {}\n", file.file()->path(),
-                                         file.file()->name(), line.line(),
-                                         std::string(line.preview()));
+        return m_symbols.search(symbol_name);
     }
 
     void print_stats()
