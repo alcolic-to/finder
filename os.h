@@ -3,6 +3,7 @@
 #ifndef OS_SPECIFIC_H
 #define OS_SPECIFIC_H
 
+#include <cstddef>
 #include <cstdint>
 
 namespace os {

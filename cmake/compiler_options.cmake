@@ -6,7 +6,10 @@ else()
     endif()
 endif()
 
-SET(CMAKE_CXX_FLAGS  "-Wall")
+# Optional, using libc++ for better debugging with lldb-dap.
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-interference-size")

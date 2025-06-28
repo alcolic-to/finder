@@ -94,6 +94,36 @@ void console_scan(int32_t& input)
 
 #elif defined(OS_LINUX)
 
+void* init_console_handle()
+{
+    return nullptr;
+}
+
+Coordinates console_window_size(void* handle)
+{
+    return {};
+}
+
+void set_console_cursor_position(void* handle, Coordinates coord)
+{
+    return;
+}
+
+void fill_console_line(void* handle, Coordinates coord, char ch)
+{
+    return;
+}
+
+void write_to_console(void* handle, const void* data, size_t size)
+{
+    return;
+}
+
+void console_scan(int32_t& input)
+{
+    return;
+}
+
 #else
 static_assert(!"Unsupported OS.");
 #endif

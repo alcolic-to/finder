@@ -1,6 +1,7 @@
 #ifndef SUFFIX_TRIE_H
 #define SUFFIX_TRIE_H
 
+#include <algorithm>
 #include <cstdint>
 #include <format>
 #include <iostream>
@@ -437,7 +438,7 @@ public:
             if (sl.link()) {
                 links_count = 1;
                 total_links_count += 1;
-                high = std::max(high, 1ULL);
+                high = std::max(high, 1UL);
             }
             else if (sl.full_leaf()) {
                 auto& leaves = sl.full_leaf_ptr()->m_links;
