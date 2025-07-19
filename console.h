@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <filesystem>
 #include <format>
 #include <string>
 #include <vector>
@@ -60,11 +61,11 @@ public:
     void move_to()
     {
         if constexpr (e == Edge::top)
-            m_y = 0U;
+            m_y = os::console_row_start();
         else if constexpr (e == Edge::bottom)
             m_y = m_max_y;
         else if constexpr (e == Edge::left)
-            m_x = 0U;
+            m_x = os::console_col_start();
         else if constexpr (e == Edge::right)
             m_x = m_max_x;
         else
@@ -112,6 +113,8 @@ class Console {
 public:
     explicit Console();
 
+    ~Console() { os::close_console(m_handle); }
+
     Console& operator<<(const std::string& s);
     Console& operator>>(std::string& s);
     Console& operator>>(int32_t& input);
@@ -128,7 +131,8 @@ public:
 
         for (auto& it : v) {
             fill_line(' ');
-            *this << std::format("{}\\{}", it->path(), it->name());
+            *this << std::format("{}{}{}", it->path(), std::filesystem::path::preferred_separator,
+                                 it->name());
 
             m_cursor.move<d_down>();
             m_cursor.move_to<e_left>();

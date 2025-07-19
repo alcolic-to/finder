@@ -3,6 +3,7 @@
 #include <sstream>
 
 #include "console.h"
+#include "os.h"
 #include "symbol_finder.h"
 
 // NOLINTBEGIN
@@ -13,10 +14,10 @@ bool scan_input(Console& console, std::string& query)
     while (true) {
         console >> input_ch;
 
-        if (input_ch == 27) // ESC
+        if (os::is_esc(input_ch)) // ESC
             return false;
 
-        if (input_ch == 8) { // backspace
+        if (os::is_backspace(input_ch)) { // backspace
             if (query.empty())
                 continue;
 
@@ -24,8 +25,9 @@ bool scan_input(Console& console, std::string& query)
             break;
         }
 
-        if (std::isprint(input_ch)) {
-            query += input_ch;
+        uint8_t prnt = static_cast<uint8_t>(input_ch);
+        if (std::isprint(prnt)) {
+            query += prnt;
             break;
         }
     }
@@ -35,16 +37,13 @@ bool scan_input(Console& console, std::string& query)
 
 int main()
 {
-    Console console;
-
     std::string input;
     std::string root;
     std::string options;
     std::string regex;
 
-    console.clear();
-    console << "Options: <root_dir> <-fs>\n: ";
-    console.getline(input);
+    std::cout << "Options: <root_dir> <-fs>\n: ";
+    std::getline(std::cin, input);
 
     std::stringstream ss{input};
     ss >> root, ss >> options;
@@ -59,6 +58,7 @@ int main()
 
     // Show all files/symbols.
     //
+    Console console;
     console.clear();
     console.draw_search_results(finder.find_files(""));
     // console.draw_symbol_search_results(finder.find_symbols(""));
@@ -73,8 +73,10 @@ int main()
         console.fill_line(' ');
         console << "Search: " << query;
 
-        if (!scan_input(console, query))
+        if (!scan_input(console, query)) {
+            console << "\n";
             return 0;
+        }
 
         console.draw_search_results(finder.find_files(query));
         // console.draw_symbol_search_results(finder.find_symbols(query));

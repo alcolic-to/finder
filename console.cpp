@@ -3,13 +3,18 @@
 #include <iostream>
 #include <string>
 
+#include "os.h"
+
 // We will map cursor coordinates as a windows console:
 // Defines the coordinates of a character cell in a console screen buffer. The origin of the
 // coordinate system (0, 0) is at the top, left cell of the buffer.
 // X - the horizontal coordinate or column value.
 // Y - the vertical coordinate or row value.
 //
-Cursor::Cursor(void* handle) : m_handle{handle}, m_x{0}, m_y{0}
+Cursor::Cursor(void* handle)
+    : m_handle{handle}
+    , m_x{static_cast<uint32_t>(os::console_col_start())}
+    , m_y{static_cast<uint32_t>(os::console_row_start())}
 {
     os::Coordinates coord = os::console_window_size(handle);
     m_max_x = coord.x - 1;

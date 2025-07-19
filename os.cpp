@@ -1,6 +1,7 @@
 #include "os.h"
 
 #include <exception>
+#include <iostream>
 
 // NOLINTBEGIN(misc-include-cleaner)
 
@@ -35,6 +36,26 @@ COORD to_win_coord(Coordinates coord)
     return COORD{coord.x, coord.y};
 }
 
+int16_t console_row_start()
+{
+    return 0;
+};
+
+int16_t console_col_start()
+{
+    return 0;
+};
+
+bool is_esc(int32_t input)
+{
+    return input == 27;
+}
+
+bool is_backspace(int32_t input)
+{
+    return input == 8;
+}
+
 void* init_console_handle()
 {
     HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -43,6 +64,8 @@ void* init_console_handle()
 
     return handle;
 }
+
+void close_console(void* handle) {}
 
 Coordinates console_window_size(void* handle)
 {
@@ -94,35 +117,101 @@ void console_scan(int32_t& input)
 
 #elif defined(OS_LINUX)
 
+// NOLINTBEGIN
+
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
+
+int16_t console_row_start()
+{
+    return 1;
+};
+
+int16_t console_col_start()
+{
+    return 1;
+};
+
+bool is_esc(int32_t input)
+{
+    return input == 27;
+}
+
+bool is_backspace(int32_t input)
+{
+    return input == 127;
+}
+
+static termios initial_termios; // Used for settings restoration.
+
 void* init_console_handle()
 {
-    return nullptr;
+    tcgetattr(STDIN_FILENO, &initial_termios);
+    termios* t = new termios{initial_termios};
+
+    t->c_lflag &= ~(ICANON | ECHO); // NOLINT disable canonical mode and echo.
+    t->c_cc[VMIN] = 1;              // min number of characters for read()
+    t->c_cc[VTIME] = 0;             // timeout (0 = no timeout)
+
+    tcsetattr(STDIN_FILENO, TCSANOW, t); // apply settings immediately
+
+    return t;
 }
 
-Coordinates console_window_size(void* handle)
+void close_console(void* handle)
 {
-    return {};
+    tcsetattr(STDIN_FILENO, TCSANOW, &initial_termios);
 }
 
-void set_console_cursor_position(void* handle, Coordinates coord)
+Coordinates console_window_size([[maybe_unused]] void* handle)
 {
-    return;
+    winsize w{};
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) { // NOLINT
+        std::cerr << "Failed to get console window size.\n";
+        std::terminate();
+    }
+
+    return Coordinates{static_cast<int16_t>(w.ws_col), static_cast<int16_t>(w.ws_row)};
+}
+
+void set_console_cursor_position([[maybe_unused]] void* handle, Coordinates coord)
+{
+    std::cout << "\033[" << coord.y << ";" << coord.x << "H";
+    std::cout.flush();
 }
 
 void fill_console_line(void* handle, Coordinates coord, char ch)
 {
-    return;
+    Coordinates window_size = console_window_size(handle);
+    set_console_cursor_position(handle, {console_col_start(), coord.y});
+
+    for (int16_t i = 0; i < window_size.x; ++i)
+        std::cout << ch;
+
+    std::cout.flush();
+
+    set_console_cursor_position(handle, {console_col_start(), coord.y});
 }
 
-void write_to_console(void* handle, const void* data, size_t size)
+void write_to_console([[maybe_unused]] void* handle, const void* data, size_t size)
 {
-    return;
+    for (size_t i = 0; i < size; ++i)
+        std::cout << static_cast<const char*>(data)[i];
+
+    std::cout.flush();
 }
 
 void console_scan(int32_t& input)
 {
-    return;
+    input = 0;
+    if (read(STDIN_FILENO, &input, 1) == -1) {
+        std::cerr << "Failed to read input.\n";
+        std::terminate();
+    }
 }
+
+// NOLINTEND
 
 #else
 static_assert(!"Unsupported OS.");

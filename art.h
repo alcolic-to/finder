@@ -128,7 +128,7 @@ private:
 public:
     constexpr entry_ptr() noexcept : m_ptr{nullptr} {}
 
-    constexpr entry_ptr(nullptr_t) noexcept : m_ptr{nullptr} {}
+    constexpr entry_ptr(std::nullptr_t) noexcept : m_ptr{nullptr} {}
 
     constexpr entry_ptr(Node* node) noexcept : m_ptr{node} {}
 

@@ -55,40 +55,6 @@ static constexpr bool is_keyword(const std::string& s)
     return std::ranges::find(cpp_keywords, s) != cpp_keywords.end();
 }
 
-static constexpr bool supported_file(const auto& dir_entry)
-{
-    if (!dir_entry->is_regular_file())
-        return false;
-
-    std::string ext{std::move(dir_entry->path().extension().string())};
-    return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
-}
-
-static constexpr bool check_iteration(const auto& it, std::error_code& ec)
-{
-    try {
-        if (ec) {
-            std::cerr << "Error accessing " << it->path() << ": " << ec.message() << '\n';
-            ec.clear();
-            return false;
-        }
-
-        // Try converting path to string to see if exception will occur.
-        // TODO: use std::wstring which should always succeed.
-        [[maybe_unused]] const std::string& p = it->path().string();
-
-        // Skip all windows files in order to save space.
-        if (p.starts_with("C:\\Windows\\"))
-            return false;
-    }
-    catch (...) {
-        std::cout << "Path to string conversion failed.\n";
-        return false;
-    }
-
-    return true;
-}
-
 class Options {
 public:
     static constexpr uint32_t files = 1;
@@ -116,19 +82,22 @@ private:
 
 class Symbol_finder {
 public:
+    using dir_iter = fs::recursive_directory_iterator;
     static constexpr size_t files_search_limit = 128;
 
     explicit Symbol_finder(const std::string& dir, Options opt = Options{})
         : m_dir{dir}
         , m_options{opt}
     {
-        using dir_iter = fs::recursive_directory_iterator;
         constexpr auto it_opt = fs::directory_options::skip_permission_denied;
 
         std::error_code ec;
         for (dir_iter it{dir, it_opt, ec}; it != dir_iter{}; it.increment(ec)) {
             if (!files_allowed() || !check_iteration(it, ec))
                 continue;
+
+            if (it.depth() < 1)
+                std::cout << std::format("Scanning {}\n", it->path().string());
 
             File_info* file = m_files.insert(it->path()).get();
 
@@ -173,26 +142,11 @@ public:
 
     [[nodiscard]] bool symbols_allowed() const noexcept { return m_options.symbols_allowed(); }
 
-    auto find_files(const std::string& regex)
-    {
-        // auto files = [&] {
-        // // Stopwatch<true, microseconds> s{"File search"};
-        // return m_files.search(regex);
-        // }();
+    auto find_files(const std::string& regex) { return m_files.search(regex, files_search_limit); }
 
-        return m_files.search(regex, files_search_limit);
-    }
+    Symbol* find_symbols(const std::string& symbol_name) { return m_symbols.search(symbol_name); }
 
-    Symbol* find_symbols(const std::string& symbol_name)
-    {
-        // auto* symbol = [&] {
-        // Stopwatch<true, microseconds> s{"Symbol search"};
-        // return m_symbols.search(symbol_name);
-        // }();
-
-        return m_symbols.search(symbol_name);
-    }
-
+private:
     void print_stats()
     {
         m_files.print_stats();
@@ -201,7 +155,46 @@ public:
             m_symbols.print_stats();
     }
 
-private:
+    static constexpr bool supported_file(const auto& dir_entry)
+    {
+        std::string ext{dir_entry->path().extension().string()};
+        return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
+    }
+
+    static constexpr bool check_iteration(dir_iter& it, std::error_code& ec)
+    {
+        try {
+            if (ec) {
+                std::cerr << std::format("Error accessing {}: {}\n", it->path().string(),
+                                         ec.message());
+                ec.clear();
+                return false;
+            }
+
+            // Skip all windows and /mnt (WSL) files in order to save space.
+            // Iterating over /mnt always get stuck for some reason.
+            std::string path{it->path().string()};
+            if (path.starts_with("C:\\Windows\\") || path.starts_with("/mnt")) {
+                it.disable_recursion_pending();
+                return false;
+            }
+
+            if (!it->is_regular_file())
+                return false;
+        }
+        catch (const std::filesystem::filesystem_error& err) {
+            std::cout << err.what() << "\n";
+            return false;
+        }
+        catch (...) {
+            std::cout << "Path to string conversion failed.\n";
+            return false;
+        }
+
+        return true;
+    }
+
+private: // NOLINT
     Small_string m_dir;
     Files m_files;
     Symbols m_symbols;

@@ -6,8 +6,13 @@ else()
     endif()
 endif()
 
+# Next section is compiler options.
+
 # Optional, using libc++ for better debugging with lldb-dap.
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+OPTION(USE_LIBCPP "If set, sets compiler stdlib value to libc++." ON)
+if (USE_LIBCPP)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+endif()
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
