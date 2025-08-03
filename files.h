@@ -33,6 +33,15 @@ public:
 
     [[nodiscard]] const std::string_view path() const noexcept { return m_path; }
 
+    [[nodiscard]] std::string full_path() const noexcept
+    {
+        if (path() == "/" || path() == "C:\\")
+            return std::format("{}{}", path(), name());
+
+        const char sep = std::filesystem::path::preferred_separator;
+        return std::format("{}{}{}", path(), sep, name());
+    }
+
     void set_path(std::string_view path) { m_path = path; }
 
 private:
@@ -118,15 +127,15 @@ public:
 
     void print_stats()
     {
-        std::cout << "---------------------------------------\n";
+        std::cout << "-------------------------------\n";
         std::cout << "Files count: " << m_files.size() << "\n";
+        std::cout << "-------------------------------\n";
 
         std::cout << "File paths stats:\n";
         m_file_paths.print_stats();
 
         std::cout << "File finder stats:\n";
         m_file_finder.print_stats();
-        std::cout << "---------------------------------------\n";
     }
 
 private:

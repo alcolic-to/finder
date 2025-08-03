@@ -131,8 +131,7 @@ public:
 
         for (auto& it : v) {
             fill_line(' ');
-            *this << std::format("{}{}{}", it->path(), std::filesystem::path::preferred_separator,
-                                 it->name());
+            *this << it->full_path();
 
             m_cursor.move<d_down>();
             m_cursor.move_to<e_left>();

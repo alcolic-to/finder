@@ -40,21 +40,14 @@ int main()
     std::string input;
     std::string root;
     std::string options;
-    std::string regex;
 
-    std::cout << "Options: <root_dir> <-fs>\n: ";
+    std::cout << "Options: <root_dir> <-fse>\n: ";
     std::getline(std::cin, input);
 
     std::stringstream ss{input};
     ss >> root, ss >> options;
 
-    uint32_t u32_opt = 0;
-    if (options.find('f') != std::string::npos)
-        u32_opt |= Options::files;
-    if (options.find('s') != std::string::npos)
-        u32_opt |= Options::symbols;
-
-    Symbol_finder finder{root, Options{u32_opt}};
+    Symbol_finder finder{root, Options{options}};
 
     // Show all files/symbols.
     //

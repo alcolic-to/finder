@@ -438,7 +438,7 @@ public:
             if (sl.link()) {
                 links_count = 1;
                 total_links_count += 1;
-                high = std::max(high, 1UL);
+                high = std::max(high, 1ULL);
             }
             else if (sl.full_leaf()) {
                 auto& leaves = sl.full_leaf_ptr()->m_links;
@@ -455,7 +455,7 @@ public:
             key_sizes += leaf->key_size();
         });
 
-        std::cout << "---------------------------------------\n";
+        std::cout << "-------------------------------\n";
         std::cout << "Trie size in bytes:   " << size_in_bytes() << "\n";
         std::cout << "Nodes size in bytes:  " << ART::nodes_size_in_bytes() << "\n";
         std::cout << "Leaves size in bytes: " << leaves_size_in_bytes() << "\n";
@@ -482,7 +482,7 @@ public:
         for (int i = 0; i < 16; ++i)
             std::cout << std::format(" {:>7}", dist[true][i]);
 
-        std::cout << "\n---------------------------------------\n";
+        std::cout << "\n-------------------------------\n";
     }
 
     size_t leaves_size_in_bytes()
