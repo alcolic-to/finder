@@ -4,19 +4,20 @@
 #define OS_SPECIFIC_H
 
 #include <cstddef>
-#include <cstdint>
+
+#include "util.h"
 
 namespace os {
 
 struct Coordinates {
-    int16_t x;
-    int16_t y;
+    i16 x;
+    i16 y;
 };
 
-int16_t console_row_start();
-int16_t console_col_start();
-bool is_esc(int32_t input);
-bool is_backspace(int32_t input);
+i16 console_row_start();
+i16 console_col_start();
+bool is_esc(i32 input);
+bool is_backspace(i32 input);
 
 void* init_console_handle();
 void close_console(void* handle);
@@ -24,7 +25,7 @@ Coordinates console_window_size(void* handle);
 void set_console_cursor_position(void* handle, Coordinates coord);
 void fill_console_line(void* handle, Coordinates coord, char ch);
 void write_to_console(void* handle, const void* data, size_t size);
-void console_scan(int32_t& input);
+void console_scan(i32& input);
 
 } // namespace os
 

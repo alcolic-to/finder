@@ -13,8 +13,8 @@
 //
 Cursor::Cursor(void* handle)
     : m_handle{handle}
-    , m_x{static_cast<uint32_t>(os::console_col_start())}
-    , m_y{static_cast<uint32_t>(os::console_row_start())}
+    , m_x{static_cast<u32>(os::console_col_start())}
+    , m_y{static_cast<u32>(os::console_row_start())}
 {
     os::Coordinates coord = os::console_window_size(handle);
     m_max_x = coord.x - 1;
@@ -23,7 +23,7 @@ Cursor::Cursor(void* handle)
     apply();
 }
 
-void Cursor::set_pos(uint32_t x, uint32_t y)
+void Cursor::set_pos(u32 x, u32 y)
 {
     m_x = x, m_y = y;
     apply();

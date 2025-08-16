@@ -9,27 +9,26 @@
 #include "files.h"
 #include "small_string.h"
 #include "suffix_trie.h"
+#include "util.h"
 
 // NOLINTBEGIN
 
 class Line {
 public:
-    Line(size_t line_number, const std::string& preview) : m_number{line_number}, m_preview{preview}
-    {
-    }
+    Line(sz line_number, const std::string& preview) : m_number{line_number}, m_preview{preview} {}
 
-    size_t number() const noexcept { return m_number; }
+    sz number() const noexcept { return m_number; }
 
     const char* preview() const noexcept { return m_preview; }
 
 private:
-    size_t m_number;
+    sz m_number;
     Small_string m_preview; // Line preview which will be displayed with symbol in print.
 };
 
 class Symbol_file_refs {
 public:
-    Symbol_file_refs(File_info* file, size_t line, const std::string& preview)
+    Symbol_file_refs(File_info* file, sz line, const std::string& preview)
         : m_file{file}
         , m_lines{Line{line, preview}}
     {
@@ -48,7 +47,7 @@ private:
 
 class Symbol {
 public:
-    Symbol(const std::string& name, File_info* file, size_t line_number, const std::string& preview)
+    Symbol(const std::string& name, File_info* file, sz line_number, const std::string& preview)
         : m_name{name}
         , m_refs{Symbol_file_refs{file, line_number, preview}}
     {
@@ -92,7 +91,7 @@ private:
 
 class Symbols {
 public:
-    result insert(const std::string& symbol_name, File_info* file, size_t line_number,
+    result insert(const std::string& symbol_name, File_info* file, sz line_number,
                   const std::string& line_preview)
     {
         auto* r = m_symbol_finder.search(symbol_name);
@@ -120,7 +119,7 @@ public:
         return {symbol, false};
     }
 
-    result insert_non_existing(const std::string& symbol, File_info* file, size_t line,
+    result insert_non_existing(const std::string& symbol, File_info* file, sz line,
                                const std::string& preview)
     {
         m_symbols.push_back(std::make_unique<Symbol>(symbol, file, line, preview));
@@ -132,7 +131,7 @@ public:
         return {new_symbol, true};
     }
 
-    void erase(const std::string& symbol_name, File_info* file, size_t line_number)
+    void erase(const std::string& symbol_name, File_info* file, sz line_number)
     {
         auto* r = m_symbol_finder.search(symbol_name);
         if (r == nullptr)
@@ -208,7 +207,7 @@ public:
 
     // Using art for now, because we don't want to allow symbol search by prefix in order to save
     // space.
-    // TODO: CHeck memory usage with suffix trie of symbols.
+    // TODO: Check memory usage with suffix trie of symbols.
     //
     art::ART<Symbol*> m_symbol_finder;
 

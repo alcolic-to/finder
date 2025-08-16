@@ -107,7 +107,7 @@ TEST(fs_trie_tests, file_system_paths)
                                  "/test/input_files/windows_paths_vscode.txt"};
     ASSERT_TRUE(in_file_stream.is_open());
 
-    size_t cpp_files_count = 0;
+    sz cpp_files_count = 0;
 
     for (std::string file_path; std::getline(in_file_stream, file_path);) {
         auto path = std::filesystem::path(file_path);
@@ -141,7 +141,7 @@ void test_fs_search(const std::string& file_name)
 
     std::cout << "Paths count: " << paths.size() << "\n";
 
-    constexpr size_t MB = 1024 * 1024;
+    constexpr sz MB = 1024 * 1024;
 
     std::cout << std::format("Files size:    {}MB\n", trie.size() / MB);
     // std::cout << std::format("File finder size:    {}MB\n", files.file_finder_size() / MB);

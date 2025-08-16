@@ -55,35 +55,35 @@ TEST(art_tests, common_header_test)
     assert_failed_search(art, "aaaaaaaaaaaa");
 }
 
-TEST(art_tests, int_ranges)
+TEST(art_tests, i32_ranges)
 {
     art::ART art;
 
-    constexpr int32_t capacity = 100000;
-    constexpr int32_t inv = -1;
-    std::vector<int> v;
+    constexpr i32 capacity = 100000;
+    constexpr i32 invalid = -1;
+    std::vector<i32> v;
     v.reserve(capacity);
 
-    for (int32_t i = 0; i < capacity; ++i) {
+    for (i32 i = 0; i < capacity; ++i) {
         v.push_back(i);
         art.insert(std::to_string(i), &v[i]);
 
         assert_search(art, std::to_string(i), &v[i]);
     }
 
-    for (int32_t i = 0; i < capacity; ++i)
+    for (i32 i = 0; i < capacity; ++i)
         assert_search(art, std::to_string(i), &v[i]);
 
-    auto erase_range = [&](int32_t start, int32_t end) {
-        for (int32_t i = start; i < end; ++i) {
+    auto erase_range = [&](i32 start, i32 end) {
+        for (i32 i = start; i < end; ++i) {
             art.erase(std::to_string(i));
-            v[i] = inv;
+            v[i] = invalid;
         }
     };
 
     auto search_all = [&]() {
-        for (int32_t i = 0; i < capacity; ++i)
-            if (v[i] != inv)
+        for (i32 i = 0; i < capacity; ++i)
+            if (v[i] != invalid)
                 assert_search(art, std::to_string(i), &v[i]);
             else
                 assert_failed_search(art, std::to_string(i));
@@ -164,7 +164,7 @@ TEST(art_tests, long_keys_insertion)
 {
     art::ART art;
 
-    constexpr size_t str_len = 1024ULL * 1024;
+    constexpr sz str_len = 1024ULL * 1024;
     const std::string long_str(str_len, '!');
 
     art.insert(long_str);
@@ -190,12 +190,12 @@ TEST(art_tests, growing_nodes)
 {
     art::ART art;
 
-    constexpr size_t str_len = 1024ULL;
+    constexpr sz str_len = 1024ULL;
     const std::string long_str(str_len, '!');
 
     std::vector<std::string> keys;
 
-    for (int i = 1; i < 256; ++i)
+    for (i32 i = 1; i < 256; ++i)
         keys.push_back(char(i) + long_str);
 
     test_crud(art, keys, {}, {});
@@ -205,12 +205,12 @@ TEST(art_tests, growing_nodes_2)
 {
     art::ART art;
 
-    constexpr size_t str_len = 1024ULL;
+    constexpr sz str_len = 1024ULL;
     const std::string long_str(str_len, '!');
 
     std::vector<std::string> keys;
 
-    const size_t buf_size = 16;
+    const sz buf_size = 16;
     char buf[buf_size];
     std::memset(buf, 1, buf_size);
 
@@ -218,8 +218,8 @@ TEST(art_tests, growing_nodes_2)
     keys.push_back(std::string(buf, buf + buf_size) + long_str);
     keys.push_back(long_str + std::string(buf, buf + buf_size));
 
-    for (int i = 0; i < buf_size; ++i) {
-        for (int j = 2; j < 64; ++j) {
+    for (i32 i = 0; i < buf_size; ++i) {
+        for (i32 j = 2; j < 64; ++j) {
             buf[i] = j;
             keys.push_back(std::string(buf, buf + buf_size));
             keys.push_back(std::string(buf, buf + buf_size) + long_str);
@@ -234,14 +234,14 @@ TEST(art_tests, different_key_sizes)
 {
     art::ART art;
 
-    constexpr size_t key_max_size = 8;
-    uint8_t buff[key_max_size];
+    constexpr sz key_max_size = 8;
+    u8 buff[key_max_size];
     std::memset(buff, 1, key_max_size);
 
     std::vector<std::string> keys;
 
-    for (int i = 0; i < key_max_size; ++i) {
-        for (int j = 1; j < 32; ++j) {
+    for (i32 i = 0; i < key_max_size; ++i) {
+        for (i32 j = 1; j < 32; ++j) {
             buff[i] = j;
             keys.push_back(std::string(buff, buff + i + 1));
         }
@@ -255,14 +255,14 @@ TEST(art_tests, different_key_sizes_big)
 {
     art::ART art;
 
-    constexpr size_t key_max_size = 32;
-    uint8_t buff[key_max_size];
+    constexpr sz key_max_size = 32;
+    u8 buff[key_max_size];
     std::memset(buff, 1, key_max_size);
 
     std::vector<std::string> keys;
 
-    for (int i = 0; i < key_max_size; ++i) {
-        for (int j = 1; j < 256; ++j) {
+    for (i32 i = 0; i < key_max_size; ++i) {
+        for (i32 j = 1; j < 256; ++j) {
             buff[i] = j;
             keys.push_back(std::string(buff, buff + i + 1));
         }
@@ -300,10 +300,10 @@ TEST(art_tests, prefix_search)
     ASSERT_TRUE(art.search_prefix("str", 1024).size() == 5);
 }
 
-// Reads all filesystem paths from provided input file, inserts them into ART and search for them 1
+// Reads all filesystem paths from provided input file, inserts them i32o ART and search for them 1
 // by 1 while verifying searches.
 //
-void test_filesystem_paths(const std::string& file_name)
+static void test_filesystem_paths(const std::string& file_name)
 {
     art::ART art;
 
@@ -322,9 +322,9 @@ void test_filesystem_paths(const std::string& file_name)
     for (auto& it : paths)
         assert_search(art, it);
 
-    constexpr size_t MB = 1024 * 1024;
+    constexpr sz MB = 1024ULL * 1024;
 
-    std::cout << std::format("\nEntries count:           {}K\n", paths.size() / 1000);
+    std::cout << std::format("\nEntries count:           {}K\n", paths.size() / 1000ULL);
     std::cout << std::format("ART size with leaves:    {}MB\n", art.size_in_bytes(true) / MB);
     std::cout << std::format("ART size without leaves: {}MB\n\n", art.size_in_bytes(false) / MB);
 }

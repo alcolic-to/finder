@@ -19,15 +19,27 @@
 
 #include "ptr_tag.h"
 
+using i8 = std::int8_t;
+using i16 = std::int16_t;
+using i32 = std::int32_t;
+using i64 = std::int64_t;
+
+using u8 = std::uint8_t;
+using u16 = std::uint16_t;
+using u32 = std::uint32_t;
+using u64 = std::uint64_t;
+
+using sz = std::size_t;
+
 // NOLINTBEGIN
 
 namespace art {
 
-constexpr size_t CFG_node16_shrink_threshold = 2;
-constexpr size_t CFG_node48_shrink_threshold = 14;
-constexpr size_t CFG_node256_shrink_threshold = 46;
+constexpr sz CFG_node16_shrink_threshold = 2;
+constexpr sz CFG_node48_shrink_threshold = 14;
+constexpr sz CFG_node256_shrink_threshold = 46;
 
-enum Node_t : uint8_t {
+enum Node_t : u8 {
     Node4_t,
     Node16_t,
     Node48_t,
@@ -52,14 +64,14 @@ class Node256;
 template<class T>
 class Leaf;
 
-static constexpr uint32_t max_prefix_len = 9;
+static constexpr u32 max_prefix_len = 9;
 
 // Limits provided length with maximum header length and returns it.
 //
 template<typename Type>
-uint32_t hdrlen(Type len)
+u32 hdrlen(Type len)
 {
-    return std::min(static_cast<uint32_t>(len), max_prefix_len);
+    return std::min(static_cast<u32>(len), max_prefix_len);
 }
 
 // Helper class that wraps key used in art.
@@ -78,25 +90,25 @@ public:
     template<class T>
     friend class Leaf;
 
-    static constexpr uint8_t term_byte = 0;
+    static constexpr u8 term_byte = 0;
 
-    Key(const uint8_t* const data, size_t size) noexcept : m_data{data}, m_size{size + 1} {}
+    Key(const u8* const data, sz size) noexcept : m_data{data}, m_size{size + 1} {}
 
-    Key(const std::string& s) noexcept : Key{(const uint8_t* const)s.data(), s.size()} {}
+    Key(const std::string& s) noexcept : Key{(const u8* const)s.data(), s.size()} {}
 
-    uint8_t operator[](size_t idx) const noexcept
+    u8 operator[](sz idx) const noexcept
     {
         assert(idx < m_size);
         return idx == m_size - 1 ? term_byte : m_data[idx];
     }
 
-    size_t size() const noexcept { return m_size; }
+    sz size() const noexcept { return m_size; }
 
     // Copy key to destination buffer with size len. We must manually copy last 0 byte, since we
     // don't hold that value in our buffer. User must assure that buffer can hold at least len
     // bytes.
     //
-    void copy_to(uint8_t* dest, size_t len) const noexcept
+    void copy_to(u8* dest, sz len) const noexcept
     {
         std::memcpy(dest, m_data, std::min(len, m_size - 1));
 
@@ -105,8 +117,8 @@ public:
     }
 
 private:
-    const uint8_t* const m_data;
-    size_t m_size;
+    const u8* const m_data;
+    sz m_size;
 };
 
 // Wrapper class that holds either pointer to node or pointer to leaf.
@@ -215,7 +227,7 @@ public:
     // Construct new node from previous node by copying whole header except node type which is
     // provided as new_type.
     //
-    Node(const Node& other, uint8_t new_type)
+    Node(const Node& other, u8 new_type)
         : m_prefix_len{other.m_prefix_len}
         , m_num_children{other.m_num_children}
         , m_type{new_type}
@@ -224,7 +236,7 @@ public:
             std::memcpy(m_prefix, other.m_prefix, hdrlen(other.m_prefix_len));
     }
 
-    Node(uint8_t type) noexcept : m_type{type} {}
+    Node(u8 type) noexcept : m_type{type} {}
 
     // Node pointer casts which simplifies node usage.
     // clang-format off
@@ -240,7 +252,7 @@ public:
     //
     // clang-format on
 
-    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept
+    [[nodiscard]] entry_ptr* find_child(u8 key) noexcept
     {
         switch (m_type) { // clang-format off
         case Node4_t:   return node4()->find_child(key);
@@ -251,7 +263,7 @@ public:
         } // clang-format on
     }
 
-    void add_child(uint8_t key, entry_ptr child) noexcept
+    void add_child(u8 key, entry_ptr child) noexcept
     {
         switch (m_type) { // clang-format off
         case Node4_t:   return node4()->add_child(key, child);
@@ -262,7 +274,7 @@ public:
         } // clang-format on
     }
 
-    void remove_child(uint8_t key) noexcept
+    void remove_child(u8 key) noexcept
     {
         switch (m_type) { // clang-format off
         case Node4_t:   return node4()->remove_child(key);
@@ -343,10 +355,10 @@ public:
     // Header must not hold terminal byte, so we are comparing to minimal of node prefix len and max
     // prefix len. If depth reaches key.size() - 1, we will get terminal byte and stop comparing.
     //
-    [[nodiscard]] size_t common_header_prefix(const Key& key, size_t depth) const noexcept
+    [[nodiscard]] sz common_header_prefix(const Key& key, sz depth) const noexcept
     {
-        const size_t max_cmp = hdrlen(m_prefix_len);
-        size_t cp_len = 0;
+        const sz max_cmp = hdrlen(m_prefix_len);
+        sz cp_len = 0;
 
         while (cp_len < max_cmp && key[depth + cp_len] == m_prefix[cp_len])
             ++cp_len;
@@ -359,9 +371,9 @@ public:
     // find leaf to keep comparing. It is not important which leaf we take, because all of them have
     // at least m_prefix_len common bytes.
     //
-    [[nodiscard]] size_t common_prefix(const Key& key, size_t depth) const noexcept
+    [[nodiscard]] sz common_prefix(const Key& key, sz depth) const noexcept
     {
-        size_t cp_len = common_header_prefix(key, depth);
+        sz cp_len = common_header_prefix(key, depth);
 
         if (cp_len == max_prefix_len && cp_len < m_prefix_len) {
             const Leaf& leaf = next_leaf();
@@ -372,10 +384,10 @@ public:
         return cp_len;
     }
 
-    uint32_t m_prefix_len = 0;
-    uint16_t m_num_children = 0;
-    uint8_t m_type;
-    uint8_t m_prefix[max_prefix_len];
+    u32 m_prefix_len = 0;
+    u16 m_num_children = 0;
+    u8 m_type;
+    u8 m_prefix[max_prefix_len];
 };
 
 static_assert(sizeof(Node<void>) == 16);
@@ -407,7 +419,7 @@ public:
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
     template<class V>
-    Node4(const Key& key, V&& value, size_t depth, const Leaf& new_leaf, const Leaf& leaf)
+    Node4(const Key& key, V&& value, sz depth, const Leaf& new_leaf, const Leaf& leaf)
         : Node{Node4_t}
     {
         for (m_prefix_len = 0; key[depth] == leaf[depth]; ++m_prefix_len, ++depth)
@@ -428,7 +440,7 @@ public:
     // to take prefix bytes from there. It it fits, we can take bytes from header directly.
     //
     template<class V>
-    Node4(const Key& key, V&& value, size_t depth, const Leaf& new_leaf, Node& node, size_t cp_len)
+    Node4(const Key& key, V&& value, sz depth, const Leaf& new_leaf, Node& node, sz cp_len)
         : Node{Node4_t}
     {
         assert(cp_len < node.m_prefix_len);
@@ -436,11 +448,11 @@ public:
         m_prefix_len = cp_len;
         std::memcpy(m_prefix, node.m_prefix, hdrlen(cp_len));
 
-        const uint8_t* prefix_src = node.m_prefix_len <= max_prefix_len ?
-                                        &node.m_prefix[cp_len] :
-                                        &node.next_leaf()[depth + cp_len];
+        const u8* prefix_src = node.m_prefix_len <= max_prefix_len ?
+                                   &node.m_prefix[cp_len] :
+                                   &node.next_leaf()[depth + cp_len];
 
-        const uint8_t node_key = prefix_src[0]; // Byte for node mapping.
+        const u8 node_key = prefix_src[0]; // Byte for node mapping.
 
         node.m_prefix_len -= (cp_len + 1); // Additional byte for node mapping.
         std::memmove(node.m_prefix, prefix_src + 1, hdrlen(node.m_prefix_len));
@@ -457,9 +469,9 @@ public:
         std::memcpy(m_children, old_node.m_children, old_node.m_num_children * sizeof(entry_ptr));
     }
 
-    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept
+    [[nodiscard]] entry_ptr* find_child(u8 key) noexcept
     {
-        for (int i = 0; i < m_num_children; ++i)
+        for (u16 i = 0; i < m_num_children; ++i)
             if (m_keys[i] == key)
                 return &m_children[i];
 
@@ -470,15 +482,15 @@ public:
     // Finds place for new child (while keeping sorted order) and moves all children by 1 place to
     // make space for new child. Inserts new child after that.
     //
-    void add_child(uint8_t key, entry_ptr child) noexcept
+    void add_child(u8 key, entry_ptr child) noexcept
     {
         assert(m_num_children < 4);
 
-        size_t idx = 0;
+        u16 idx = 0;
         while (idx < m_num_children && m_keys[idx] < key)
             ++idx;
 
-        for (size_t i = m_num_children; i > idx; --i) {
+        for (u16 i = m_num_children; i > idx; --i) {
             m_keys[i] = m_keys[i - 1];
             m_children[i] = m_children[i - 1];
         }
@@ -489,9 +501,9 @@ public:
         ++m_num_children;
     }
 
-    void remove_child(uint8_t key) noexcept
+    void remove_child(u8 key) noexcept
     {
-        size_t idx = 0;
+        u16 idx = 0;
         while (m_keys[idx] != key)
             ++idx;
 
@@ -526,11 +538,11 @@ public:
         if (child_entry.node()) {
             Node* child_node = child_entry.node_ptr();
 
-            uint32_t len = hdrlen(m_prefix_len);
+            u32 len = hdrlen(m_prefix_len);
             if (len < max_prefix_len)
                 m_prefix[len++] = m_keys[0]; // Key for mapping.
 
-            uint32_t i = 0;
+            u32 i = 0;
             while (len < max_prefix_len && i < child_node->m_prefix_len)
                 m_prefix[len++] = child_node->m_prefix[i++];
 
@@ -549,7 +561,7 @@ public:
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept { return m_children[0].next_leaf(); }
 
-    uint8_t m_keys[4]{};       // Keys with span of 1 byte.
+    u8 m_keys[4]{};            // Keys with span of 1 byte.
     entry_ptr m_children[4]{}; // Pointers to children nodes.
 };
 
@@ -581,8 +593,8 @@ public:
 
     Node16(const Node48& old_node) noexcept : Node{old_node, Node16_t}
     {
-        size_t idx = 0;
-        for (size_t old_idx = 0; old_idx < 256; ++old_idx) {
+        u16 idx = 0;
+        for (u16 old_idx = 0; old_idx < 256; ++old_idx) {
             if (old_node.m_idxs[old_idx] != Node48::empty_slot) {
                 m_keys[idx] = old_idx;
                 m_children[idx] = old_node.m_children[old_node.m_idxs[old_idx]];
@@ -596,9 +608,9 @@ public:
 
     // TODO: Check if compiler generates SIMD instructions. If not, insert them manually.
     //
-    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept
+    [[nodiscard]] entry_ptr* find_child(u8 key) noexcept
     {
-        for (int i = 0; i < m_num_children; ++i)
+        for (u16 i = 0; i < m_num_children; ++i)
             if (m_keys[i] == key)
                 return &m_children[i];
 
@@ -609,15 +621,15 @@ public:
     // Finds place for new child (while keeping sorted order) and moves all children by 1 place to
     // make space for new child. Inserts new child after that.
     //
-    void add_child(uint8_t key, entry_ptr child) noexcept
+    void add_child(u8 key, entry_ptr child) noexcept
     {
         assert(m_num_children < 16);
 
-        size_t idx = 0;
+        u16 idx = 0;
         while (idx < m_num_children && m_keys[idx] < key)
             ++idx;
 
-        for (size_t i = m_num_children; i > idx; --i) {
+        for (u16 i = m_num_children; i > idx; --i) {
             m_keys[i] = m_keys[i - 1];
             m_children[i] = m_children[i - 1];
         }
@@ -628,9 +640,9 @@ public:
         ++m_num_children;
     }
 
-    void remove_child(uint8_t key) noexcept
+    void remove_child(u8 key) noexcept
     {
-        size_t idx = 0;
+        u16 idx = 0;
         while (m_keys[idx] != key)
             ++idx;
 
@@ -661,7 +673,7 @@ public:
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept { return m_children[0].next_leaf(); }
 
-    uint8_t m_keys[16]{};       // Keys with span of 1 byte.
+    u8 m_keys[16]{};            // Keys with span of 1 byte.
     entry_ptr m_children[16]{}; // Pointers to children nodes.
 };
 
@@ -687,14 +699,14 @@ public:
     using Node::m_prefix_len;
     using Node::m_type;
 
-    static constexpr uint8_t empty_slot = 255;
+    static constexpr u8 empty_slot = 255;
 
     Node48(const Node16& old_node) noexcept : Node{old_node, Node48_t}
     {
         std::memset(m_idxs, empty_slot, 256);
         std::memcpy(m_children, old_node.m_children, 16 * sizeof(entry_ptr));
 
-        for (size_t i = 0; i < 16; ++i)
+        for (u16 i = 0; i < 16; ++i)
             m_idxs[old_node.m_keys[i]] = i;
     }
 
@@ -702,8 +714,8 @@ public:
     {
         std::memset(m_idxs, empty_slot, 256);
 
-        size_t idx = 0;
-        for (size_t old_idx = 0; old_idx < 256; ++old_idx) {
+        u16 idx = 0;
+        for (u16 old_idx = 0; old_idx < 256; ++old_idx) {
             if (old_node.m_children[old_idx]) {
                 m_idxs[old_idx] = idx;
                 m_children[idx] = old_node.m_children[old_idx];
@@ -715,17 +727,17 @@ public:
         assert(idx == m_num_children);
     }
 
-    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept
+    [[nodiscard]] entry_ptr* find_child(u8 key) noexcept
     {
         return m_idxs[key] != empty_slot ? &m_children[m_idxs[key]] : nullptr;
     }
 
-    void add_child(uint8_t key, entry_ptr child) noexcept
+    void add_child(u8 key, entry_ptr child) noexcept
     {
         assert(m_num_children < 48);
         assert(m_idxs[key] == empty_slot);
 
-        size_t idx = 0;
+        u16 idx = 0;
         while (m_children[idx])
             ++idx;
 
@@ -735,11 +747,11 @@ public:
         ++m_num_children;
     }
 
-    void remove_child(uint8_t key) noexcept
+    void remove_child(u8 key) noexcept
     {
         assert(m_idxs[key] != empty_slot);
 
-        size_t idx = m_idxs[key];
+        u16 idx = m_idxs[key];
         m_idxs[key] = empty_slot;
         m_children[idx].reset();
 
@@ -759,7 +771,7 @@ public:
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept
     {
-        for (int i = 0; i < 256; ++i)
+        for (u16 i = 0; i < 256U; ++i)
             if (m_idxs[i] != empty_slot)
                 return m_children[m_idxs[i]].next_leaf();
 
@@ -768,7 +780,7 @@ public:
     }
 
     // Keys with span of 1 byte with value of index for m_idxs array.
-    uint8_t m_idxs[256];
+    u8 m_idxs[256];
     entry_ptr m_children[48]{}; // Pointers to children nodes.
 };
 
@@ -797,17 +809,17 @@ public:
 
     Node256(const Node48& old_node) noexcept : Node{old_node, Node256_t}
     {
-        for (size_t i = 0; i < 256; ++i)
+        for (u16 i = 0; i < 256; ++i)
             if (old_node.m_idxs[i] != Node48::empty_slot)
                 m_children[i] = old_node.m_children[old_node.m_idxs[i]];
     }
 
-    [[nodiscard]] entry_ptr* find_child(uint8_t key) noexcept
+    [[nodiscard]] entry_ptr* find_child(u8 key) noexcept
     {
         return m_children[key] ? &m_children[key] : nullptr;
     }
 
-    void add_child(uint8_t key, entry_ptr child) noexcept
+    void add_child(u8 key, entry_ptr child) noexcept
     {
         assert(!m_children[key]);
 
@@ -815,7 +827,7 @@ public:
         ++m_num_children;
     }
 
-    void remove_child(uint8_t key) noexcept
+    void remove_child(u8 key) noexcept
     {
         assert(m_children[key]);
 
@@ -834,7 +846,7 @@ public:
 
     [[nodiscard]] const Leaf& next_leaf() const noexcept
     {
-        for (int i = 0; i < 256; ++i)
+        for (u16 i = 0; i < 256; ++i)
             if (m_children[i])
                 return m_children[i].next_leaf();
 
@@ -868,13 +880,13 @@ public:
         return new (std::malloc(sizeof(Leaf) + key.size())) Leaf{key, std::forward<V>(value)};
     }
 
-    const uint8_t& operator[](size_t idx) const noexcept
+    const u8& operator[](sz idx) const noexcept
     {
         assert(idx < m_key_size);
         return m_key[idx];
     }
 
-    size_t key_size() const noexcept { return m_key_size; }
+    sz key_size() const noexcept { return m_key_size; }
 
     // Returns whether internal key and provided key matches. Since internal key already holds
     // terminal byte at the end and key doesn't, we must memcmp all except last byte.
@@ -892,7 +904,7 @@ public:
     //
     bool match_prefix(const Key& key) const noexcept
     {
-        const size_t cmp_size = key.size() - 1;
+        const sz cmp_size = key.size() - 1;
 
         if (cmp_size > m_key_size)
             return false;
@@ -916,8 +928,8 @@ public:
 
 private:
     T m_value;
-    size_t m_key_size;
-    uint8_t m_key[];
+    sz m_key_size;
+    u8 m_key[];
 };
 
 template<class T = void*>
@@ -993,7 +1005,7 @@ public:
     // declaration, compiler would treat it as a rvalue reference only.
     //
     template<class V = T>
-    result insert(const uint8_t* const data, size_t size, V&& value = V{}) noexcept
+    result insert(const u8* const data, sz size, V&& value = V{}) noexcept
     {
         const Key key{data, size};
         return insert(key, std::forward<V>(value));
@@ -1001,11 +1013,11 @@ public:
 
     void erase(const std::string& s) noexcept
     {
-        const Key key{(const uint8_t* const)s.data(), s.size()};
+        const Key key{(const u8* const)s.data(), s.size()};
         erase(key);
     }
 
-    void erase(const uint8_t* const data, size_t size) noexcept
+    void erase(const u8* const data, sz size) noexcept
     {
         const Key key{data, size};
         erase(key);
@@ -1013,11 +1025,11 @@ public:
 
     [[nodiscard]] Leaf* const search(const std::string& s) const noexcept
     {
-        const Key key{(const uint8_t* const)s.data(), s.size()};
+        const Key key{(const u8* const)s.data(), s.size()};
         return search(key);
     }
 
-    [[nodiscard]] Leaf* const search(const uint8_t* const data, size_t size) const noexcept
+    [[nodiscard]] Leaf* const search(const u8* const data, sz size) const noexcept
     {
         const Key key{data, size};
         return search(key);
@@ -1028,10 +1040,10 @@ public:
     //
     [[nodiscard]] const std::vector<Leaf*>
     search_prefix(const std::string& prefix,
-                  size_t limit = std::numeric_limits<size_t>::max()) const noexcept
+                  sz limit = std::numeric_limits<sz>::max()) const noexcept
     {
         std::vector<Leaf*> leaves;
-        const Key key{(const uint8_t* const)prefix.data(), prefix.size()};
+        const Key key{(const u8* const)prefix.data(), prefix.size()};
 
         search_prefix(key, leaves, limit);
         return leaves;
@@ -1041,8 +1053,8 @@ public:
     // number of returned entries with limit parameter.
     //
     [[nodiscard]] const std::vector<Leaf*>
-    search_prefix(const uint8_t* const prefix, size_t prefix_size,
-                  size_t limit = std::numeric_limits<size_t>::max()) const noexcept
+    search_prefix(const u8* const prefix, sz prefix_size,
+                  sz limit = std::numeric_limits<sz>::max()) const noexcept
     {
         std::vector<const Leaf*> leaves;
         const Key key{prefix, prefix_size};
@@ -1051,25 +1063,25 @@ public:
         return leaves;
     }
 
-    size_t nodes_count() const noexcept
+    sz nodes_count() const noexcept
     {
-        size_t c = 0;
+        sz c = 0;
         for_each_node([&](const Node* node) { ++c; });
 
         return c;
     }
 
-    size_t leaves_count() const noexcept
+    sz leaves_count() const noexcept
     {
-        size_t c = 0;
+        sz c = 0;
         for_each_leaf([&](const Leaf* leaf) { ++c; });
 
         return c;
     }
 
-    size_t nodes_size_in_bytes()
+    sz nodes_size_in_bytes()
     {
-        size_t size = 0;
+        sz size = 0;
         ART::for_each_node([&](const Node* node) {
             switch (node->m_type) { // clang-format off
             case art::Node4_t:   size += sizeof(Node4);   break;
@@ -1083,9 +1095,9 @@ public:
         return size;
     }
 
-    size_t leaves_size_in_bytes()
+    sz leaves_size_in_bytes()
     {
-        size_t size = 0;
+        sz size = 0;
         ART::for_each_leaf([&](const Leaf* leaf) { size += sizeof(Leaf) + leaf->key_size(); });
 
         return size;
@@ -1094,9 +1106,9 @@ public:
     // Returns size of whole tree in bytes.
     // By default, it include whole leafs. Leaf keys can be disabled by passing false.
     //
-    size_t size_in_bytes(bool full_leaves = true) const noexcept
+    sz size_in_bytes(bool full_leaves = true) const noexcept
     {
-        size_t size = sizeof(ART);
+        sz size = sizeof(ART);
 
         for_each([&](const entry_ptr& entry) {
             if (entry.leaf())
@@ -1254,7 +1266,7 @@ public:
             Node* node = entry.node_ptr();
 
             entry_ptr* children = nullptr;
-            size_t children_len = 0;
+            sz children_len = 0;
 
             switch (node->m_type) { // clang-format off
             case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
@@ -1264,7 +1276,7 @@ public:
             default: assert(false);                                                     break;
             } // clang-format on
 
-            for (size_t i = 0; i < children_len; ++i)
+            for (sz i = 0; i < children_len; ++i)
                 if (!for_each<order, type>(children[i], callback))
                     return false;
         }
@@ -1295,7 +1307,7 @@ public:
             Node* node = entry.node_ptr();
 
             entry_ptr* children = nullptr;
-            size_t children_len = 0;
+            sz children_len = 0;
 
             switch (node->m_type) { // clang-format off
             case Node4_t:   children_len = 4,   children = node->node4()->m_children;   break;
@@ -1305,7 +1317,7 @@ public:
             default: assert(false);                                                     break;
             } // clang-format on
 
-            for (size_t i = 0; i < children_len; ++i)
+            for (sz i = 0; i < children_len; ++i)
                 if (!for_each<order, type>(children[i], callback))
                     return false;
         }
@@ -1376,7 +1388,7 @@ private:
     // TODO: Maybe implement substitution of the old entry.
     //
     template<class V>
-    result insert_at_leaf(entry_ptr& entry, const Key& key, V&& value, size_t depth) noexcept
+    result insert_at_leaf(entry_ptr& entry, const Key& key, V&& value, sz depth) noexcept
     {
         Leaf* leaf = entry.leaf_ptr();
         if (leaf->match(key))
@@ -1392,8 +1404,7 @@ private:
     // node prefix.
     //
     template<class V>
-    result insert_at_node(entry_ptr& entry, const Key& key, V&& value, size_t depth,
-                          size_t cp_len) noexcept
+    result insert_at_node(entry_ptr& entry, const Key& key, V&& value, sz depth, sz cp_len) noexcept
     {
         Node* node = entry.node_ptr();
         assert(cp_len != node->m_prefix_len);
@@ -1421,7 +1432,7 @@ private:
     // Inserts new key into the tree.
     //
     template<class V>
-    result insert(entry_ptr& entry, const Key& key, V&& value, size_t depth) noexcept
+    result insert(entry_ptr& entry, const Key& key, V&& value, sz depth) noexcept
     {
         assert(entry);
 
@@ -1429,7 +1440,7 @@ private:
             return insert_at_leaf(entry, key, std::forward<V>(value), depth);
 
         Node* node = entry.node_ptr();
-        size_t cp_len = node->common_prefix(key, depth);
+        sz cp_len = node->common_prefix(key, depth);
 
         if (cp_len != node->m_prefix_len)
             return insert_at_node(entry, key, std::forward<V>(value), depth, cp_len);
@@ -1469,7 +1480,7 @@ private:
     // If remaining children are below some treshold we will shrink node to save space.
     // If we have only 1 child left in node, we will replace node with it's child (collapse it).
     //
-    void erase_leaf(entry_ptr& entry, Leaf* leaf, const Key& key, size_t depth) noexcept
+    void erase_leaf(entry_ptr& entry, Leaf* leaf, const Key& key, sz depth) noexcept
     {
         if (!leaf->match(key))
             return;
@@ -1489,10 +1500,10 @@ private:
     // which is shrunk if necessary. If that node now has only one child,
     // it is replaced by its child and the compressed path is adjusted.
     //
-    void erase(entry_ptr& entry, const Key& key, size_t depth) noexcept
+    void erase(entry_ptr& entry, const Key& key, sz depth) noexcept
     {
         Node* node = entry.node_ptr();
-        size_t cp_len = node->common_header_prefix(key, depth);
+        sz cp_len = node->common_header_prefix(key, depth);
 
         if (cp_len != hdrlen(node->m_prefix_len))
             return;
@@ -1517,7 +1528,7 @@ private:
         return nullptr;
     }
 
-    Leaf* const search(const entry_ptr& entry, const Key& key, size_t depth) const noexcept
+    Leaf* const search(const entry_ptr& entry, const Key& key, sz depth) const noexcept
     {
         if (entry.leaf()) {
             Leaf* leaf = entry.leaf_ptr();
@@ -1528,7 +1539,7 @@ private:
         }
 
         Node* node = entry.node_ptr();
-        size_t cp_len = node->common_header_prefix(key, depth);
+        sz cp_len = node->common_header_prefix(key, depth);
 
         if (cp_len != hdrlen(node->m_prefix_len))
             return nullptr;
@@ -1547,14 +1558,14 @@ private:
 
     bool empty() const noexcept { return m_root; }
 
-    void search_prefix(const Key& key, std::vector<Leaf*>& leaves, size_t limit) const noexcept
+    void search_prefix(const Key& key, std::vector<Leaf*>& leaves, sz limit) const noexcept
     {
         if (m_root)
             search_prefix(m_root, key, 0, leaves, limit);
     }
 
-    void search_prefix(const entry_ptr& entry, const Key& prefix, size_t depth,
-                       std::vector<Leaf*>& leaves, size_t limit) const noexcept
+    void search_prefix(const entry_ptr& entry, const Key& prefix, sz depth,
+                       std::vector<Leaf*>& leaves, sz limit) const noexcept
     {
         if (entry.leaf()) {
             Leaf* leaf = entry.leaf_ptr();
@@ -1565,7 +1576,7 @@ private:
         }
 
         Node* node = entry.node_ptr();
-        size_t cp_len = node->common_header_prefix(prefix, depth);
+        sz cp_len = node->common_header_prefix(prefix, depth);
 
         // All bytes except terminal byte matched, so just collect leaves.
         //

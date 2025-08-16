@@ -2,11 +2,27 @@
 #define UTIL_H
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <type_traits>
 #include <utility>
+
+using i8 = std::int8_t;
+using i16 = std::int16_t;
+using i32 = std::int32_t;
+using i64 = std::int64_t;
+
+using u8 = std::uint8_t;
+using u16 = std::uint16_t;
+using u32 = std::uint32_t;
+using u64 = std::uint64_t;
+
+using f32 = std::float_t;
+using f64 = std::double_t;
+
+using sz = std::size_t;
 
 // clang-format off
 #define NO_OP do {} while (0) // NOLINT
@@ -27,9 +43,9 @@
 #endif // TRACY_ENABLE
 
 #ifdef __cpp_lib_hardware_interference_size
-constexpr size_t cache_line_size = std::hardware_destructive_interference_size;
+constexpr sz cache_line_size = std::hardware_destructive_interference_size;
 #else
-constexpr size_t cache_line_size = 64;
+constexpr size cache_line_size = 64;
 #endif
 
 #define stringify2(x) #x           // NOLINT
@@ -70,8 +86,9 @@ inline Time_point now() noexcept
 
 // Stopwatch that uses steady_clock for time measurement.
 // You can pass time Unit for default formatting if print is specified. Default is milliseconds.
-// To measure specific part of code, just put it in a scope and create Stopwatch
-// at the beggining. For example:
+// To measure specific part of code, just put it in a scope and create Stopwatch at the beggining.
+//
+// For example:
 //
 // ... Code not measured ...
 //
@@ -132,10 +149,7 @@ private:
 
 class PRNG {
 public:
-    explicit PRNG(uint64_t seed = uint64_t(now().time_since_epoch().count())) noexcept
-        : m_seed{seed}
-    {
-    }
+    explicit PRNG(u64 seed = u64(now().time_since_epoch().count())) noexcept : m_seed{seed} {}
 
     template<typename T>
     T rand() noexcept
@@ -144,16 +158,16 @@ public:
     }
 
 private:
-    uint64_t rand64() noexcept
+    u64 rand64() noexcept
     {
         m_seed ^= m_seed >> 12, m_seed ^= m_seed << 25, m_seed ^= m_seed >> 27; // NOLINT
         return m_seed * 2685821657736338717LL;                                  // NOLINT
     }
 
-    uint64_t m_seed;
+    u64 m_seed;
 };
 
-template<typename T = uint64_t>
+template<typename T = u64>
 T random() noexcept
 {
     return PRNG{}.rand<T>();

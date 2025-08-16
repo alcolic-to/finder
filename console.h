@@ -40,7 +40,7 @@ public:
     explicit Cursor(void* handle);
 
     template<Direction d, bool Apply = true>
-    void move(uint32_t times = 1U)
+    void move(u32 times = 1U)
     {
         if constexpr (d == Direction::up)
             m_y = std::max(m_y - times, 0U);
@@ -75,38 +75,38 @@ public:
             apply();
     }
 
-    void set_pos(uint32_t x, uint32_t y);
+    void set_pos(u32 x, u32 y);
 
-    [[nodiscard]] uint32_t x() const noexcept { return m_x; }
+    [[nodiscard]] u32 x() const noexcept { return m_x; }
 
-    [[nodiscard]] uint32_t y() const noexcept { return m_y; }
+    [[nodiscard]] u32 y() const noexcept { return m_y; }
 
-    [[nodiscard]] uint32_t max_x() const noexcept { return m_max_x; }
+    [[nodiscard]] u32 max_x() const noexcept { return m_max_x; }
 
-    [[nodiscard]] uint32_t max_y() const noexcept { return m_max_y; }
+    [[nodiscard]] u32 max_y() const noexcept { return m_max_y; }
 
 private:
     void apply();
 
-    [[nodiscard]] int16_t short_x() const
+    [[nodiscard]] i16 short_x() const
     {
-        assert(m_x <= std::numeric_limits<int16_t>::max());
-        return static_cast<int16_t>(m_x);
+        assert(m_x <= std::numeric_limits<i16>::max());
+        return static_cast<i16>(m_x);
     }
 
-    [[nodiscard]] int16_t short_y() const
+    [[nodiscard]] i16 short_y() const
     {
-        assert(m_y <= std::numeric_limits<int16_t>::max());
-        return static_cast<int16_t>(m_y);
+        assert(m_y <= std::numeric_limits<i16>::max());
+        return static_cast<i16>(m_y);
     }
 
     os::Coordinates os_coord() { return os::Coordinates{short_x(), short_y()}; }
 
     void* m_handle;
-    uint32_t m_x;
-    uint32_t m_y;
-    uint32_t m_max_x;
-    uint32_t m_max_y;
+    u32 m_x;
+    u32 m_y;
+    u32 m_max_x;
+    u32 m_max_y;
 };
 
 class Console {
@@ -117,7 +117,7 @@ public:
 
     Console& operator<<(const std::string& s);
     Console& operator>>(std::string& s);
-    Console& operator>>(int32_t& input);
+    Console& operator>>(i32& input);
 
     Console& clear();
     Console& fill_line(char ch);

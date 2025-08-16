@@ -14,9 +14,14 @@ TEST(files_test, sanity_test_1)
     Files files;
 
     const std::string file_name = "my_file_1";
-    std::string file_path = R"(C:\User\win_user_1)";
+    std::string file_path =
+#if defined __win32__
+        R"(C:\User\win_user_1)";
+#elif defined __linux__
+        R"(/User/win_user_1)";
+#endif
 
-    const std::string file = file_path + "\\" + file_name;
+    const std::string file = file_path + fs::path::preferred_separator + file_name;
 
     files.insert(file);
     ASSERT_TRUE(!files.insert(file));
@@ -67,13 +72,22 @@ TEST(files_test, sanity_test_2)
     std::string file_name = "attach.cpp";
 
     std::string file_path_1 =
+
+#if defined __win32__
         R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac)";
+#elif defined __linux__
+        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac)";
+#endif
 
     std::string file_path_2 =
+#if defined __win32__
         R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\windows)";
+#elif defined __linux__
+        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/windows)";
+#endif
 
-    const std::string file_1 = file_path_1 + "\\" + file_name;
-    const std::string file_2 = file_path_2 + "\\" + file_name;
+    const std::string file_1 = file_path_1 + fs::path::preferred_separator + file_name;
+    const std::string file_2 = file_path_2 + fs::path::preferred_separator + file_name;
 
     files.insert(file_1);
     files.insert(file_2);
@@ -123,10 +137,14 @@ TEST(files_test, sanity_test_3)
     std::string file_name_2 = "attach_2.cpp";
 
     std::string file_path =
+#if defined __win32__
         R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac)";
+#elif defined __linux__
+        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac)";
+#endif
 
-    const std::string file_1 = file_path + "\\" + file_name_1;
-    const std::string file_2 = file_path + "\\" + file_name_2;
+    const std::string file_1 = file_path + fs::path::preferred_separator + file_name_1;
+    const std::string file_2 = file_path + fs::path::preferred_separator + file_name_2;
 
     files.insert(file_1);
     files.insert(file_2);
@@ -208,7 +226,7 @@ void test_fs_search(const std::string& file_name)
         }
     }
 
-    constexpr size_t MB = 1024 * 1024;
+    constexpr sz MB = 1024 * 1024;
 
     std::cout << std::format("Files paths size:    {}MB\n", files.file_paths_size() / MB);
     std::cout << std::format("File finder size:    {}MB\n", files.file_finder_size() / MB);

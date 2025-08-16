@@ -32,9 +32,9 @@ TEST(art_key_value_tests, sanity_test_1)
 
 TEST(art_key_value_tests, sanity_test_2)
 {
-    art::ART<std::vector<int>> art_v;
+    art::ART<std::vector<i32>> art_v;
 
-    std::vector<int> v1{1, 2, 3, 4, 5, 6};
+    std::vector<i32> v1{1, 2, 3, 4, 5, 6};
     art_v.insert("key_1", v1);
     assert_search(art_v, "key_1", v1);
 

@@ -59,11 +59,11 @@ static constexpr bool is_cpp_keyword(const std::string& s)
 
 class Options {
 public:
-    static constexpr uint32_t opt_files = 1;      // Search files.
-    static constexpr uint32_t opt_symbols = 2;    // Search both files and symbols.
-    static constexpr uint32_t opt_stats_only = 4; // Print stats and quit.
-    static constexpr uint32_t opt_verbose = 8;    // Print stats and quit.
-    static constexpr uint32_t opt_all = opt_files | opt_symbols | opt_stats_only | opt_verbose;
+    static constexpr u32 opt_files = 1;      // Search files.
+    static constexpr u32 opt_symbols = 2;    // Search both files and symbols.
+    static constexpr u32 opt_stats_only = 4; // Print stats and quit.
+    static constexpr u32 opt_verbose = 8;    // Print stats and quit.
+    static constexpr u32 opt_all = opt_files | opt_symbols | opt_stats_only | opt_verbose;
 
     Options() : m_opt{opt_all} {}
 
@@ -97,12 +97,12 @@ public:
     [[nodiscard]] bool verbose() const noexcept { return (m_opt & opt_verbose) != 0U; }
 
 private:
-    uint32_t m_opt = 0;
+    u32 m_opt = 0;
 };
 
 class Symbol_finder {
 public:
-    static constexpr size_t files_search_limit = 128;
+    static constexpr sz files_search_limit = 128;
 
     using dir_iter = fs::recursive_directory_iterator;
 
@@ -128,7 +128,7 @@ public:
             //
             std::ifstream ifs{it->path()};
             if (!ifs.is_open()) {
-                std::cout << "Problem with openning file " << it->path() << ". Skipping.\n ";
+                std::cout << std::format("Problem with openning file {}.\n", it->path().string());
                 continue;
             }
 
@@ -177,36 +177,47 @@ private:
             m_symbols.print_stats();
     }
 
+    // For symbol finder, we only support cpp files.
+    //
     static constexpr bool supported_file(const auto& dir_entry)
     {
         std::string ext{dir_entry->path().extension().string()};
         return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
     }
 
+    // Skip all windows and /mnt (WSL) files in order to save space.
+    // Iterating over /mnt always get stuck for some reason.
+    //
+    static constexpr bool supported_path(const std::string& path)
+    {
+        return !path.starts_with("C:\\Windows") && !path.starts_with("/Windows") &&
+               !path.starts_with("/mnt");
+    }
+
     constexpr bool check_iteration(dir_iter& it, std::error_code& ec)
     {
         try {
+            std::string path{it->path().string()};
+
             if (ec) {
                 if (m_options.verbose())
-                    std::cerr << std::format("Error accessing {}: {}\n", it->path().string(),
-                                             ec.message());
+                    std::cerr << std::format("Error accessing {}: {}\n", path, ec.message());
+
                 ec.clear();
                 return false;
             }
 
-            // Skip all windows and /mnt (WSL) files in order to save space.
-            // Iterating over /mnt always get stuck for some reason.
-            std::string path{it->path().string()};
-            if (path.starts_with("C:\\Windows") || path.starts_with("/Windows") ||
-                path.starts_with("/mnt")) {
-                std::cout << std::format("Skipping: {}\n", it->path().string());
+            if (!supported_path(path)) {
+                std::cout << std::format("Skipping: {}\n", path);
                 it.disable_recursion_pending();
                 return false;
             }
 
             if (it->is_directory() && it.depth() == 0)
-                std::cout << std::format("Scanning: {}\n", it->path().string());
+                std::cout << std::format("Scanning: {}\n", path);
 
+            // TODO: Check whether whis is needed.
+            //
             if (!it->is_regular_file() && !it->is_directory())
                 return false;
         }

@@ -10,7 +10,7 @@
 
 bool scan_input(Console& console, std::string& query)
 {
-    int32_t input_ch;
+    i32 input_ch;
     while (true) {
         console >> input_ch;
 
@@ -25,7 +25,7 @@ bool scan_input(Console& console, std::string& query)
             break;
         }
 
-        uint8_t prnt = static_cast<uint8_t>(input_ch);
+        u8 prnt = static_cast<u8>(input_ch);
         if (std::isprint(prnt)) {
             query += prnt;
             break;

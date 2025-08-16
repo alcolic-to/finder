@@ -3,6 +3,8 @@
 #include <exception>
 #include <iostream>
 
+#include "util.h"
+
 // NOLINTBEGIN(misc-include-cleaner)
 
 namespace os {
@@ -36,22 +38,22 @@ COORD to_win_coord(Coordinates coord)
     return COORD{coord.x, coord.y};
 }
 
-int16_t console_row_start()
+i16 console_row_start()
 {
     return 0;
 };
 
-int16_t console_col_start()
+i16 console_col_start()
 {
     return 0;
 };
 
-bool is_esc(int32_t input)
+bool is_esc(i32 input)
 {
     return input == 27;
 }
 
-bool is_backspace(int32_t input)
+bool is_backspace(i32 input)
 {
     return input == 8;
 }
@@ -101,7 +103,7 @@ void fill_console_line(void* handle, Coordinates coord, char ch)
         throw std::exception{"Failed to fill console line"};
 }
 
-void write_to_console(void* handle, const void* data, size_t size)
+void write_to_console(void* handle, const void* data, size size)
 {
     unsigned long written = 0;
 
@@ -110,7 +112,7 @@ void write_to_console(void* handle, const void* data, size_t size)
         throw std::exception{"Failed to write to console."};
 }
 
-void console_scan(int32_t& input)
+void console_scan(i32& input)
 {
     input = _getch();
 }
@@ -123,22 +125,22 @@ void console_scan(int32_t& input)
 #include <termios.h>
 #include <unistd.h>
 
-int16_t console_row_start()
+i16 console_row_start()
 {
     return 1;
 };
 
-int16_t console_col_start()
+i16 console_col_start()
 {
     return 1;
 };
 
-bool is_esc(int32_t input)
+bool is_esc(i32 input)
 {
     return input == 27;
 }
 
-bool is_backspace(int32_t input)
+bool is_backspace(i32 input)
 {
     return input == 127;
 }
@@ -172,7 +174,7 @@ Coordinates console_window_size([[maybe_unused]] void* handle)
         std::terminate();
     }
 
-    return Coordinates{static_cast<int16_t>(w.ws_col), static_cast<int16_t>(w.ws_row)};
+    return Coordinates{static_cast<i16>(w.ws_col), static_cast<i16>(w.ws_row)};
 }
 
 void set_console_cursor_position([[maybe_unused]] void* handle, Coordinates coord)
@@ -186,7 +188,7 @@ void fill_console_line(void* handle, Coordinates coord, char ch)
     Coordinates window_size = console_window_size(handle);
     set_console_cursor_position(handle, {console_col_start(), coord.y});
 
-    for (int16_t i = 0; i < window_size.x; ++i)
+    for (i16 i = 0; i < window_size.x; ++i)
         std::cout << ch;
 
     std::cout.flush();
@@ -194,15 +196,15 @@ void fill_console_line(void* handle, Coordinates coord, char ch)
     set_console_cursor_position(handle, {console_col_start(), coord.y});
 }
 
-void write_to_console([[maybe_unused]] void* handle, const void* data, size_t size)
+void write_to_console([[maybe_unused]] void* handle, const void* data, sz data_size)
 {
-    for (size_t i = 0; i < size; ++i)
+    for (sz i = 0; i < data_size; ++i)
         std::cout << static_cast<const char*>(data)[i];
 
     std::cout.flush();
 }
 
-void console_scan(int32_t& input)
+void console_scan(i32& input)
 {
     input = 0;
     if (read(STDIN_FILENO, &input, 1) == -1) {
