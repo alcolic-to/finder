@@ -7,6 +7,7 @@
 #include <iostream>
 #include <iterator>
 #include <ranges>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -69,17 +70,35 @@ public:
 
     explicit Options(const std::string& opt)
     {
-        if (opt.find('f') != std::string::npos)
-            m_opt |= Options::opt_files;
+        std::stringstream ss{opt};
+        std::string s;
 
-        if (opt.find('s') != std::string::npos)
-            m_opt |= Options::opt_files | Options::opt_symbols;
+        while (ss >> s) {
+            if (s.starts_with("--")) {
+                s = s.substr(2);
+                if (s.starts_with("ignore="))
+                    m_ignore_list = string_split(s.substr(sizeof("ignore")), ",");
+                else if (s.starts_with("include="))
+                    m_include_list = string_split(s.substr(sizeof("include")), ",");
+                else
+                    throw std::runtime_error{std::format("Invalid option {}.", s)};
+            }
+            else if (s.starts_with("-")) {
+                s = s.substr(1);
 
-        if (opt.find('e') != std::string::npos)
-            m_opt |= Options::opt_stats_only;
+                if (s.find('f') != std::string::npos)
+                    m_opt |= Options::opt_files;
 
-        if (opt.find('v') != std::string::npos)
-            m_opt |= Options::opt_stats_only;
+                if (s.find('s') != std::string::npos)
+                    m_opt |= Options::opt_files | Options::opt_symbols;
+
+                if (s.find('e') != std::string::npos)
+                    m_opt |= Options::opt_stats_only;
+
+                if (s.find('v') != std::string::npos)
+                    m_opt |= Options::opt_verbose;
+            }
+        }
 
         if ((m_opt & ~opt_all) != 0U)
             throw std::runtime_error{"Invalid options."};
@@ -96,7 +115,13 @@ public:
 
     [[nodiscard]] bool verbose() const noexcept { return (m_opt & opt_verbose) != 0U; }
 
+    [[nodiscard]] std::vector<std::string> ignore_list() const noexcept { return m_ignore_list; }
+
+    [[nodiscard]] std::vector<std::string> include_list() const noexcept { return m_include_list; }
+
 private:
+    std::vector<std::string> m_ignore_list;
+    std::vector<std::string> m_include_list;
     u32 m_opt = 0;
 };
 
@@ -108,7 +133,7 @@ public:
 
     explicit Symbol_finder(const std::string& dir, Options opt = Options{})
         : m_dir{dir}
-        , m_options{opt}
+        , m_options{std::move(opt)}
     {
         constexpr auto it_opt = fs::directory_options::skip_permission_denied;
 
@@ -185,13 +210,33 @@ private:
         return ext == ".cpp" || ext == ".c" || ext == ".hpp" || ext == ".h";
     }
 
-    // Skip all windows and /mnt (WSL) files in order to save space.
-    // Iterating over /mnt always get stuck for some reason.
-    //
-    static constexpr bool supported_path(const std::string& path)
+    /**
+     * Checks whether provided path is supported for finder.
+     * We will skip some OS specific paths to save space.
+     * If user provided ignore list, we will ignore path if it is contained in ignore list and
+     * it is not contained in include list.
+     * Note that if include list contains path, we must not break iterations on that path, hence we
+     * check whether ignore list paths starts with provided path.
+     */
+    constexpr bool check_path(const std::string& path)
     {
-        return !path.starts_with("C:\\Windows") && !path.starts_with("/Windows") &&
-               !path.starts_with("/mnt");
+        // Skip all windows and /mnt (WSL) files in order to save space.
+        // Iterating over /mnt always get stuck for some reason.
+        if (path.starts_with("C:\\Windows") || path.starts_with("/Windows") ||
+            path.starts_with("/mnt"))
+            return false;
+
+        const std::vector<std::string>& ignore_list = m_options.ignore_list();
+        const std::vector<std::string>& include_list = m_options.include_list();
+
+        const auto ignore_pred = [&](const std::string& s) { return path.starts_with(s); };
+        if (std::ranges::find_if(ignore_list, ignore_pred) == ignore_list.end())
+            return true;
+
+        const auto include_pred = [&](const std::string& s) {
+            return s.size() >= path.size() ? s.starts_with(path) : path.starts_with(s);
+        };
+        return std::ranges::find_if(include_list, include_pred) != include_list.end();
     }
 
     constexpr bool check_iteration(dir_iter& it, std::error_code& ec)
@@ -207,7 +252,7 @@ private:
                 return false;
             }
 
-            if (!supported_path(path)) {
+            if (!check_path(path)) {
                 std::cout << std::format("Skipping: {}\n", path);
                 it.disable_recursion_pending();
                 return false;

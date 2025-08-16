@@ -5,6 +5,7 @@
 #include "console.h"
 #include "os.h"
 #include "symbol_finder.h"
+#include "util.h"
 
 // NOLINTBEGIN
 
@@ -14,10 +15,10 @@ bool scan_input(Console& console, std::string& query)
     while (true) {
         console >> input_ch;
 
-        if (os::is_esc(input_ch)) // ESC
+        if (os::is_esc(input_ch))
             return false;
 
-        if (os::is_backspace(input_ch)) { // backspace
+        if (os::is_backspace(input_ch)) {
             if (query.empty())
                 continue;
 
@@ -39,18 +40,18 @@ int main()
 {
     std::string input;
     std::string root;
-    std::string options;
 
-    std::cout << "Options: <root_dir> <-fse>\n: ";
+    std::cout << "Options: <root_dir> <-fsev> <--ignore <path1, path2 ... >>, <--include <path1, "
+                 "path2 ... >>\n: ";
+
     std::getline(std::cin, input);
 
     std::stringstream ss{input};
-    ss >> root, ss >> options;
+    ss >> root;
 
-    Symbol_finder finder{root, Options{options}};
+    Symbol_finder finder{root, Options{ss.str()}};
 
     // Show all files/symbols.
-    //
     Console console;
     console.clear();
     console.draw_search_results(finder.find_files(""));
