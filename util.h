@@ -8,6 +8,7 @@
 #include <iostream>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 using i8 = std::int8_t;
 using i16 = std::int16_t;
@@ -46,7 +47,7 @@ using sz = std::size_t;
 #ifdef __cpp_lib_hardware_interference_size
 constexpr sz cache_line_size = std::hardware_destructive_interference_size;
 #else
-constexpr size cache_line_size = 64;
+constexpr sz cache_line_size = 64;
 #endif
 
 #define stringify2(x) #x           // NOLINT
