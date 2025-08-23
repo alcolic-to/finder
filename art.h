@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -1063,6 +1064,49 @@ public:
         return leaves;
     }
 
+    // Find an entry pointer whose key starts with provided string
+    //
+    [[nodiscard]] const entry_ptr search_prefix_node(const std::string& prefix) const noexcept
+    {
+        const Key key{(const u8* const)prefix.data(), prefix.size()};
+        return search_prefix_node(key);
+    }
+
+    // Find an entry pointer whose key starts with provided string.
+    //
+    [[nodiscard]] const entry_ptr search_prefix_node(const u8* const prefix,
+                                                     sz prefix_size) const noexcept
+    {
+        const Key key{prefix, prefix_size};
+        return search_prefix_node(key);
+    }
+
+    // Finds all entries whose key starts with provided string. User can limit number of returned
+    // entries with limit parameter.
+    //
+    template<class Pred>
+    [[nodiscard]] const std::vector<Leaf*>
+    search_prefix_if(const std::string& prefix, Pred pred,
+                     sz limit = std::numeric_limits<sz>::max()) const noexcept
+    {
+        return search_prefix_if((const u8* const)prefix.data(), prefix.size(), pred, limit);
+    }
+
+    // Finds all entries whose key starts with provided prefix with given size. User can limit
+    // number of returned entries with limit parameter.
+    //
+    template<class Pred>
+    [[nodiscard]] const std::vector<Leaf*>
+    search_prefix_if(const u8* const prefix, sz prefix_size, Pred pred,
+                     sz limit = std::numeric_limits<sz>::max()) const noexcept
+    {
+        std::vector<Leaf*> leaves;
+        const Key key{prefix, prefix_size};
+
+        search_prefix_if(key, leaves, pred, limit);
+        return leaves;
+    }
+
     sz nodes_count() const noexcept
     {
         sz c = 0;
@@ -1600,6 +1644,88 @@ private:
         entry_ptr* next = node->find_child(prefix[depth]);
         if (next)
             search_prefix(*next, prefix, depth + 1, leaves, limit);
+    }
+
+    entry_ptr search_prefix_node(const Key& key) const noexcept
+    {
+        if (m_root)
+            return search_prefix_node(m_root, key, 0);
+
+        return nullptr;
+    }
+
+    entry_ptr search_prefix_node(const entry_ptr& entry, const Key& prefix, sz depth) const noexcept
+    {
+        if (entry.leaf())
+            return entry.leaf_ptr()->match_prefix(prefix) ? entry : nullptr;
+
+        Node* node = entry.node_ptr();
+        sz cp_len = node->common_header_prefix(prefix, depth);
+
+        // All bytes except terminal byte matched, so just return an entry.
+        //
+        if (depth + cp_len == prefix.size() - 1)
+            return entry;
+
+        if (cp_len != hdrlen(node->m_prefix_len))
+            return nullptr;
+
+        depth += node->m_prefix_len;
+
+        if (depth >= prefix.size())
+            return nullptr;
+
+        entry_ptr* next = node->find_child(prefix[depth]);
+        return next ? search_prefix_node(*next, prefix, depth + 1) : nullptr;
+    }
+
+    template<class Pred>
+    void search_prefix_if(const Key& key, std::vector<Leaf*>& leaves, Pred pred,
+                          sz limit) const noexcept
+    {
+        if (m_root)
+            search_prefix_if(m_root, key, 0, leaves, pred, limit);
+    }
+
+    template<class Pred>
+    void search_prefix_if(const entry_ptr& entry, const Key& prefix, sz depth,
+                          std::vector<Leaf*>& leaves, Pred pred, sz limit) const noexcept
+    {
+        if (entry.leaf()) {
+            Leaf* leaf = entry.leaf_ptr();
+            if (leaf->match_prefix(prefix) && pred(leaf->value()))
+                leaves.push_back(leaf);
+
+            return;
+        }
+
+        Node* node = entry.node_ptr();
+        sz cp_len = node->common_header_prefix(prefix, depth);
+
+        // All bytes except terminal byte matched, so just collect leaves.
+        //
+        if (depth + cp_len == prefix.size() - 1) {
+            for_each_leaf(entry, [&](Leaf* leaf) {
+                if (pred(leaf->value()))
+                    leaves.push_back(leaf);
+
+                return leaves.size() < limit; // Limits number of iterations.
+            });
+
+            return;
+        }
+
+        if (cp_len != hdrlen(node->m_prefix_len))
+            return;
+
+        depth += node->m_prefix_len;
+
+        if (depth >= prefix.size())
+            return;
+
+        entry_ptr* next = node->find_child(prefix[depth]);
+        if (next)
+            search_prefix_if(*next, prefix, depth + 1, leaves, pred, limit);
     }
 
 protected:

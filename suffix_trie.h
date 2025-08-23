@@ -28,8 +28,9 @@ public:
 };
 
 // Wrapper class that holds either pointer to value, pointer to full leaf node or pointer to another
-// sleaf. It is not a smart pointer, hence user must manage memory manually. In order to simplify
-// assigning another pointer with freeing current resources, reset() funtion is implemented.
+// sleaf (link). It is not a smart pointer, hence user must manage memory manually. In order to
+// simplify assigning another pointer with freeing current resources, reset() funtion is
+// implemented.
 //
 template<class T>
 class SLeaf {
@@ -86,7 +87,7 @@ public:
 
     constexpr bool empty() const noexcept { return !operator bool(); }
 
-    T* get_value()
+    T* get_value() noexcept
     {
         if (empty() || link())
             return nullptr;
@@ -245,6 +246,7 @@ public:
     using SLeaf = SLeaf<T>;
     using Full_leaf = Full_leaf<T>;
     using ART = art::ART<SLeaf>;
+    using ART_entry_ptr = ART::entry_ptr;
     using ART_leaf = ART::Leaf;
     using Node = ART::Node;
     using Node4 = ART::Node4;
@@ -405,6 +407,47 @@ public:
                         break;
             }
         }
+
+        return results;
+    }
+
+    // Returns a vector of T* where key matches str prefix and all leaves satisfies predicate
+    // function. Since prefix search can have a lot of entries, user can limit number of results.
+    //
+    template<class Pred>
+    [[nodiscard]] std::vector<const T*>
+    search_prefix_if(const std::string& str, Pred pred,
+                     size_t limit = std::numeric_limits<size_t>::max()) const noexcept
+    {
+        std::vector<const T*> results;
+
+        ART_entry_ptr entry = ART::search_prefix_node(str);
+
+        auto insert_value = [&](SLeaf* sleaf) {
+            T* v = sleaf->get_value();
+            if (v != nullptr && pred(*v) && std::ranges::find(results, v) == results.end())
+                results.push_back(v);
+
+            return results.size() < limit;
+        };
+
+        ART::for_each_leaf(entry, [&](ART_leaf* leaf) {
+            SLeaf* sleaf = &leaf->value();
+            if (!insert_value(sleaf))
+                return false;
+
+            if (sleaf->link()) {
+                if (!insert_value(sleaf->link_ptr()))
+                    return false;
+            }
+            else if (sleaf->full_leaf()) {
+                for (SLeaf* link : sleaf->full_leaf_ptr()->m_links)
+                    if (!insert_value(link))
+                        return false;
+            }
+
+            return true;
+        });
 
         return results;
     }
