@@ -4,10 +4,13 @@
 #define OS_SPECIFIC_H
 
 #include <cstddef>
+#include <filesystem>
 
 #include "util.h"
 
 namespace os {
+
+constexpr char path_sep = std::filesystem::path::preferred_separator;
 
 struct Coordinates {
     i16 x;

@@ -103,7 +103,7 @@ void fill_console_line(void* handle, Coordinates coord, char ch)
         throw std::exception{"Failed to fill console line"};
 }
 
-void write_to_console(void* handle, const void* data, size size)
+void write_to_console(void* handle, const void* data, sz size)
 {
     unsigned long written = 0;
 
