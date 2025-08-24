@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "os.h"
 #include "small_string.h"
 #include "suffix_trie.h"
 #include "util.h"
@@ -97,38 +98,31 @@ public:
     {
         std::vector<const File_info*> results;
 
-        std::vector<std::string> parts{string_split(regex, "*")};
-        std::string file{parts.size() > 0 ? parts[parts.size() - 1] : ""};
-        std::string path{parts.size() > 1 ? parts[0] : ""};
+        sz slash_pos = regex.find_last_of(os::path_sep);
+        std::string file{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) : regex};
+        std::string path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
 
         if (!m_file_paths.search_prefix_node(path))
             return results;
 
-        /**
-         * TODO: This will be a potencial problem. If we are limiting the number of searches in
-         * art, it might happen that we don't get all files that should be found on provided path.
-         * Only number of results should be limited, not the number of prefixed searched in art.
-         */
-        auto info_vectors{m_file_finder.search_prefix_if(
-            file,
-            [&](const std::vector<File_info*> infos) {
-                for (const auto& file_info : infos)
-                    if (file_info->path().starts_with(path))
-                        return true;
+        while (file.starts_with('*'))
+            file = file.substr(1);
 
-                return false;
-            },
-            limit)};
+        while (file.ends_with('*'))
+            file = file.substr(0, file.size() - 1);
 
-        for (auto info_vector : info_vectors) {
-            for (auto file_info : *info_vector) {
-                if (file_info->path().starts_with(path))
+        m_file_finder.search_prefix_while(file, [&](const std::vector<File_info*>& infos) {
+            for (const auto& file_info : infos) {
+                if (file_info->path().starts_with(path) &&
+                    std::ranges::find(results, file_info) == results.end())
                     results.push_back(file_info);
 
-                if (results.size() == limit)
-                    break;
+                if (results.size() >= limit)
+                    return false;
             }
-        }
+
+            return true;
+        });
 
         return results;
     }

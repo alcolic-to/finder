@@ -411,6 +411,38 @@ public:
         return results;
     }
 
+    /**
+     * Iterates over all suffixes while predicate is satisfied.
+     */
+    template<class Pred>
+    void search_prefix_while(const std::string& str, Pred pred) const noexcept
+    {
+        ART_entry_ptr entry = ART::search_prefix_node(str);
+
+        auto apply_pred = [&](SLeaf* sleaf) {
+            T* v = sleaf->get_value();
+            return v ? pred(*v) : true;
+        };
+
+        ART::for_each_leaf(entry, [&](ART_leaf* leaf) {
+            SLeaf* sleaf = &leaf->value();
+            if (!apply_pred(sleaf))
+                return false;
+
+            if (sleaf->link()) {
+                if (!apply_pred(sleaf->link_ptr()))
+                    return false;
+            }
+            else if (sleaf->full_leaf()) {
+                for (SLeaf* link : sleaf->full_leaf_ptr()->m_links)
+                    if (!apply_pred(link))
+                        return false;
+            }
+
+            return true;
+        });
+    }
+
     // Returns a vector of T* where key matches str prefix and all leaves satisfies predicate
     // function. Since prefix search can have a lot of entries, user can limit number of results.
     //
