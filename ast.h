@@ -104,6 +104,13 @@ public:
         return idx == m_size - 1 ? term_byte : m_data[idx];
     }
 
+    bool operator==(const Key& other) const noexcept
+    {
+        if (m_size != other.m_size)
+            return false;
+        return !std::memcmp(m_data, other.m_data, m_size);
+    }
+
     sz size() const noexcept { return m_size; }
 
     // Copy key to destination buffer with size len. We must manually copy last 0 byte, since we
@@ -551,15 +558,50 @@ public:
         add_child(leaf[depth], &leaf);
     }
 
-    // Creates new node4 as a parent for new leaf and node. New node will have 2
-    // children with common prefix extracted from them. We must also delete taken prefix from child
-    // node, plus we must take one additional byte from prefix as a key for child node mapping.
-    // If node prefix does not fit into header, we must go to leaf node (not important which one),
-    // to take prefix bytes from there. It it fits, we can take bytes from header directly.
+    // Creates new node4 as a parent for new_leaf and old leaf. New node will have 2
+    // children with common prefix extracted from them. We will store information about common
+    // prefix len in prefix_len, but we can only copy up to max_prefix_bytes in prefix array.
+    // Later when searching for a key, we will compare all bytes from our prefix array, and if
+    // all bytes matches, we will just skip all prefix bytes and go to directly to next node.
+    // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
     template<class V>
-    Node4(const Key& key, V&& value, sz depth, const Leaf& new_leaf, Node& node, sz cp_len)
-        : Node{Node4_t}
+    Node4(const Key& key, KeyRef value, sz depth, Key old_key, KeyRef old_value) : Node{Node4_t}
+    {
+        for (m_prefix_len = 0; key[depth] == old_key[depth]; ++m_prefix_len, ++depth)
+            if (m_prefix_len < max_prefix_len)
+                m_prefix[m_prefix_len] = key[depth];
+
+        assert(depth < key.size() && depth < old_key.key_size());
+        assert(key[depth] != old_key[depth]);
+
+        add_child(key[depth], value);
+        add_child(old_key[depth], old_value);
+    }
+
+    // Creates new node4 as a parent for new_leaf and old leaf. New node will have 2
+    // children with common prefix extracted from them. We will store information about common
+    // prefix len in prefix_len, but we can only copy up to max_prefix_bytes in prefix array.
+    // Later when searching for a key, we will compare all bytes from our prefix array, and if
+    // all bytes matches, we will just skip all prefix bytes and go to directly to next node.
+    // This is hybrid approach which mixes optimistic and pessimistic approaches.
+    //
+    template<class V>
+    Node4(const Key& key, KeyRef value, sz depth, Key old_key, const Leaf& old_leaf) : Node{Node4_t}
+    {
+        for (m_prefix_len = 0; key[depth] == old_key[depth]; ++m_prefix_len, ++depth)
+            if (m_prefix_len < max_prefix_len)
+                m_prefix[m_prefix_len] = key[depth];
+
+        assert(depth < key.size() && depth < old_key.key_size());
+        assert(key[depth] != old_key[depth]);
+
+        add_child(key[depth], value);
+        add_child(old_key[depth], old_leaf);
+    }
+
+    template<class V>
+    Node4(const Key& key, KeyRef value, sz depth, Node& node, sz cp_len) : Node{Node4_t}
     {
         assert(cp_len < node.m_prefix_len);
 
@@ -578,7 +620,7 @@ public:
         assert(node_key != key[depth + cp_len]);
 
         add_child(node_key, &node);
-        add_child(key[depth + cp_len], &new_leaf);
+        add_child(key[depth + cp_len], value);
     }
 
     Node4(const Node16& old_node) noexcept : Node{old_node, Node4_t}
@@ -1575,76 +1617,51 @@ public:
 private:
     // Handles insertion when we reached entry and entry is a key reference.
     //
-    result insert_at_entry(entry_ptr& entry, const Key& key, KeyRef value, sz depth) noexcept
+    void insert_at_entry(entry_ptr& entry, const Key& key, KeyRef value, sz depth) noexcept
     {
-        KeyRef ref = entry.key_ref();
-        if (value == ref)
-            return {ref, false};
+        KeyRef old_ref = entry.key_ref();
+        Key old_key = m_data[old_ref];
 
-        Leaf* leaf = Leaf::new_leaf(2);
-        leaf = leaf->push_back(ref);
-        leaf = leaf->push_back(value);
+        if (key == old_key) {
+            Leaf* leaf = Leaf::new_leaf(2);
+            leaf = leaf->push_back(old_ref);
+            leaf = leaf->push_back(value);
 
-        entry = leaf;
-        return {ref, true};
-    }
-
-    // Handles insertion when we reached leaf node. With current implementation, we will only insert
-    // new key if it differs from an exitisting leaf.
-    //
-    void insert_at_leaf(entry_ptr& entry, const Key& key, KeyRef value, sz depth) noexcept
-    {
-        if (entry.ref()) {
-            KeyRef old_ref = entry.key_ref();
-            if (value == old_ref)
-                return;
-
-            entry = new Node4{key, value, depth, old_ref};
+            entry = leaf;
             return;
         }
 
-        // KeyRef old_ref = entry.ref() ? entry.key_ref() : Leaf* leaf = entry.leaf_ptr();
-        // if (leaf->match(key))
-        //     return {leaf, false};
-
-        // Leaf* new_leaf = Leaf::new_leaf(key, std::forward<V>(value));
-        // entry = new Node4{key, std::forward<V>(value), depth, *new_leaf, *leaf};
-
-        // return {new_leaf, true};
+        entry = new Node4{key, value, depth, old_key, old_ref};
     }
 
-    // Handles insertion when we reached leaf node. With current implementation, we will only insert
-    // new key if it differs from an exitisting leaf.
-    //
-    result insert_at_leaf(entry_ptr& entry, const Key& key, KeyRef value, sz depth) noexcept
+    /**
+     * Handles insertion when we reached leaf node. With current implementation, we will only insert
+     * new key if it differs from an exitisting leaf.
+     */
+    void insert_at_leaf(entry_ptr& entry, const Key& key, KeyRef value, sz depth) noexcept
     {
         Leaf* leaf = entry.leaf_ptr();
-        for (sz i = 0; i < leaf->m_size; ++i)
-            if (leaf->m_links[i] == value)
-                return {leaf, false};
+        Key old_key = m_data[leaf->m_refs[0]];
 
-        if (leaf->match(key))
-            return {leaf, false};
+        if (key == old_key) {
+            entry = leaf->push_back(value);
+            return;
+        }
 
-        Leaf* new_leaf = Leaf::new_leaf(key, value);
-        entry = new Node4{key, value, depth, *new_leaf, *leaf};
-
-        return {new_leaf, true};
+        entry = new Node4{key, value, depth, old_key, *leaf};
     }
 
     // Handles insertion when we reached innder node and key at provided depth did not match full
     // node prefix.
     //
     template<class V>
-    void insert_at_node(entry_ptr& entry, const Key& key, V&& value, sz depth, sz cp_len) noexcept
+    void insert_at_node(entry_ptr& entry, const Key& key, KeyRef value, sz depth,
+                        sz cp_len) noexcept
     {
         Node* node = entry.node_ptr();
         assert(cp_len != node->m_prefix_len);
 
-        Leaf* new_leaf = Leaf::new_leaf(key, std::forward<V>(value));
-        entry = new Node4{key, std::forward<V>(value), depth, *new_leaf, *node, cp_len};
-
-        return {new_leaf, true};
+        entry = new Node4{key, value, depth, *node, cp_len};
     }
 
     // Insert new key into the tree.
@@ -1664,7 +1681,7 @@ private:
         assert(entry);
 
         if (entry.ref())
-            return insert_at_entry(entry, key, value, depth);
+            return insert_at_entry(*this, entry, key, value, depth);
 
         if (entry.leaf())
             return insert_at_leaf(entry, key, value, depth);
