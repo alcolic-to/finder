@@ -87,16 +87,20 @@ u32 hdrlen(Type len)
 // through the tree. Typical additional character is $ for suffix trees, but we will use 0 for
 // general purpose.
 //
-class Key {
+class KeySpan {
 public:
     template<class T>
     friend class Leaf;
 
     static constexpr u8 term_byte = 0;
 
-    Key(const u8* const data, sz size) noexcept : m_data{data}, m_size{size + 1} {}
+    const u8* data() const noexcept { return m_data; }
 
-    Key(const std::string& s) noexcept : Key{(const u8* const)s.data(), s.size()} {}
+    sz size() const noexcept { return m_size; }
+
+    KeySpan(const u8* const data, sz size) noexcept : m_data{data}, m_size{size + 1} {}
+
+    KeySpan(const std::string& s) noexcept : KeySpan{(const u8* const)s.data(), s.size()} {}
 
     u8 operator[](sz idx) const noexcept
     {
@@ -104,14 +108,12 @@ public:
         return idx == m_size - 1 ? term_byte : m_data[idx];
     }
 
-    bool operator==(const Key& other) const noexcept
+    bool operator==(const KeySpan& other) const noexcept
     {
         if (m_size != other.m_size)
             return false;
         return !std::memcmp(m_data, other.m_data, m_size);
     }
-
-    sz size() const noexcept { return m_size; }
 
     // Copy key to destination buffer with size len. We must manually copy last 0 byte, since we
     // don't hold that value in our buffer. User must assure that buffer can hold at least len
@@ -135,7 +137,8 @@ private:
  */
 template<class T>
 class KeyValue {
-    T m_value;
+    constexpr bool empty() { return m_key_size == 0; }
+
     u32 m_key_size;
     u8 m_key[];
 };
@@ -478,7 +481,7 @@ public:
     // Header must not hold terminal byte, so we are comparing to minimal of node prefix len and max
     // prefix len. If depth reaches key.size() - 1, we will get terminal byte and stop comparing.
     //
-    [[nodiscard]] sz common_header_prefix(const Key& key, sz depth) const noexcept
+    [[nodiscard]] sz common_header_prefix(const KeySpan& key, sz depth) const noexcept
     {
         const sz max_cmp = hdrlen(m_prefix_len);
         sz cp_len = 0;
@@ -494,12 +497,12 @@ public:
     // find leaf to keep comparing. It is not important which leaf we take, because all of them have
     // at least m_prefix_len common bytes.
     //
-    [[nodiscard]] sz common_prefix(const AST& ctx, const Key& key, sz depth) const noexcept
+    [[nodiscard]] sz common_prefix(const AST& ctx, const KeySpan& key, sz depth) const noexcept
     {
         sz cp_len = common_header_prefix(key, depth);
 
         if (cp_len == max_prefix_len && cp_len < m_prefix_len) {
-            const Key leaf_key = ctx.m_data[next_key_ref()];
+            const KeySpan leaf_key = ctx.m_data[next_key_ref()];
             while (cp_len < m_prefix_len && key[depth + cp_len] == leaf_key[depth + cp_len])
                 ++cp_len;
         }
@@ -544,7 +547,7 @@ public:
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
     template<class V>
-    Node4(const Key& key, V&& value, sz depth, const Leaf& new_leaf, const Leaf& leaf)
+    Node4(const KeySpan& key, V&& value, sz depth, const Leaf& new_leaf, const Leaf& leaf)
         : Node{Node4_t}
     {
         for (m_prefix_len = 0; key[depth] == leaf[depth]; ++m_prefix_len, ++depth)
@@ -566,7 +569,8 @@ public:
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
     template<class V>
-    Node4(const Key& key, KeyRef value, sz depth, Key old_key, KeyRef old_value) : Node{Node4_t}
+    Node4(const KeySpan& key, KeyRef value, sz depth, KeySpan old_key, KeyRef old_value)
+        : Node{Node4_t}
     {
         for (m_prefix_len = 0; key[depth] == old_key[depth]; ++m_prefix_len, ++depth)
             if (m_prefix_len < max_prefix_len)
@@ -587,7 +591,8 @@ public:
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
     template<class V>
-    Node4(const Key& key, KeyRef value, sz depth, Key old_key, const Leaf& old_leaf) : Node{Node4_t}
+    Node4(const KeySpan& key, KeyRef value, sz depth, KeySpan old_key, const Leaf& old_leaf)
+        : Node{Node4_t}
     {
         for (m_prefix_len = 0; key[depth] == old_key[depth]; ++m_prefix_len, ++depth)
             if (m_prefix_len < max_prefix_len)
@@ -601,7 +606,7 @@ public:
     }
 
     template<class V>
-    Node4(const Key& key, KeyRef value, sz depth, Node& node, sz cp_len) : Node{Node4_t}
+    Node4(const KeySpan& key, KeyRef value, sz depth, Node& node, sz cp_len) : Node{Node4_t}
     {
         assert(cp_len < node.m_prefix_len);
 
@@ -940,7 +945,7 @@ public:
                 return m_children[m_idxs[i]].next_key_ref();
 
         assert(false);
-        return *Leaf::new_leaf(Key{nullptr, 0}, T{});
+        return *Leaf::new_leaf(KeySpan{nullptr, 0}, T{});
     }
 
     // Keys with span of 1 byte with value of index for m_idxs array.
@@ -1017,7 +1022,7 @@ public:
                 return m_children[i].next_key_ref();
 
         assert(false);
-        return *Leaf::new_leaf(Key{nullptr, 0}, T{});
+        return *Leaf::new_leaf(KeySpan{nullptr, 0}, T{});
     }
 
     entry_ptr m_children[256]{}; // Pointers to children nodes.
@@ -1107,19 +1112,46 @@ template<class T>
 class Data {
     using KeyValue = KeyValue<T>;
 
+    constexpr Data(u32 size)
+    {
+        m_kv = calloc(size, sizeof(KeyValue));
+        m_capacity = 0;
+    }
+
+    KeyValue insert(KeySpan key)
+    {
+        for (u32 i = 0; i < m_capacity; ++i) {
+            if (m_kv[i].empty()) {
+                m_kv[i] = key;
+                ++m_capacity;
+                return m_kv[i];
+            }
+        }
+
+        KeyValue* old = m_kv;
+        m_kv = calloc(m_capacity * 2, sizeof(KeyValue));
+        std::memcpy(m_kv, old, m_capacity * sizeof(KeyValue));
+
+        KeyValue new_kv = m_kv[m_capacity] = key;
+        m_capacity *= 2;
+
+        free(old);
+        return new_kv;
+    }
+
     /**
      * Returns a key which represents specific key at offset -> suffix of a key.
      */
-    Key operator[](const KeyRef<T>& ref)
+    KeySpan operator[](const KeyRef<T>& ref)
     {
         assert(ref.idx() < m_size);
         const KeyValue& kv = m_kv[ref.idx()];
 
         assert(kv.m_key_size > ref.offset());
-        return Key{kv.m_key + ref.offset(), kv.m_key_size - ref.offset()};
+        return KeySpan{kv.m_key + ref.offset(), kv.m_key_size - ref.offset()};
     }
 
-    u32 m_size;
+    u32 m_capacity;
     KeyValue* m_kv;
 };
 
@@ -1161,7 +1193,7 @@ public:
         bool m_ok;
     };
 
-    AST() noexcept = default;
+    AST() { m_data = Data::new_data(128); }
 
     ~AST() noexcept
     {
@@ -1181,10 +1213,19 @@ public:
     // declaration, compiler would treat it as a rvalue reference only.
     //
     template<class V = T>
-    result insert(const std::string& s, V&& value = V{}) noexcept
+    result insert(const std::string& s) noexcept
     {
-        const Key key{s};
-        return insert(key, std::forward<V>(value));
+        const KeySpan key{s};
+
+        // Dummy data insertion for now.
+        if (search(s))
+            return {{}, false};
+
+        KeyValue kv = m_data.insert(key);
+        for (sz i = 0; i < key.size(); ++i)
+            insert(key, )
+
+                return insert(key);
     }
 
     // Inserts single key/value pair into the tree. In order to support keys insertions without
@@ -1196,31 +1237,31 @@ public:
     template<class V = T>
     result insert(const u8* const data, sz size, V&& value = V{}) noexcept
     {
-        const Key key{data, size};
+        const KeySpan key{data, size};
         return insert(key, std::forward<V>(value));
     }
 
     void erase(const std::string& s) noexcept
     {
-        const Key key{(const u8* const)s.data(), s.size()};
+        const KeySpan key{(const u8* const)s.data(), s.size()};
         erase(key);
     }
 
     void erase(const u8* const data, sz size) noexcept
     {
-        const Key key{data, size};
+        const KeySpan key{data, size};
         erase(key);
     }
 
     [[nodiscard]] Leaf* const search(const std::string& s) const noexcept
     {
-        const Key key{(const u8* const)s.data(), s.size()};
+        const KeySpan key{(const u8* const)s.data(), s.size()};
         return search(key);
     }
 
     [[nodiscard]] Leaf* const search(const u8* const data, sz size) const noexcept
     {
-        const Key key{data, size};
+        const KeySpan key{data, size};
         return search(key);
     }
 
@@ -1232,7 +1273,7 @@ public:
                   sz limit = std::numeric_limits<sz>::max()) const noexcept
     {
         std::vector<Leaf*> leaves;
-        const Key key{(const u8* const)prefix.data(), prefix.size()};
+        const KeySpan key{(const u8* const)prefix.data(), prefix.size()};
 
         search_prefix(key, leaves, limit);
         return leaves;
@@ -1246,7 +1287,7 @@ public:
                   sz limit = std::numeric_limits<sz>::max()) const noexcept
     {
         std::vector<const Leaf*> leaves;
-        const Key key{prefix, prefix_size};
+        const KeySpan key{prefix, prefix_size};
 
         search_prefix(key, leaves, limit);
         return leaves;
@@ -1256,7 +1297,7 @@ public:
     //
     [[nodiscard]] const entry_ptr search_prefix_node(const std::string& prefix) const noexcept
     {
-        const Key key{(const u8* const)prefix.data(), prefix.size()};
+        const KeySpan key{(const u8* const)prefix.data(), prefix.size()};
         return search_prefix_node(key);
     }
 
@@ -1265,7 +1306,7 @@ public:
     [[nodiscard]] const entry_ptr search_prefix_node(const u8* const prefix,
                                                      sz prefix_size) const noexcept
     {
-        const Key key{prefix, prefix_size};
+        const KeySpan key{prefix, prefix_size};
         return search_prefix_node(key);
     }
 
@@ -1289,7 +1330,7 @@ public:
                      sz limit = std::numeric_limits<sz>::max()) const noexcept
     {
         std::vector<Leaf*> leaves;
-        const Key key{prefix, prefix_size};
+        const KeySpan key{prefix, prefix_size};
 
         search_prefix_if(key, leaves, pred, limit);
         return leaves;
@@ -1617,10 +1658,10 @@ public:
 private:
     // Handles insertion when we reached entry and entry is a key reference.
     //
-    void insert_at_entry(entry_ptr& entry, const Key& key, KeyRef value, sz depth) noexcept
+    void insert_at_entry(entry_ptr& entry, const KeySpan& key, KeyRef value, sz depth) noexcept
     {
         KeyRef old_ref = entry.key_ref();
-        Key old_key = m_data[old_ref];
+        KeySpan old_key = m_data[old_ref];
 
         if (key == old_key) {
             Leaf* leaf = Leaf::new_leaf(2);
@@ -1638,10 +1679,10 @@ private:
      * Handles insertion when we reached leaf node. With current implementation, we will only insert
      * new key if it differs from an exitisting leaf.
      */
-    void insert_at_leaf(entry_ptr& entry, const Key& key, KeyRef value, sz depth) noexcept
+    void insert_at_leaf(entry_ptr& entry, const KeySpan& key, KeyRef value, sz depth) noexcept
     {
         Leaf* leaf = entry.leaf_ptr();
-        Key old_key = m_data[leaf->m_refs[0]];
+        KeySpan old_key = m_data[leaf->m_refs[0]];
 
         if (key == old_key) {
             entry = leaf->push_back(value);
@@ -1655,7 +1696,7 @@ private:
     // node prefix.
     //
     template<class V>
-    void insert_at_node(entry_ptr& entry, const Key& key, KeyRef value, sz depth,
+    void insert_at_node(entry_ptr& entry, const KeySpan& key, KeyRef value, sz depth,
                         sz cp_len) noexcept
     {
         Node* node = entry.node_ptr();
@@ -1666,7 +1707,7 @@ private:
 
     // Insert new key into the tree.
     //
-    void insert(const Key& key, KeyRef value) noexcept
+    void insert(const KeySpan& key, KeyRef value) noexcept
     {
         if (m_root)
             return insert(m_root, key, value, 0);
@@ -1676,7 +1717,7 @@ private:
 
     // Inserts new key into the tree.
     //
-    void insert(entry_ptr& entry, const Key& key, KeyRef value, sz depth) noexcept
+    void insert(entry_ptr& entry, const KeySpan& key, KeyRef value, sz depth) noexcept
     {
         assert(entry);
 
@@ -1706,7 +1747,7 @@ private:
         node->add_child(key[depth], leaf);
     }
 
-    void erase(const Key& key) noexcept
+    void erase(const KeySpan& key) noexcept
     {
         if (!m_root)
             return;
@@ -1725,7 +1766,7 @@ private:
     // If remaining children are below some treshold we will shrink node to save space.
     // If we have only 1 child left in node, we will replace node with it's child (collapse it).
     //
-    void erase_leaf(entry_ptr& entry, Leaf* leaf, const Key& key, sz depth) noexcept
+    void erase_leaf(entry_ptr& entry, Leaf* leaf, const KeySpan& key, sz depth) noexcept
     {
         if (!leaf->match(key))
             return;
@@ -1745,7 +1786,7 @@ private:
     // which is shrunk if necessary. If that node now has only one child,
     // it is replaced by its child and the compressed path is adjusted.
     //
-    void erase(entry_ptr& entry, const Key& key, sz depth) noexcept
+    void erase(entry_ptr& entry, const KeySpan& key, sz depth) noexcept
     {
         Node* node = entry.node_ptr();
         sz cp_len = node->common_header_prefix(key, depth);
@@ -1765,7 +1806,7 @@ private:
         erase_leaf(entry, next->leaf_ptr(), key, depth);
     }
 
-    Leaf* const search(const Key& key) const noexcept
+    Leaf* const search(const KeySpan& key) const noexcept
     {
         if (m_root)
             return search(m_root, key, 0);
@@ -1773,7 +1814,7 @@ private:
         return nullptr;
     }
 
-    Leaf* const search(const entry_ptr& entry, const Key& key, sz depth) const noexcept
+    Leaf* const search(const entry_ptr& entry, const KeySpan& key, sz depth) const noexcept
     {
         if (entry.leaf()) {
             Leaf* leaf = entry.leaf_ptr();
@@ -1803,13 +1844,13 @@ private:
 
     bool empty() const noexcept { return m_root; }
 
-    void search_prefix(const Key& key, std::vector<Leaf*>& leaves, sz limit) const noexcept
+    void search_prefix(const KeySpan& key, std::vector<Leaf*>& leaves, sz limit) const noexcept
     {
         if (m_root)
             search_prefix(m_root, key, 0, leaves, limit);
     }
 
-    void search_prefix(const entry_ptr& entry, const Key& prefix, sz depth,
+    void search_prefix(const entry_ptr& entry, const KeySpan& prefix, sz depth,
                        std::vector<Leaf*>& leaves, sz limit) const noexcept
     {
         if (entry.leaf()) {
@@ -1847,7 +1888,7 @@ private:
             search_prefix(*next, prefix, depth + 1, leaves, limit);
     }
 
-    entry_ptr search_prefix_node(const Key& key) const noexcept
+    entry_ptr search_prefix_node(const KeySpan& key) const noexcept
     {
         if (m_root)
             return search_prefix_node(m_root, key, 0);
@@ -1855,7 +1896,8 @@ private:
         return nullptr;
     }
 
-    entry_ptr search_prefix_node(const entry_ptr& entry, const Key& prefix, sz depth) const noexcept
+    entry_ptr search_prefix_node(const entry_ptr& entry, const KeySpan& prefix,
+                                 sz depth) const noexcept
     {
         if (entry.leaf())
             return entry.leaf_ptr()->match_prefix(prefix) ? entry : nullptr;
@@ -1881,7 +1923,7 @@ private:
     }
 
     template<class Pred>
-    void search_prefix_if(const Key& key, std::vector<Leaf*>& leaves, Pred pred,
+    void search_prefix_if(const KeySpan& key, std::vector<Leaf*>& leaves, Pred pred,
                           sz limit) const noexcept
     {
         if (m_root)
@@ -1889,7 +1931,7 @@ private:
     }
 
     template<class Pred>
-    void search_prefix_if(const entry_ptr& entry, const Key& prefix, sz depth,
+    void search_prefix_if(const entry_ptr& entry, const KeySpan& prefix, sz depth,
                           std::vector<Leaf*>& leaves, Pred pred, sz limit) const noexcept
     {
         if (entry.leaf()) {
@@ -1931,7 +1973,7 @@ private:
 
 protected:
     entry_ptr m_root;
-    Data m_data[];
+    Data m_data;
 };
 
 } // namespace ast
