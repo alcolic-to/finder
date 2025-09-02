@@ -137,8 +137,23 @@ private:
  */
 template<class T>
 class KeyValue {
+public:
+    static KeyValue* new_kv(const KeySpan& key)
+    {
+        KeyValue* kv = static_cast<KeyValue*>(std::malloc(sizeof(KeyValue) + key.size()));
+        kv->m_key_size = key.size();
+        key.copy_to(kv->m_key, kv->m_key_size);
+
+        return kv;
+    }
+
     constexpr bool empty() { return m_key_size == 0; }
 
+    constexpr u32 size() { return m_key_size; }
+
+    constexpr const u8* key() { return m_key; }
+
+private:
     u32 m_key_size;
     u8 m_key[];
 };
@@ -151,9 +166,20 @@ class KeyValue {
  */
 template<class T>
 class KeyRef {
+public:
+    KeyRef() = default;
+
+    KeyRef(u32 idx, u32 offset) : m_idx{idx}, m_offset{offset} {}
+
     constexpr u32 idx() const noexcept { return m_idx; }
 
     constexpr u32 offset() const noexcept { return m_offset; }
+
+    constexpr KeyRef& next() noexcept
+    {
+        ++m_offset;
+        return *this;
+    }
 
     KeyRef& pack()
     {
@@ -167,6 +193,7 @@ class KeyRef {
         return *this;
     }
 
+private:
     u32 m_idx;    // Data index in data array.
     u32 m_offset; // Prefix offset from the start of the key.
 };
@@ -180,11 +207,12 @@ static_assert(sizeof(KeyRef<void>) == sizeof(void*));
  */
 template<class T>
 class Leaf {
+public:
     using KeyRef = KeyRef<T>;
 
-    Leaf* new_leaf(u32 size = 2)
+    static Leaf* new_leaf(u32 size = 2)
     {
-        Leaf* leaf = malloc(sizeof(Leaf) + sizeof(KeyRef) * size);
+        Leaf* leaf = static_cast<Leaf*>(malloc(sizeof(Leaf) + sizeof(KeyRef) * size));
         leaf->m_size = 0;
         leaf->m_capacity = size;
         return leaf;
@@ -194,7 +222,7 @@ class Leaf {
     {
         Leaf* leaf = this;
         if (m_size == m_capacity) {
-            leaf = malloc(sizeof(Leaf) + sizeof(KeyRef) * m_capacity * 2);
+            leaf = static_cast<Leaf*>(malloc(sizeof(Leaf) + sizeof(KeyRef) * m_capacity * 2));
             leaf->m_size = m_size;
             leaf->m_capacity = m_capacity * 2;
             std::memcpy(leaf->m_refs, m_refs, m_capacity);
@@ -204,6 +232,8 @@ class Leaf {
         leaf->m_refs[leaf->m_size++] = ref;
         return leaf;
     }
+
+    [[nodiscard]] KeyRef next_key_ref() { return m_refs[0]; }
 
     u32 m_size;
     u32 m_capacity;
@@ -246,7 +276,10 @@ public:
 
     constexpr entry_ptr(const Leaf* leaf) noexcept : m_ptr{set_tag(leaf, leaf_tag)} {}
 
-    constexpr entry_ptr(KeyRef ref) noexcept : m_ptr{set_tag(ref.pack(), ref_tag)} {}
+    constexpr entry_ptr(KeyRef ref) noexcept
+        : m_ptr{set_tag(std::bit_cast<const void*>(ref.pack()), ref_tag)}
+    {
+    }
 
     constexpr operator bool() const noexcept { return m_ptr != nullptr; }
 
@@ -271,7 +304,7 @@ public:
     [[nodiscard]] constexpr KeyRef key_ref() const noexcept
     {
         assert(ref());
-        return KeyRef{m_ptr}.unpack();
+        return std::bit_cast<KeyRef>(m_ptr).unpack();
     }
 
     /**
@@ -281,7 +314,7 @@ public:
      * node node type an call us again. If it is a leaf, it finds first non null data pointer and
      * returns it.
      */
-    [[nodiscard]] constexpr const KeyRef& next_key_ref() const noexcept
+    [[nodiscard]] constexpr KeyRef next_key_ref() const noexcept
     {
         assert(*this);
 
@@ -291,13 +324,7 @@ public:
         if (node())
             return node_ptr()->next_key_ref();
 
-        Leaf* leaf = leaf_ptr();
-        for (u32 i = 0; i < leaf->m_size; ++i)
-            if (leaf->m_refs[i])
-                return *leaf->m_refs[i];
-
-        /* This is unreachable, but leaving assert while developing. */
-        assert(false);
+        return leaf_ptr()->next_key_ref();
     }
 
     /**
@@ -466,7 +493,7 @@ public:
         } // clang-format on
     }
 
-    [[nodiscard]] const KeyRef next_key_ref() const noexcept
+    [[nodiscard]] KeyRef next_key_ref() const noexcept
     {
         switch (m_type) { // clang-format off
         case Node4_t:   return node4()->next_key_ref();
@@ -525,13 +552,14 @@ static_assert(sizeof(Node<void>) == 16);
 template<class T>
 class Node4 final : public Node<T> {
 public:
+    using AST = AST<T>;
     using Node = Node<T>;
     using Node16 = Node16<T>;
     using Node48 = Node48<T>;
     using Node256 = Node256<T>;
     using Leaf = Leaf<T>;
     using KeyRef = KeyRef<T>;
-    using Data = KeyValue<T>;
+    using KeyValue = KeyValue<T>;
     using entry_ptr = entry_ptr<T>;
 
     using Node::m_num_children;
@@ -546,37 +574,14 @@ public:
     // all bytes matches, we will just skip all prefix bytes and go to directly to next node.
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
-    template<class V>
-    Node4(const KeySpan& key, V&& value, sz depth, const Leaf& new_leaf, const Leaf& leaf)
-        : Node{Node4_t}
-    {
-        for (m_prefix_len = 0; key[depth] == leaf[depth]; ++m_prefix_len, ++depth)
-            if (m_prefix_len < max_prefix_len)
-                m_prefix[m_prefix_len] = key[depth];
-
-        assert(depth < key.size() && depth < leaf.key_size());
-        assert(key[depth] != leaf[depth]);
-
-        add_child(key[depth], &new_leaf);
-        add_child(leaf[depth], &leaf);
-    }
-
-    // Creates new node4 as a parent for new_leaf and old leaf. New node will have 2
-    // children with common prefix extracted from them. We will store information about common
-    // prefix len in prefix_len, but we can only copy up to max_prefix_bytes in prefix array.
-    // Later when searching for a key, we will compare all bytes from our prefix array, and if
-    // all bytes matches, we will just skip all prefix bytes and go to directly to next node.
-    // This is hybrid approach which mixes optimistic and pessimistic approaches.
-    //
-    template<class V>
-    Node4(const KeySpan& key, KeyRef value, sz depth, KeySpan old_key, KeyRef old_value)
+    Node4(const KeySpan& key, KeyRef value, sz depth, const KeySpan& old_key, KeyRef old_value)
         : Node{Node4_t}
     {
         for (m_prefix_len = 0; key[depth] == old_key[depth]; ++m_prefix_len, ++depth)
             if (m_prefix_len < max_prefix_len)
                 m_prefix[m_prefix_len] = key[depth];
 
-        assert(depth < key.size() && depth < old_key.key_size());
+        assert(depth < key.size() && depth < old_key.size());
         assert(key[depth] != old_key[depth]);
 
         add_child(key[depth], value);
@@ -590,7 +595,6 @@ public:
     // all bytes matches, we will just skip all prefix bytes and go to directly to next node.
     // This is hybrid approach which mixes optimistic and pessimistic approaches.
     //
-    template<class V>
     Node4(const KeySpan& key, KeyRef value, sz depth, KeySpan old_key, const Leaf& old_leaf)
         : Node{Node4_t}
     {
@@ -598,24 +602,29 @@ public:
             if (m_prefix_len < max_prefix_len)
                 m_prefix[m_prefix_len] = key[depth];
 
-        assert(depth < key.size() && depth < old_key.key_size());
+        assert(depth < key.size() && depth < old_key.size());
         assert(key[depth] != old_key[depth]);
 
         add_child(key[depth], value);
-        add_child(old_key[depth], old_leaf);
+        add_child(old_key[depth], &old_leaf);
     }
 
-    template<class V>
-    Node4(const KeySpan& key, KeyRef value, sz depth, Node& node, sz cp_len) : Node{Node4_t}
+    Node4(const AST& ctx, const KeySpan& key, KeyRef value, sz depth, Node& node, sz cp_len)
+        : Node{Node4_t}
     {
         assert(cp_len < node.m_prefix_len);
 
         m_prefix_len = cp_len;
         std::memcpy(m_prefix, node.m_prefix, hdrlen(cp_len));
 
+        KeySpan k = ctx.m_data[node.next_key_ref()];
+        k[depth + cp_len];
+
         const u8* prefix_src = node.m_prefix_len <= max_prefix_len ?
                                    &node.m_prefix[cp_len] :
-                                   &node.next_key_ref()[depth + cp_len];
+                                   ctx.m_data[node.next_key_ref()].data() + depth + cp_len;
+
+        // FIXME! I am not sure whether above data access within keyspan will work. Check it.
 
         const u8 node_key = prefix_src[0]; // Byte for node mapping.
 
@@ -724,7 +733,7 @@ public:
 
     [[nodiscard]] Node16* grow() noexcept { return new Node16{*this}; }
 
-    [[nodiscard]] const Data& next_key_ref() const noexcept { return m_children[0].next_data(); }
+    [[nodiscard]] KeyRef next_key_ref() const noexcept { return m_children[0].next_key_ref(); }
 
     u8 m_keys[4]{};            // Keys with span of 1 byte.
     entry_ptr m_children[4]{}; // Pointers to children nodes.
@@ -744,7 +753,7 @@ public:
     using Node256 = Node256<T>;
     using Leaf = Leaf<T>;
     using KeyRef = KeyRef<T>;
-    using Data = KeyValue<T>;
+    using KeyValue = KeyValue<T>;
     using entry_ptr = entry_ptr<T>;
 
     using Node::m_num_children;
@@ -838,7 +847,7 @@ public:
 
     [[nodiscard]] Node4* shrink() noexcept { return new Node4{*this}; }
 
-    [[nodiscard]] const Data& next_key_ref() const noexcept { return m_children[0].next_data(); }
+    [[nodiscard]] KeyRef next_key_ref() const noexcept { return m_children[0].next_key_ref(); }
 
     u8 m_keys[16]{};            // Keys with span of 1 byte.
     entry_ptr m_children[16]{}; // Pointers to children nodes.
@@ -860,7 +869,7 @@ public:
     using Node256 = Node256<T>;
     using Leaf = Leaf<T>;
     using KeyRef = KeyRef<T>;
-    using Data = KeyValue<T>;
+    using KeyValue = KeyValue<T>;
     using entry_ptr = entry_ptr<T>;
 
     using Node::m_num_children;
@@ -938,14 +947,14 @@ public:
 
     [[nodiscard]] Node16* shrink() noexcept { return new Node16{*this}; }
 
-    [[nodiscard]] const Data& next_key_ref() const noexcept
+    [[nodiscard]] KeyRef next_key_ref() const noexcept
     {
         for (u16 i = 0; i < 256U; ++i)
             if (m_idxs[i] != empty_slot)
                 return m_children[m_idxs[i]].next_key_ref();
 
         assert(false);
-        return *Leaf::new_leaf(KeySpan{nullptr, 0}, T{});
+        return KeyRef{};
     }
 
     // Keys with span of 1 byte with value of index for m_idxs array.
@@ -970,7 +979,7 @@ public:
     using Node48 = Node48<T>;
     using Leaf = Leaf<T>;
     using KeyRef = KeyRef<T>;
-    using Data = KeyValue<T>;
+    using KeyValue = KeyValue<T>;
     using entry_ptr = entry_ptr<T>;
 
     using Node::m_num_children;
@@ -1015,14 +1024,14 @@ public:
 
     [[nodiscard]] Node48* shrink() noexcept { return new Node48{*this}; }
 
-    [[nodiscard]] const Data& next_key_ref() const noexcept
+    [[nodiscard]] KeyRef next_key_ref() const noexcept
     {
         for (u16 i = 0; i < 256; ++i)
             if (m_children[i])
                 return m_children[i].next_key_ref();
 
         assert(false);
-        return *Leaf::new_leaf(KeySpan{nullptr, 0}, T{});
+        return KeyRef{};
     }
 
     entry_ptr m_children[256]{}; // Pointers to children nodes.
@@ -1110,49 +1119,61 @@ public:
  */
 template<class T>
 class Data {
+public:
+    using KeyRef = KeyRef<T>;
     using KeyValue = KeyValue<T>;
 
-    constexpr Data(u32 size)
+    static constexpr sz init_size = 128;
+
+    Data() : m_capacity{0}, m_kv{nullptr} {}
+
+    Data(u32 size)
     {
-        m_kv = calloc(size, sizeof(KeyValue));
-        m_capacity = 0;
+        m_kv = calloc(size, sizeof(KeyValue*));
+        m_capacity = size;
     }
 
-    KeyValue insert(KeySpan key)
+    KeyRef insert(const KeySpan& key)
     {
+        if (m_kv == nullptr) {
+            m_kv = static_cast<KeyValue**>(calloc(init_size, sizeof(KeyValue*)));
+            m_capacity = init_size;
+        }
+
         for (u32 i = 0; i < m_capacity; ++i) {
-            if (m_kv[i].empty()) {
-                m_kv[i] = key;
-                ++m_capacity;
-                return m_kv[i];
+            if (m_kv[i] == nullptr) {
+                m_kv[i] = KeyValue::new_kv(key);
+                return KeyRef{i, 0};
             }
         }
 
-        KeyValue* old = m_kv;
-        m_kv = calloc(m_capacity * 2, sizeof(KeyValue));
+        KeyValue** old = m_kv;
+        m_kv = static_cast<KeyValue**>(calloc(m_capacity * 2, sizeof(KeyValue*)));
         std::memcpy(m_kv, old, m_capacity * sizeof(KeyValue));
+        free(old);
 
-        KeyValue new_kv = m_kv[m_capacity] = key;
+        m_kv[m_capacity] = KeyValue::new_kv(key);
+        KeyRef ref{m_capacity, 0};
         m_capacity *= 2;
 
-        free(old);
-        return new_kv;
+        return ref;
     }
 
     /**
      * Returns a key which represents specific key at offset -> suffix of a key.
      */
-    KeySpan operator[](const KeyRef<T>& ref)
+    KeySpan operator[](const KeyRef& ref) const
     {
-        assert(ref.idx() < m_size);
-        const KeyValue& kv = m_kv[ref.idx()];
+        assert(ref.idx() < m_capacity);
+        KeyValue& kv = *m_kv[ref.idx()];
 
-        assert(kv.m_key_size > ref.offset());
-        return KeySpan{kv.m_key + ref.offset(), kv.m_key_size - ref.offset()};
+        assert(kv.size() > ref.offset());
+        return KeySpan{kv.key() + ref.offset(), kv.size() - ref.offset()};
     }
 
+private:
     u32 m_capacity;
-    KeyValue* m_kv;
+    KeyValue** m_kv;
 };
 
 template<class T = void*>
@@ -1169,8 +1190,8 @@ public:
     using entry_ptr = entry_ptr<T>;
 
     // Class that wraps insert result.
-    // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
-    // for more details).
+    // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read
+    // insert for more details).
     //
     class result {
     public:
@@ -1193,7 +1214,7 @@ public:
         bool m_ok;
     };
 
-    AST() { m_data = Data::new_data(128); }
+    AST() = default;
 
     ~AST() noexcept
     {
@@ -1209,30 +1230,30 @@ public:
     // Inserts single key/value pair into the tree. In order to support keys insertions without
     // values, we will default class T = void*, and default initialize value parameter. Also, in
     // order to avoid duplicating code, we need to introduce new template class V in order to
-    // perfectly forward value to leaf. If we were to use T&& value as a parameter without template
-    // declaration, compiler would treat it as a rvalue reference only.
+    // perfectly forward value to leaf. If we were to use T&& value as a parameter without
+    // template declaration, compiler would treat it as a rvalue reference only.
     //
-    template<class V = T>
-    result insert(const std::string& s) noexcept
+    void insert(const std::string& s) noexcept
     {
+        // // Dummy data insertion for now.
+        // if (search(s))
+        //     return {{}, false};
+
         const KeySpan key{s};
 
-        // Dummy data insertion for now.
-        if (search(s))
-            return {{}, false};
-
-        KeyValue kv = m_data.insert(key);
-        for (sz i = 0; i < key.size(); ++i)
-            insert(key, )
-
-                return insert(key);
+        KeyRef ref = m_data.insert(key);
+        for (sz i = 0; i < key.size(); ++i) {
+            KeySpan suffix{key.data() + i, key.size() - i};
+            insert(suffix, ref);
+            ref.next();
+        }
     }
 
     // Inserts single key/value pair into the tree. In order to support keys insertions without
     // values, we will default class T = void*, and default initialize value parameter. Also, in
     // order to avoid duplicating code, we need to introduce new template class V in order to
-    // perfectly forward value to leaf. If we were to use T&& value as a parameter without template
-    // declaration, compiler would treat it as a rvalue reference only.
+    // perfectly forward value to leaf. If we were to use T&& value as a parameter without
+    // template declaration, compiler would treat it as a rvalue reference only.
     //
     template<class V = T>
     result insert(const u8* const data, sz size, V&& value = V{}) noexcept
@@ -1265,8 +1286,8 @@ public:
         return search(key);
     }
 
-    // Finds all entries whose key starts with provided string. User can limit number of returned
-    // entries with limit parameter.
+    // Finds all entries whose key starts with provided string. User can limit number of
+    // returned entries with limit parameter.
     //
     [[nodiscard]] const std::vector<Leaf*>
     search_prefix(const std::string& prefix,
@@ -1310,8 +1331,8 @@ public:
         return search_prefix_node(key);
     }
 
-    // Finds all entries whose key starts with provided string. User can limit number of returned
-    // entries with limit parameter.
+    // Finds all entries whose key starts with provided string. User can limit number of
+    // returned entries with limit parameter.
     //
     template<class Pred>
     [[nodiscard]] const std::vector<Leaf*>
@@ -1476,10 +1497,10 @@ public:
         }
     }
 
-    // Invoked callable function and returns true if callback is void function, otherwise returns
-    // result of callback. This is done in order to be able to break iterations in for_each loop
-    // while allowing user to pass both void and bool functions. This is done for fun and it is not
-    // necessary at all.
+    // Invoked callable function and returns true if callback is void function, otherwise
+    // returns result of callback. This is done in order to be able to break iterations in
+    // for_each loop while allowing user to pass both void and bool functions. This is done for
+    // fun and it is not necessary at all.
     //
     template<visit_type type>
     bool invoke(entry_ptr& entry,
@@ -1676,13 +1697,13 @@ private:
     }
 
     /**
-     * Handles insertion when we reached leaf node. With current implementation, we will only insert
-     * new key if it differs from an exitisting leaf.
+     * Handles insertion when we reached leaf node. With current implementation, we will only
+     * insert new key if it differs from an exitisting leaf.
      */
     void insert_at_leaf(entry_ptr& entry, const KeySpan& key, KeyRef value, sz depth) noexcept
     {
         Leaf* leaf = entry.leaf_ptr();
-        KeySpan old_key = m_data[leaf->m_refs[0]];
+        KeySpan old_key = m_data[leaf->next_key_ref()];
 
         if (key == old_key) {
             entry = leaf->push_back(value);
@@ -1692,17 +1713,16 @@ private:
         entry = new Node4{key, value, depth, old_key, *leaf};
     }
 
-    // Handles insertion when we reached innder node and key at provided depth did not match full
-    // node prefix.
+    // Handles insertion when we reached innder node and key at provided depth did not match
+    // full node prefix.
     //
-    template<class V>
     void insert_at_node(entry_ptr& entry, const KeySpan& key, KeyRef value, sz depth,
                         sz cp_len) noexcept
     {
         Node* node = entry.node_ptr();
         assert(cp_len != node->m_prefix_len);
 
-        entry = new Node4{key, value, depth, *node, cp_len};
+        entry = new Node4{*this, key, value, depth, *node, cp_len};
     }
 
     // Insert new key into the tree.
@@ -1722,7 +1742,7 @@ private:
         assert(entry);
 
         if (entry.ref())
-            return insert_at_entry(*this, entry, key, value, depth);
+            return insert_at_entry(entry, key, value, depth);
 
         if (entry.leaf())
             return insert_at_leaf(entry, key, value, depth);
@@ -1743,8 +1763,7 @@ private:
         if (node->full())
             entry.reset(node = node->grow());
 
-        Leaf* leaf = Leaf::new_leaf(key, value);
-        node->add_child(key[depth], leaf);
+        node->add_child(key[depth], value);
     }
 
     void erase(const KeySpan& key) noexcept
@@ -1971,7 +1990,7 @@ private:
             search_prefix_if(*next, prefix, depth + 1, leaves, pred, limit);
     }
 
-protected:
+public:
     entry_ptr m_root;
     Data m_data;
 };
