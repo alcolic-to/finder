@@ -234,7 +234,7 @@ public:
 
     static Leaf* new_leaf(u32 size = 2)
     {
-        Leaf* leaf = static_cast<Leaf*>(malloc(sizeof(Leaf) + sizeof(KeyRef) * size));
+        Leaf* leaf = static_cast<Leaf*>(std::malloc(sizeof(Leaf) + sizeof(KeyRef) * size));
         leaf->m_size = 0;
         leaf->m_capacity = size;
         return leaf;
@@ -244,7 +244,7 @@ public:
     {
         Leaf* leaf = this;
         if (m_size == m_capacity) {
-            leaf = static_cast<Leaf*>(malloc(sizeof(Leaf) + sizeof(KeyRef) * m_capacity * 2));
+            leaf = static_cast<Leaf*>(std::malloc(sizeof(Leaf) + sizeof(KeyRef) * m_capacity * 2));
             leaf->m_size = m_size;
             leaf->m_capacity = m_capacity * 2;
             std::memcpy(leaf->m_refs, m_refs, m_capacity * sizeof(KeyRef));
@@ -1153,7 +1153,7 @@ public:
 
     Data(u32 size)
     {
-        m_kv = calloc(size, sizeof(KeyValue*));
+        m_kv = std::calloc(size, sizeof(KeyValue*));
         m_capacity = size;
     }
 
@@ -1161,13 +1161,13 @@ public:
     {
         for (u32 i = 0; i < m_capacity; ++i)
             if (m_kv[i])
-                free(m_kv[i]);
+                std::free(m_kv[i]);
     }
 
     KeyRef insert(const KeySpan& key)
     {
         if (m_kv == nullptr) {
-            m_kv = static_cast<KeyValue**>(calloc(init_size, sizeof(KeyValue*)));
+            m_kv = static_cast<KeyValue**>(std::calloc(init_size, sizeof(KeyValue*)));
             m_capacity = init_size;
         }
 
@@ -1179,7 +1179,7 @@ public:
         }
 
         KeyValue** old = m_kv;
-        m_kv = static_cast<KeyValue**>(calloc(m_capacity * 2, sizeof(KeyValue*)));
+        m_kv = static_cast<KeyValue**>(std::calloc(m_capacity * 2, sizeof(KeyValue*)));
         std::memcpy(m_kv, old, m_capacity * sizeof(KeyValue));
         free(old);
 
@@ -1188,6 +1188,14 @@ public:
         m_capacity *= 2;
 
         return ref;
+    }
+
+    void erase(u32 idx)
+    {
+        assert(idx < m_capacity);
+
+        std::free(m_kv[idx]);
+        m_kv[idx] = nullptr;
     }
 
     /**
@@ -1849,11 +1857,20 @@ private:
         if (kv == nullptr)
             return;
 
-        if (m_root.node())
-            return erase(m_root, key, 0, kv->data_idx());
+        for (sz i = 0; i < key.size(); ++i) {
+            KeySpan suffix{key.data() + i, key.size() - 1 - i};
 
-        assert(m_data[m_root.key_ref()] == key);
-        m_root.reset();
+            if (m_root.node()) {
+                erase(m_root, suffix, 0, kv->data_idx());
+                continue;
+            }
+
+            assert(i == key.size() - 1);
+            assert(m_data[m_root.key_ref()] == suffix);
+            m_root.reset();
+        }
+
+        m_data.erase(kv->data_idx());
     }
 
     void erase_ref(entry_ptr& entry, KeyRef ref, const KeySpan& key, sz depth,
@@ -1879,8 +1896,7 @@ private:
     {
         assert(leaf->m_size > 1);
 
-        KeyRef leaf_ref = leaf->m_refs[0];
-        KeySpan leaf_key = m_data[leaf_ref];
+        KeySpan leaf_key = m_data[leaf->m_refs[0]];
         if (key != leaf_key)
             return;
 
@@ -1919,13 +1935,13 @@ private:
         if (!next)
             return;
 
-        if (next->node())
-            return erase(*next, key, depth + 1, data_idx);
+        if (next->ref())
+            return erase_ref(entry, next->key_ref(), key, depth, data_idx);
 
         if (next->leaf())
             return erase_at_leaf(entry, next->leaf_ptr(), key, depth, data_idx);
 
-        erase_ref(entry, next->key_ref(), key, depth + 1, data_idx);
+        erase(*next, key, depth + 1, data_idx);
     }
 
     /**
