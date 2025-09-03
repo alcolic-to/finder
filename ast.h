@@ -112,7 +112,17 @@ public:
     {
         if (m_size != other.m_size)
             return false;
+
         return !std::memcmp(m_data, other.m_data, m_size);
+    }
+
+    bool match_prefix(const KeySpan& other) const noexcept
+    {
+        if (other.size() > m_size)
+            return false;
+
+        // FIXME! This should take into accout a terminal 0.
+        return !std::memcmp(m_data, other.m_data, other.size());
     }
 
     // Copy key to destination buffer with size len. We must manually copy last 0 byte, since we
@@ -1243,10 +1253,6 @@ public:
     //
     void insert(const std::string& s) noexcept
     {
-        // // Dummy data insertion for now.
-        // if (search(s))
-        //     return {{}, false};
-
         const KeySpan key{s};
 
         KeyRef ref = m_data.insert(key);
@@ -1297,29 +1303,29 @@ public:
     // Finds all entries whose key starts with provided string. User can limit number of
     // returned entries with limit parameter.
     //
-    [[nodiscard]] const std::vector<Leaf*>
+    [[nodiscard]] const std::vector<KeyValue*>
     search_prefix(const std::string& prefix,
                   sz limit = std::numeric_limits<sz>::max()) const noexcept
     {
-        std::vector<Leaf*> leaves;
+        std::vector<KeyValue*> result;
         const KeySpan key{(const u8* const)prefix.data(), prefix.size()};
 
-        search_prefix(key, leaves, limit);
-        return leaves;
+        search_prefix(key, result, limit);
+        return result;
     }
 
     // Finds all entries whose key starts with provided prefix with given size. User can limit
     // number of returned entries with limit parameter.
     //
-    [[nodiscard]] const std::vector<Leaf*>
+    [[nodiscard]] const std::vector<KeyValue*>
     search_prefix(const u8* const prefix, sz prefix_size,
                   sz limit = std::numeric_limits<sz>::max()) const noexcept
     {
-        std::vector<const Leaf*> leaves;
+        std::vector<const KeyValue*> result;
         const KeySpan key{prefix, prefix_size};
 
-        search_prefix(key, leaves, limit);
-        return leaves;
+        search_prefix(key, result, limit);
+        return result;
     }
 
     // Find an entry pointer whose key starts with provided string
@@ -1400,7 +1406,7 @@ public:
     sz leaves_size_in_bytes()
     {
         sz size = 0;
-        AST::for_each_leaf([&](const Leaf* leaf) { size += sizeof(Leaf) + leaf->key_size(); });
+        AST::for_each_leaf([&](const Leaf* leaf) { size += sizeof(Leaf) + leaf->m_capacity; });
 
         return size;
     }
@@ -1408,13 +1414,13 @@ public:
     // Returns size of whole tree in bytes.
     // By default, it include whole leafs. Leaf keys can be disabled by passing false.
     //
-    sz size_in_bytes(bool full_leaves = true) const noexcept
+    sz size_in_bytes() const noexcept
     {
         sz size = sizeof(AST);
 
         for_each([&](const entry_ptr& entry) {
             if (entry.leaf())
-                size += sizeof(Leaf) + (full_leaves ? entry.leaf_ptr()->key_size() : 0);
+                size += sizeof(Leaf) + entry.leaf_ptr()->m_capacity();
             else {
                 Node* node = entry.node_ptr();
                 switch (node->m_type) { // clang-format off
@@ -1834,8 +1840,10 @@ private:
     }
 
     /**
-     * Searches original string (not suffix) in a trie and returns a pointer to it if exists.
-     * Note that this search is O(key length) + O(linear search in leaf).
+     * Searches original KeyValue based on key (not suffix) in a trie and returns a pointer to it if
+     * exists.
+     * Note that this search complexity might deviate into linear, because it got to go
+     * through all key refs in leaf node.
      */
     KeyValue* const search(const KeySpan& key) const noexcept
     {
@@ -1893,19 +1901,31 @@ private:
 
     bool empty() const noexcept { return m_root; }
 
-    void search_prefix(const KeySpan& key, std::vector<Leaf*>& leaves, sz limit) const noexcept
+    void search_prefix(const KeySpan& key, std::vector<KeyValue*>& result, sz limit) const noexcept
     {
         if (m_root)
-            search_prefix(m_root, key, 0, leaves, limit);
+            search_prefix(m_root, key, 0, result, limit);
     }
 
     void search_prefix(const entry_ptr& entry, const KeySpan& prefix, sz depth,
-                       std::vector<Leaf*>& leaves, sz limit) const noexcept
+                       std::vector<KeyValue*>& result, sz limit) const noexcept
     {
+        if (entry.ref()) {
+            KeyRef ref = entry.key_ref();
+            KeySpan key = m_data[ref];
+
+            if (prefix.match_prefix(key))
+                result.push_back(m_data[ref.idx()]);
+
+            return;
+        }
+
         if (entry.leaf()) {
             Leaf* leaf = entry.leaf_ptr();
-            if (leaf->match_prefix(prefix))
-                leaves.push_back(leaf);
+            KeySpan leaf_key = m_data[leaf->m_refs[0]];
+            if (leaf_key.match_prefix(prefix))
+                for (u32 i = 0; i < leaf->m_size; ++i)
+                    result.push_back(m_data[leaf[i].idx()]);
 
             return;
         }
@@ -1916,9 +1936,22 @@ private:
         // All bytes except terminal byte matched, so just collect leaves.
         //
         if (depth + cp_len == prefix.size() - 1) {
-            for_each_leaf(entry, [&](Leaf* leaf) {
-                leaves.push_back(leaf);
-                return leaves.size() < limit; // Limits number of iterations.
+            for_each(entry, [&](const entry_ptr& ent) {
+                if (ent.ref()) {
+                    result.push_back(m_data[ent.key_ref().idx()]);
+                    return result.size() < limit; // Limits number of iterations.
+                }
+
+                if (ent.leaf()) {
+                    Leaf* leaf = ent.leaf_ptr();
+                    for (u32 i = 0; i < leaf->m_size; ++i) {
+                        result.push_back(m_data[ent.key_ref().idx()]);
+                        if (result.size() >= limit) // Limits number of iterations.
+                            return false;
+                    }
+                }
+
+                return true;
             });
 
             return;
@@ -1934,7 +1967,7 @@ private:
 
         entry_ptr* next = node->find_child(prefix[depth]);
         if (next)
-            search_prefix(*next, prefix, depth + 1, leaves, limit);
+            search_prefix(*next, prefix, depth + 1, result, limit);
     }
 
     entry_ptr search_prefix_node(const KeySpan& key) const noexcept
