@@ -169,7 +169,7 @@ class KeyRef {
 public:
     KeyRef() = default;
 
-    KeyRef(u32 idx, u32 offset) : m_idx{idx}, m_offset{offset} {}
+    KeyRef(u32 idx, u32 offset) : m_offset{offset}, m_idx{idx} {}
 
     constexpr u32 idx() const noexcept { return m_idx; }
 
@@ -183,19 +183,19 @@ public:
 
     KeyRef& pack()
     {
-        m_offset <<= 2;
+        m_offset <<= tag_bits; // FIXME! Shift by tag bits (3, not 2)!
         return *this;
     }
 
     KeyRef& unpack()
     {
-        m_offset >>= 2;
+        m_offset >>= tag_bits;
         return *this;
     }
 
 private:
-    u32 m_idx;    // Data index in data array.
     u32 m_offset; // Prefix offset from the start of the key.
+    u32 m_idx;    // Data index in data array.
 };
 
 static_assert(sizeof(KeyRef<void>) == sizeof(void*));
@@ -374,7 +374,6 @@ public:
     using Node256 = Node256<T>;
     using Leaf = Leaf<T>;
     using KeyRef = KeyRef<T>;
-    using Data = KeyValue<T>;
     using entry_ptr = entry_ptr<T>;
 
     // Construct new node from previous node by copying whole header except node type which is
@@ -567,13 +566,6 @@ public:
     using Node::m_prefix_len;
     using Node::m_type;
 
-    // Creates new node4 as a parent for new_leaf and old leaf. New node will have 2
-    // children with common prefix extracted from them. We will store information about common
-    // prefix len in prefix_len, but we can only copy up to max_prefix_bytes in prefix array.
-    // Later when searching for a key, we will compare all bytes from our prefix array, and if
-    // all bytes matches, we will just skip all prefix bytes and go to directly to next node.
-    // This is hybrid approach which mixes optimistic and pessimistic approaches.
-    //
     Node4(const KeySpan& key, KeyRef value, sz depth, const KeySpan& old_key, KeyRef old_value)
         : Node{Node4_t}
     {
@@ -616,9 +608,6 @@ public:
 
         m_prefix_len = cp_len;
         std::memcpy(m_prefix, node.m_prefix, hdrlen(cp_len));
-
-        KeySpan k = ctx.m_data[node.next_key_ref()];
-        k[depth + cp_len];
 
         const u8* prefix_src = node.m_prefix_len <= max_prefix_len ?
                                    &node.m_prefix[cp_len] :
@@ -1168,7 +1157,7 @@ public:
         KeyValue& kv = *m_kv[ref.idx()];
 
         assert(kv.size() > ref.offset());
-        return KeySpan{kv.key() + ref.offset(), kv.size() - ref.offset()};
+        return KeySpan{kv.key() + ref.offset(), kv.size() - 1 - ref.offset()};
     }
 
 private:
@@ -1243,7 +1232,7 @@ public:
 
         KeyRef ref = m_data.insert(key);
         for (sz i = 0; i < key.size(); ++i) {
-            KeySpan suffix{key.data() + i, key.size() - i};
+            KeySpan suffix{key.data() + i, key.size() - 1 - i};
             insert(suffix, ref);
             ref.next();
         }
