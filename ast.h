@@ -1122,6 +1122,13 @@ public:
         m_capacity = size;
     }
 
+    ~Data()
+    {
+        for (u32 i = 0; i < m_capacity; ++i)
+            if (m_kv[i])
+                free(m_kv[i]);
+    }
+
     KeyRef insert(const KeySpan& key)
     {
         if (m_kv == nullptr) {
