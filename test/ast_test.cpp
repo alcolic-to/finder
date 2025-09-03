@@ -181,26 +181,26 @@ TEST(suffix_trie_tests, sanity_test_3)
                 r[2]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana" || r[2]->str() == "ana");
 
-    r = s.search_prefix("not_banana");
-    ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->str() == "not_banana");
+    auto r2 = s.search_prefix("not_banana");
+    ASSERT_TRUE(r2.size() == 1);
+    ASSERT_TRUE(r2[0]->str() == "not_banana");
 
-    r = s.search_prefix("banana");
-    ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
-    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
+    r2 = s.search_prefix("banana");
+    ASSERT_TRUE(r2.size() == 2);
+    ASSERT_TRUE(r2[0]->str() == "banana" || r2[1]->str() == "banana");
+    ASSERT_TRUE(r2[0]->str() == "not_banana" || r2[1]->str() == "not_banana");
 
-    r = s.search_prefix("b");
-    ASSERT_TRUE(r.size() == 2);
-    ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
-    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
+    r2 = s.search_prefix("b");
+    ASSERT_TRUE(r2.size() == 2);
+    ASSERT_TRUE(r2[0]->str() == "banana" || r2[1]->str() == "banana");
+    ASSERT_TRUE(r2[0]->str() == "not_banana" || r2[1]->str() == "not_banana");
 
-    r = s.search_prefix("");
-    ASSERT_TRUE(r.size() == 3);
-    ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana" || r[2]->str() == "banana");
-    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana" ||
-                r[2]->str() == "not_banana");
-    ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana" || r[2]->str() == "ana");
+    r2 = s.search_prefix("");
+    ASSERT_TRUE(r2.size() == 3);
+    ASSERT_TRUE(r2[0]->str() == "banana" || r2[1]->str() == "banana" || r2[2]->str() == "banana");
+    ASSERT_TRUE(r2[0]->str() == "not_banana" || r2[1]->str() == "not_banana" ||
+                r2[2]->str() == "not_banana");
+    ASSERT_TRUE(r2[0]->str() == "ana" || r2[1]->str() == "ana" || r2[2]->str() == "ana");
 
     // s.erase_suffix("banana");
 
