@@ -3,6 +3,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 #include <iterator>
+#include <limits>
 
 #include "ast.h"
 #include "test_util.h"
@@ -13,259 +14,285 @@ using namespace ast;
 
 TEST(suffix_trie_tests, sanity_test_1)
 {
-    AST<std::string> s;
+    AST<std::string> ast;
 
-    s.insert("banana");
+    ast.insert("banana");
 
-    ASSERT_TRUE(s.search("banana")->str() == "banana");
-    ASSERT_TRUE(s.search("anana") == nullptr);
+    ASSERT_TRUE(ast.search("banana")->str() == "banana");
+    ASSERT_TRUE(ast.search("anana") == nullptr);
 
-    ASSERT_TRUE(s.search_suffix("banana")[0]->str() == "banana");
-    ASSERT_TRUE(s.search_suffix("anana")[0]->str() == "banana");
-    ASSERT_TRUE(s.search_suffix("nana")[0]->str() == "banana");
-    ASSERT_TRUE(s.search_suffix("ana")[0]->str() == "banana");
-    ASSERT_TRUE(s.search_suffix("na")[0]->str() == "banana");
-    ASSERT_TRUE(s.search_suffix("a")[0]->str() == "banana");
-    ASSERT_TRUE(s.search_suffix("")[0]->str() == "banana");
+    ASSERT_TRUE(ast.search_suffix("banana")[0]->str() == "banana");
+    ASSERT_TRUE(ast.search_suffix("anana")[0]->str() == "banana");
+    ASSERT_TRUE(ast.search_suffix("nana")[0]->str() == "banana");
+    ASSERT_TRUE(ast.search_suffix("ana")[0]->str() == "banana");
+    ASSERT_TRUE(ast.search_suffix("na")[0]->str() == "banana");
+    ASSERT_TRUE(ast.search_suffix("a")[0]->str() == "banana");
+    ASSERT_TRUE(ast.search_suffix("")[0]->str() == "banana");
 
-    ASSERT_TRUE(s.search_prefix("ba").size() == 1);
-    ASSERT_TRUE(s.search_prefix("a").size() == 1);
-    ASSERT_TRUE(s.search_prefix("an").size() == 1);
-    ASSERT_TRUE(s.search_prefix("ana").size() == 1);
-    ASSERT_TRUE(s.search_prefix("n").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("ba").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("a").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("an").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("ana").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("n").size() == 1);
 
-    s.erase("banana");
+    ast.erase("banana");
 
-    ASSERT_TRUE(s.search_suffix("banana").empty());
-    ASSERT_TRUE(s.search_prefix("banana").empty());
+    ASSERT_TRUE(ast.search_suffix("banana").empty());
+    ASSERT_TRUE(ast.search_prefix("banana").empty());
 }
 
 TEST(suffix_trie_tests, sanity_test_2)
 {
-    AST<std::string> s;
+    AST<std::string> ast;
 
-    s.insert("banana");
-    s.insert("ana");
+    ast.insert("banana");
+    ast.insert("ana");
 
-    auto r = s.search_suffix("banana");
+    auto r = ast.search_suffix("banana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "banana");
 
-    r = s.search_suffix("anana");
+    r = ast.search_suffix("anana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "banana");
 
-    r = s.search_suffix("nana");
+    r = ast.search_suffix("nana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "banana");
 
-    r = s.search_suffix("ana");
+    r = ast.search_suffix("ana");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    r = s.search_suffix("na");
+    r = ast.search_suffix("na");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    r = s.search_suffix("a");
+    r = ast.search_suffix("a");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    r = s.search_suffix("");
+    r = ast.search_suffix("");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    s.erase("ana");
+    ast.erase("ana");
 
-    r = s.search_suffix("banana");
+    r = ast.search_suffix("banana");
     ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    r = s.search_suffix("anana");
+    r = ast.search_suffix("anana");
     ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    r = s.search_suffix("nana");
+    r = ast.search_suffix("nana");
     ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    r = s.search_suffix("ana");
+    r = ast.search_suffix("ana");
     ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    r = s.search_suffix("na");
+    r = ast.search_suffix("na");
     ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    r = s.search_suffix("a");
+    r = ast.search_suffix("a");
     ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    r = s.search_suffix("");
+    r = ast.search_suffix("");
     ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    ASSERT_TRUE(s.search_prefix("ba").size() == 1);
-    ASSERT_TRUE(s.search_prefix("a").size() == 1);
-    ASSERT_TRUE(s.search_prefix("an").size() == 1);
-    ASSERT_TRUE(s.search_prefix("ana").size() == 1);
-    ASSERT_TRUE(s.search_prefix("n").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("ba").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("a").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("an").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("ana").size() == 1);
+    ASSERT_TRUE(ast.search_prefix("n").size() == 1);
 
-    s.erase("banana");
+    ast.erase("banana");
 
-    ASSERT_TRUE(s.search_suffix("banana").empty());
-    ASSERT_TRUE(s.search_prefix("banana").empty());
+    ASSERT_TRUE(ast.search_suffix("banana").empty());
+    ASSERT_TRUE(ast.search_prefix("banana").empty());
 
-    ASSERT_TRUE(s.search_suffix("ana").empty());
-    ASSERT_TRUE(s.search_prefix("ana").empty());
+    ASSERT_TRUE(ast.search_suffix("ana").empty());
+    ASSERT_TRUE(ast.search_prefix("ana").empty());
 }
 
 TEST(suffix_trie_tests, sanity_test_3)
 {
-    AST<std::string> s;
+    AST<std::string> ast;
 
-    s.insert("banana");
-    s.insert("ana");
-    s.insert("not_banana");
+    ast.insert("banana");
+    ast.insert("ana");
+    ast.insert("not_banana");
 
-    auto r = s.search_suffix("not_banana");
+    auto r = ast.search_suffix("not_banana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    r = s.search_suffix("ot_banana");
+    r = ast.search_suffix("ot_banana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    r = s.search_suffix("t_banana");
+    r = ast.search_suffix("t_banana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    r = s.search_suffix("_banana");
+    r = ast.search_suffix("_banana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    r = s.search_suffix("banana");
+    r = ast.search_suffix("banana");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
 
-    r = s.search_suffix("anana");
+    r = ast.search_suffix("anana");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
 
-    r = s.search_suffix("nana");
+    r = ast.search_suffix("nana");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
 
-    r = s.search_suffix("ana");
+    r = ast.search_suffix("ana");
     ASSERT_TRUE(r.size() == 3);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana" || r[2]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana" ||
                 r[2]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana" || r[2]->str() == "ana");
 
-    r = s.search_suffix("na");
+    r = ast.search_suffix("na");
     ASSERT_TRUE(r.size() == 3);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana" || r[2]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana" ||
                 r[2]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana" || r[2]->str() == "ana");
 
-    r = s.search_suffix("a");
+    r = ast.search_suffix("a");
     ASSERT_TRUE(r.size() == 3);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana" || r[2]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana" ||
                 r[2]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana" || r[2]->str() == "ana");
 
-    r = s.search_suffix("");
+    r = ast.search_suffix("");
     ASSERT_TRUE(r.size() == 3);
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana" || r[2]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana" ||
                 r[2]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana" || r[2]->str() == "ana");
 
-    auto r2 = s.search_prefix("not_banana");
+    auto r2 = ast.search_prefix("not_banana");
     ASSERT_TRUE(r2.size() == 1);
     ASSERT_TRUE(r2[0]->str() == "not_banana");
 
-    r2 = s.search_prefix("banana");
+    r2 = ast.search_prefix("banana");
     ASSERT_TRUE(r2.size() == 2);
     ASSERT_TRUE(r2[0]->str() == "banana" || r2[1]->str() == "banana");
     ASSERT_TRUE(r2[0]->str() == "not_banana" || r2[1]->str() == "not_banana");
 
-    r2 = s.search_prefix("b");
+    r2 = ast.search_prefix("b");
     ASSERT_TRUE(r2.size() == 2);
     ASSERT_TRUE(r2[0]->str() == "banana" || r2[1]->str() == "banana");
     ASSERT_TRUE(r2[0]->str() == "not_banana" || r2[1]->str() == "not_banana");
 
-    r2 = s.search_prefix("");
+    r2 = ast.search_prefix("");
     ASSERT_TRUE(r2.size() == 3);
     ASSERT_TRUE(r2[0]->str() == "banana" || r2[1]->str() == "banana" || r2[2]->str() == "banana");
     ASSERT_TRUE(r2[0]->str() == "not_banana" || r2[1]->str() == "not_banana" ||
                 r2[2]->str() == "not_banana");
     ASSERT_TRUE(r2[0]->str() == "ana" || r2[1]->str() == "ana" || r2[2]->str() == "ana");
 
-    s.erase("banana");
+    ast.erase("banana");
 
-    r = s.search_suffix("not_banana");
+    r = ast.search_suffix("not_banana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    r = s.search_suffix("banana");
+    r = ast.search_suffix("banana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    r = s.search_suffix("ana");
+    r = ast.search_suffix("ana");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
 
-    r = s.search_suffix("");
+    r = ast.search_suffix("");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
 
-    r = s.search_prefix("banana");
+    r = ast.search_prefix("banana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    r = s.search_prefix("ana");
+    r = ast.search_prefix("ana");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    r = s.search_prefix("an");
+    r = ast.search_prefix("an");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    r = s.search_prefix("n");
+    r = ast.search_prefix("n");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    r = s.search_prefix("");
+    r = ast.search_prefix("");
     ASSERT_TRUE(r.size() == 2);
     ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    s.erase("ana");
+    ast.erase("ana");
 
-    r = s.search_prefix("ana");
+    r = ast.search_prefix("ana");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    r = s.search_prefix("");
+    r = ast.search_prefix("");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    s.erase("not_banana");
+    ast.erase("not_banana");
 
-    r = s.search_prefix("");
+    r = ast.search_prefix("");
     ASSERT_TRUE(r.size() == 0);
 }
 
 TEST(suffix_trie_tests, sanity_test_4)
+{
+    AST<std::string> ast;
+
+    std::string long_str = "aaaaaaaaaaaaaaaaaaaa";
+
+    ast.insert(long_str);
+
+    auto r = ast.search("aaaaaaaaaaaaaaaaaaaa");
+    ASSERT_TRUE(r != nullptr && r->str() == "aaaaaaaaaaaaaaaaaaaa");
+
+    auto r1 = ast.search_suffix("aaaaaaaaaaaaaaaaaaaa");
+    ASSERT_TRUE(r1.size() == 1);
+    ASSERT_TRUE(r1[0]->str() == "aaaaaaaaaaaaaaaaaaaa");
+
+    auto r2 = ast.search_prefix("aaaaaaaaaaaaaaaaaaaa");
+    ASSERT_TRUE(r2.size() == 1);
+    ASSERT_TRUE(r2[0]->str() == "aaaaaaaaaaaaaaaaaaaa");
+
+    // for (u32 i = 0; i < std::numeric_limits<u32>::max(); ++i) {
+    //     ast.insert("aaaaaaaaaaaaaaaaaaaa" + std::to_string(i));
+    //     if (i % (1024 * 128) == 0)
+    //         std::cout << "Entries: " << i << ", size: " << ast.size_in_bytes() << "\n";
+    // }
+}
+
+TEST(suffix_trie_tests, sanity_test_5)
 {
     AST<std::string> s;
 
