@@ -89,7 +89,8 @@ int main()
     AST ast;
     ast.insert("Aleksandar");
     ast.insert("Aleksandar");
-    ast.insert("Aleks");
+    ast.insert("Aleksa");
+    ast.insert("dar");
 
     KeyValue* kv = ast.search("Aleksandar");
     std::cout << kv->key();
@@ -97,6 +98,10 @@ int main()
     KeyValue* kv2 = ast.search("leksandar");
 
     auto r = ast.search_prefix("Ale");
+    auto r2 = ast.search_suffix("dar");
+    auto r3 = ast.search_suffix("ar");
+
+    auto r4 = ast.search_prefix("a");
 }
 
 // NOLINTEND

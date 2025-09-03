@@ -1333,6 +1333,28 @@ public:
         return result;
     }
 
+    [[nodiscard]] const std::vector<KeyValue*>
+    search_suffix(const std::string& suffix,
+                  sz limit = std::numeric_limits<sz>::max()) const noexcept
+    {
+        std::vector<KeyValue*> result;
+        const KeySpan key{(const u8* const)suffix.data(), suffix.size()};
+
+        search_suffix(key, result, limit);
+        return result;
+    }
+
+    [[nodiscard]] const std::vector<KeyValue*>
+    search_suffix(const u8* const suffix, sz prefix_size,
+                  sz limit = std::numeric_limits<sz>::max()) const noexcept
+    {
+        std::vector<const KeyValue*> result;
+        const KeySpan key{suffix, prefix_size};
+
+        search_suffix(key, result, limit);
+        return result;
+    }
+
     // Find an entry pointer whose key starts with provided string
     //
     [[nodiscard]] const entry_ptr search_prefix_node(const std::string& prefix) const noexcept
@@ -1951,7 +1973,7 @@ private:
                 if (ent.leaf()) {
                     Leaf* leaf = ent.leaf_ptr();
                     for (u32 i = 0; i < leaf->m_size; ++i) {
-                        result.push_back(m_data[ent.key_ref().idx()]);
+                        result.push_back(m_data[leaf->m_refs[i].idx()]);
                         if (result.size() >= limit) // Limits number of iterations.
                             return false;
                     }
@@ -1974,6 +1996,51 @@ private:
         entry_ptr* next = node->find_child(prefix[depth]);
         if (next)
             search_prefix(*next, prefix, depth + 1, result, limit);
+    }
+
+    void search_suffix(const KeySpan& key, std::vector<KeyValue*>& result, sz limit) const noexcept
+    {
+        if (m_root)
+            search_suffix(m_root, key, 0, result, limit);
+    }
+
+    void search_suffix(const entry_ptr& entry, const KeySpan& suffix, sz depth,
+                       std::vector<KeyValue*>& result, sz limit) const noexcept
+    {
+        if (entry.ref()) {
+            KeyRef ref = entry.key_ref();
+            KeySpan key = m_data[ref];
+
+            if (suffix == key)
+                result.push_back(m_data[ref.idx()]);
+
+            return;
+        }
+
+        if (entry.leaf()) {
+            Leaf* leaf = entry.leaf_ptr();
+            KeySpan leaf_key = m_data[leaf->m_refs[0]];
+            if (leaf_key == suffix)
+                for (u32 i = 0; i < leaf->m_size; ++i)
+                    result.push_back(m_data[leaf->m_refs[i].idx()]);
+
+            return;
+        }
+
+        Node* node = entry.node_ptr();
+        sz cp_len = node->common_header_prefix(suffix, depth);
+
+        if (cp_len != hdrlen(node->m_prefix_len))
+            return;
+
+        depth += node->m_prefix_len;
+
+        if (depth >= suffix.size())
+            return;
+
+        entry_ptr* next = node->find_child(suffix[depth]);
+        if (next)
+            search_prefix(*next, suffix, depth + 1, result, limit);
     }
 
     entry_ptr search_prefix_node(const KeySpan& key) const noexcept
