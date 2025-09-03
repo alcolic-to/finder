@@ -31,6 +31,8 @@ using u64 = std::uint64_t;
 
 using sz = std::size_t;
 
+/* FIXME! Update all comments to be like this one. */
+
 // NOLINTBEGIN
 
 namespace ast {
