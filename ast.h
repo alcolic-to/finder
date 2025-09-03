@@ -121,8 +121,7 @@ public:
         if (other.size() > m_size)
             return false;
 
-        // FIXME! This should take into accout a terminal 0.
-        return !std::memcmp(m_data, other.m_data, other.size());
+        return !std::memcmp(m_data, other.m_data, other.size() - 1);
     }
 
     // Copy key to destination buffer with size len. We must manually copy last 0 byte, since we
@@ -163,6 +162,8 @@ public:
 
     constexpr const u8* key() { return m_key; }
 
+    constexpr const std::string str() { return std::string(m_key, m_key + m_key_size - 1); }
+
 private:
     u32 m_key_size;
     u8 m_key[];
@@ -193,7 +194,7 @@ public:
 
     KeyRef& pack()
     {
-        m_offset <<= tag_bits; // FIXME! Shift by tag bits (3, not 2)!
+        m_offset <<= tag_bits;
         return *this;
     }
 
@@ -1941,7 +1942,7 @@ private:
             KeyRef ref = entry.key_ref();
             KeySpan key = m_data[ref];
 
-            if (prefix.match_prefix(key))
+            if (key.match_prefix(prefix))
                 result.push_back(m_data[ref.idx()]);
 
             return;
@@ -2040,7 +2041,7 @@ private:
 
         entry_ptr* next = node->find_child(suffix[depth]);
         if (next)
-            search_prefix(*next, suffix, depth + 1, result, limit);
+            search_suffix(*next, suffix, depth + 1, result, limit);
     }
 
     entry_ptr search_prefix_node(const KeySpan& key) const noexcept
