@@ -88,12 +88,15 @@ int main()
 
     AST ast;
     ast.insert("Aleksandar");
+    ast.insert("Aleksandar");
+    ast.insert("Aleks");
 
     KeyValue* kv = ast.search("Aleksandar");
     std::cout << kv->key();
 
     KeyValue* kv2 = ast.search("leksandar");
-    std::cout << kv2->key();
+
+    auto r = ast.search_prefix("Ale");
 }
 
 // NOLINTEND

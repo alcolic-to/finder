@@ -246,6 +246,8 @@ public:
 
     [[nodiscard]] KeyRef next_key_ref() { return m_refs[0]; }
 
+    KeyRef operator[](u32 idx) { return m_refs[idx]; }
+
     u32 m_size;
     u32 m_capacity;
     KeyRef m_refs[];
@@ -1253,6 +1255,9 @@ public:
     //
     void insert(const std::string& s) noexcept
     {
+        if (search(s) != nullptr)
+            return;
+
         const KeySpan key{s};
 
         KeyRef ref = m_data.insert(key);
@@ -1857,7 +1862,7 @@ private:
     {
         if (entry.ref()) {
             KeyRef ref = entry.key_ref();
-            if (ref.idx() > 0)
+            if (ref.offset() > 0)
                 return nullptr;
 
             KeySpan entry_key = m_data[ref];
@@ -1925,7 +1930,7 @@ private:
             KeySpan leaf_key = m_data[leaf->m_refs[0]];
             if (leaf_key.match_prefix(prefix))
                 for (u32 i = 0; i < leaf->m_size; ++i)
-                    result.push_back(m_data[leaf[i].idx()]);
+                    result.push_back(m_data[leaf->m_refs[i].idx()]);
 
             return;
         }
@@ -1934,6 +1939,7 @@ private:
         sz cp_len = node->common_header_prefix(prefix, depth);
 
         // All bytes except terminal byte matched, so just collect leaves.
+        // FIXME! Results should cointain unique elements.
         //
         if (depth + cp_len == prefix.size() - 1) {
             for_each(entry, [&](const entry_ptr& ent) {
