@@ -148,9 +148,10 @@ private:
 template<class T>
 class KeyValue {
 public:
-    static KeyValue* new_kv(const KeySpan& key)
+    static KeyValue* new_kv(const KeySpan& key, u32 data_idx)
     {
         KeyValue* kv = static_cast<KeyValue*>(std::malloc(sizeof(KeyValue) + key.size()));
+        kv->m_data_idx = data_idx;
         kv->m_key_size = key.size();
         key.copy_to(kv->m_key, kv->m_key_size);
 
@@ -158,6 +159,8 @@ public:
     }
 
     constexpr bool empty() const noexcept { return m_key_size == 0; }
+
+    constexpr u32 data_idx() const noexcept { return m_data_idx; }
 
     constexpr u32 size() const noexcept { return m_key_size; }
 
@@ -171,6 +174,7 @@ public:
     constexpr const sz size_in_bytes() const noexcept { return sizeof(KeyValue) + m_key_size; }
 
 private:
+    u32 m_data_idx;
     u32 m_key_size;
     u8 m_key[];
 };
@@ -256,6 +260,15 @@ public:
     KeyRef operator[](u32 idx) { return m_refs[idx]; }
 
     sz size_in_bytes() const noexcept { return sizeof(Leaf) + m_capacity * sizeof(KeyRef); }
+
+    void remove(u32 idx) noexcept
+    {
+        assert(idx < m_capacity);
+        for (; idx < m_capacity - 1; ++idx)
+            m_refs[idx] = m_refs[idx + 1];
+
+        --m_size;
+    }
 
     u32 m_size;
     u32 m_capacity;
@@ -1160,7 +1173,7 @@ public:
 
         for (u32 i = 0; i < m_capacity; ++i) {
             if (m_kv[i] == nullptr) {
-                m_kv[i] = KeyValue::new_kv(key);
+                m_kv[i] = KeyValue::new_kv(key, i);
                 return KeyRef{i, 0};
             }
         }
@@ -1170,7 +1183,7 @@ public:
         std::memcpy(m_kv, old, m_capacity * sizeof(KeyValue));
         free(old);
 
-        m_kv[m_capacity] = KeyValue::new_kv(key);
+        m_kv[m_capacity] = KeyValue::new_kv(key, m_capacity);
         KeyRef ref{m_capacity, 0};
         m_capacity *= 2;
 
@@ -1832,23 +1845,23 @@ private:
         if (!m_root)
             return;
 
-        if (m_root.node())
-            return erase(m_root, key, 0);
-
-        Leaf* leaf = m_root.leaf_ptr();
-        if (!leaf->match(key))
+        KeyValue* kv = search(key);
+        if (kv == nullptr)
             return;
 
+        if (m_root.node())
+            return erase(m_root, key, 0, kv->data_idx());
+
+        assert(m_data[m_root.key_ref()] == key);
         m_root.reset();
     }
 
-    // Erases leaf node.
-    // If remaining children are below some treshold we will shrink node to save space.
-    // If we have only 1 child left in node, we will replace node with it's child (collapse it).
-    //
-    void erase_leaf(entry_ptr& entry, Leaf* leaf, const KeySpan& key, sz depth) noexcept
+    void erase_ref(entry_ptr& entry, KeyRef ref, const KeySpan& key, sz depth,
+                   u32 data_idx) noexcept
     {
-        if (!leaf->match(key))
+        assert(ref.idx() == data_idx);
+
+        if (key != m_data[ref])
             return;
 
         Node* node = entry.node_ptr();
@@ -1861,12 +1874,38 @@ private:
             entry.reset(node->collapse());
     }
 
+    void erase_at_leaf(entry_ptr& entry, Leaf* leaf, const KeySpan& key, sz depth,
+                       u32 data_idx) noexcept
+    {
+        assert(leaf->m_size > 1);
+
+        KeyRef leaf_ref = leaf->m_refs[0];
+        KeySpan leaf_key = m_data[leaf_ref];
+        if (key != leaf_key)
+            return;
+
+        for (u32 i = 0; i < leaf->m_size; ++i) {
+            if (leaf->m_refs[i].idx() == data_idx) {
+                leaf->remove(i);
+                if (leaf->m_size == 1) {
+                    Node* node = entry.node_ptr();
+                    entry_ptr& node_entry = *node->find_child(key[depth]);
+                    node_entry.reset(leaf->m_refs[0]); // Delete leaf and insert ref in slot.
+                }
+
+                return;
+            }
+        }
+
+        assert(!"Missing suffix link (reference).");
+    }
+
     // Delete: The implementation of deletion is symmetrical to
     // insertion.The leaf is removed from an inner node,
     // which is shrunk if necessary. If that node now has only one child,
     // it is replaced by its child and the compressed path is adjusted.
     //
-    void erase(entry_ptr& entry, const KeySpan& key, sz depth) noexcept
+    void erase(entry_ptr& entry, const KeySpan& key, sz depth, u32 data_idx) noexcept
     {
         Node* node = entry.node_ptr();
         sz cp_len = node->common_header_prefix(key, depth);
@@ -1881,9 +1920,12 @@ private:
             return;
 
         if (next->node())
-            return erase(*next, key, depth + 1);
+            return erase(*next, key, depth + 1, data_idx);
 
-        erase_leaf(entry, next->leaf_ptr(), key, depth);
+        if (next->leaf())
+            return erase_at_leaf(entry, next->leaf_ptr(), key, depth, data_idx);
+
+        erase_ref(entry, next->key_ref(), key, depth + 1, data_idx);
     }
 
     /**
@@ -1921,8 +1963,8 @@ private:
              * Check if key match first. If it does, find original string (where ref points to the
              * first char, because that is the whole string we are searching).
              */
-            for (u32 i = 0; i < leaf->m_capacity; ++i)
-                if (leaf->m_refs[i].idx() == 0)
+            for (u32 i = 0; i < leaf->m_size; ++i)
+                if (leaf->m_refs[i].offset() == 0)
                     return m_data[leaf->m_refs[i].idx()];
 
             return nullptr;

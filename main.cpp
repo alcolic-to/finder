@@ -97,11 +97,24 @@ int main()
 
     KeyValue* kv2 = ast.search("leksandar");
 
-    auto r = ast.search_prefix("Ale");
+    auto r1 = ast.search_prefix("Ale");
     auto r2 = ast.search_suffix("dar");
     auto r3 = ast.search_suffix("ar");
-
     auto r4 = ast.search_prefix("a");
+
+    ast.erase("dar");
+
+    auto r5 = ast.search_prefix("Ale");
+    auto r6 = ast.search_suffix("dar");
+    auto r7 = ast.search_suffix("ar");
+    auto r8 = ast.search_prefix("a");
+
+    ast.erase("Aleksandar");
+
+    auto r9 = ast.search_prefix("Ale");
+    auto r11 = ast.search_suffix("dar");
+    auto r12 = ast.search_suffix("ar");
+    auto r13 = ast.search_prefix("a");
 }
 
 // NOLINTEND
