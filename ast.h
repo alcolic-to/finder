@@ -203,7 +203,8 @@ static_assert(sizeof(KeyRef<void>) == sizeof(void*));
 /**
  * Leaf holding list of KeyRefs. Each reference is used to access original key at the specific
  * offset. This list act as vector: as soon as it is populated, we will double the storage and copy
- * an existing elements.
+ * an existing elements. Note that whole AST functionalities depends on elements beeing packed
+ * without empty slots.
  */
 template<class T>
 class Leaf {
@@ -1161,10 +1162,20 @@ public:
     KeySpan operator[](const KeyRef& ref) const
     {
         assert(ref.idx() < m_capacity);
-        KeyValue& kv = *m_kv[ref.idx()];
 
-        assert(kv.size() > ref.offset());
-        return KeySpan{kv.key() + ref.offset(), kv.size() - 1 - ref.offset()};
+        KeyValue* kv = m_kv[ref.idx()];
+        assert(kv != nullptr);
+        assert(kv->size() > ref.offset());
+
+        return KeySpan{kv->key() + ref.offset(), kv->size() - 1 - ref.offset()};
+    }
+
+    KeyValue* operator[](u32 idx) const
+    {
+        assert(idx < m_capacity);
+        assert(m_kv[idx] != nullptr); // FIXME! This is left for testing only.
+
+        return m_kv[idx];
     }
 
 private:
@@ -1184,6 +1195,7 @@ public:
     using Data = Data<T>;
     using KeyRef = KeyRef<T>;
     using entry_ptr = entry_ptr<T>;
+    using KeyValue = KeyValue<T>;
 
     // Class that wraps insert result.
     // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read
@@ -1270,13 +1282,13 @@ public:
         erase(key);
     }
 
-    [[nodiscard]] Leaf* const search(const std::string& s) const noexcept
+    [[nodiscard]] KeyValue* const search(const std::string& s) const noexcept
     {
         const KeySpan key{(const u8* const)s.data(), s.size()};
         return search(key);
     }
 
-    [[nodiscard]] Leaf* const search(const u8* const data, sz size) const noexcept
+    [[nodiscard]] KeyValue* const search(const u8* const data, sz size) const noexcept
     {
         const KeySpan key{data, size};
         return search(key);
@@ -1821,7 +1833,11 @@ private:
         erase_leaf(entry, next->leaf_ptr(), key, depth);
     }
 
-    Leaf* const search(const KeySpan& key) const noexcept
+    /**
+     * Searches original string (not suffix) in a trie and returns a pointer to it if exists.
+     * Note that this search is O(key length) + O(linear search in leaf).
+     */
+    KeyValue* const search(const KeySpan& key) const noexcept
     {
         if (m_root)
             return search(m_root, key, 0);
@@ -1829,12 +1845,30 @@ private:
         return nullptr;
     }
 
-    Leaf* const search(const entry_ptr& entry, const KeySpan& key, sz depth) const noexcept
+    KeyValue* const search(const entry_ptr& entry, const KeySpan& key, sz depth) const noexcept
     {
+        if (entry.ref()) {
+            KeyRef ref = entry.key_ref();
+            if (ref.idx() > 0)
+                return nullptr;
+
+            KeySpan entry_key = m_data[ref];
+            return key == entry_key ? m_data[ref.idx()] : nullptr;
+        }
+
         if (entry.leaf()) {
             Leaf* leaf = entry.leaf_ptr();
-            if (leaf->match(key))
-                return leaf;
+            KeySpan leaf_key = m_data[leaf->m_refs[0]];
+            if (key != leaf_key)
+                return nullptr;
+
+            /**
+             * Check if key match first. If it does, find original string (where ref points to the
+             * first char, because that is the whole string we are searching).
+             */
+            for (u32 i = 0; i < leaf->m_capacity; ++i)
+                if (leaf->m_refs[i].idx() == 0)
+                    return m_data[leaf->m_refs[i].idx()];
 
             return nullptr;
         }

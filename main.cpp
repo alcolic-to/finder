@@ -83,8 +83,17 @@ bool scan_input(Console& console, std::string& query)
 
 int main()
 {
-    ast::AST ast;
+    using AST = ast::AST<void>;
+    using KeyValue = ast::KeyValue<void>;
+
+    AST ast;
     ast.insert("Aleksandar");
+
+    KeyValue* kv = ast.search("Aleksandar");
+    std::cout << kv->key();
+
+    KeyValue* kv2 = ast.search("leksandar");
+    std::cout << kv2->key();
 }
 
 // NOLINTEND
