@@ -17,6 +17,9 @@ TEST(suffix_trie_tests, sanity_test_1)
 
     s.insert("banana");
 
+    ASSERT_TRUE(s.search("banana")->str() == "banana");
+    ASSERT_TRUE(s.search("anana") == nullptr);
+
     ASSERT_TRUE(s.search_suffix("banana")[0]->str() == "banana");
     ASSERT_TRUE(s.search_suffix("anana")[0]->str() == "banana");
     ASSERT_TRUE(s.search_suffix("nana")[0]->str() == "banana");
@@ -31,10 +34,10 @@ TEST(suffix_trie_tests, sanity_test_1)
     ASSERT_TRUE(s.search_prefix("ana").size() == 1);
     ASSERT_TRUE(s.search_prefix("n").size() == 1);
 
-    // s.erase_suffix("banana");
+    s.erase("banana");
 
-    // ASSERT_TRUE(s.search_suffix("banana").empty());
-    // ASSERT_TRUE(s.search_prefix("banana").empty());
+    ASSERT_TRUE(s.search_suffix("banana").empty());
+    ASSERT_TRUE(s.search_prefix("banana").empty());
 }
 
 TEST(suffix_trie_tests, sanity_test_2)
@@ -76,42 +79,42 @@ TEST(suffix_trie_tests, sanity_test_2)
     ASSERT_TRUE(r[0]->str() == "banana" || r[1]->str() == "banana");
     ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    // s.erase_suffix("ana");
+    s.erase("ana");
 
-    // r = s.search_suffix("banana");
-    // ASSERT_TRUE(r.size() == 1 && *r[0] == "banana");
+    r = s.search_suffix("banana");
+    ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    // r = s.search_suffix("anana");
-    // ASSERT_TRUE(r.size() == 1 && *r[0] == "banana");
+    r = s.search_suffix("anana");
+    ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    // r = s.search_suffix("nana");
-    // ASSERT_TRUE(r.size() == 1 && *r[0] == "banana");
+    r = s.search_suffix("nana");
+    ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    // r = s.search_suffix("ana");
-    // ASSERT_TRUE(r.size() == 1 && *r[0] == "banana");
+    r = s.search_suffix("ana");
+    ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    // r = s.search_suffix("na");
-    // ASSERT_TRUE(r.size() == 1 && *r[0] == "banana");
+    r = s.search_suffix("na");
+    ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    // r = s.search_suffix("a");
-    // ASSERT_TRUE(r.size() == 1 && *r[0] == "banana");
+    r = s.search_suffix("a");
+    ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    // r = s.search_suffix("");
-    // ASSERT_TRUE(r.size() == 1 && *r[0] == "banana");
+    r = s.search_suffix("");
+    ASSERT_TRUE(r.size() == 1 && r[0]->str() == "banana");
 
-    // ASSERT_TRUE(s.search_prefix("ba").size() == 1);
-    // ASSERT_TRUE(s.search_prefix("a").size() == 1);
-    // ASSERT_TRUE(s.search_prefix("an").size() == 1);
-    // ASSERT_TRUE(s.search_prefix("ana").size() == 1);
-    // ASSERT_TRUE(s.search_prefix("n").size() == 1);
+    ASSERT_TRUE(s.search_prefix("ba").size() == 1);
+    ASSERT_TRUE(s.search_prefix("a").size() == 1);
+    ASSERT_TRUE(s.search_prefix("an").size() == 1);
+    ASSERT_TRUE(s.search_prefix("ana").size() == 1);
+    ASSERT_TRUE(s.search_prefix("n").size() == 1);
 
-    // s.erase_suffix("banana");
+    s.erase("banana");
 
-    // ASSERT_TRUE(s.search_suffix("banana").empty());
-    // ASSERT_TRUE(s.search_prefix("banana").empty());
+    ASSERT_TRUE(s.search_suffix("banana").empty());
+    ASSERT_TRUE(s.search_prefix("banana").empty());
 
-    // ASSERT_TRUE(s.search_suffix("ana").empty());
-    // ASSERT_TRUE(s.search_prefix("ana").empty());
+    ASSERT_TRUE(s.search_suffix("ana").empty());
+    ASSERT_TRUE(s.search_prefix("ana").empty());
 }
 
 TEST(suffix_trie_tests, sanity_test_3)
@@ -202,64 +205,64 @@ TEST(suffix_trie_tests, sanity_test_3)
                 r2[2]->str() == "not_banana");
     ASSERT_TRUE(r2[0]->str() == "ana" || r2[1]->str() == "ana" || r2[2]->str() == "ana");
 
-    // s.erase_suffix("banana");
+    s.erase("banana");
 
-    // r = s.search_suffix("not_banana");
-    // ASSERT_TRUE(r.size() == 1);
-    // ASSERT_TRUE(r[0] == "not_banana");
+    r = s.search_suffix("not_banana");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    // r = s.search_suffix("banana");
-    // ASSERT_TRUE(r.size() == 1);
-    // ASSERT_TRUE(r[0] == "not_banana");
+    r = s.search_suffix("banana");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    // r = s.search_suffix("ana");
-    // ASSERT_TRUE(r.size() == 2);
-    // ASSERT_TRUE(r[0] == "ana" || *r[1] == "ana");
-    // ASSERT_TRUE(r[0] == "not_banana" || *r[1] == "not_banana");
+    r = s.search_suffix("ana");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
+    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
 
-    // r = s.search_suffix("");
-    // ASSERT_TRUE(r.size() == 2);
-    // ASSERT_TRUE(r[0] == "ana" || *r[1] == "ana");
-    // ASSERT_TRUE(r[0] == "not_banana" || *r[1] == "not_banana");
+    r = s.search_suffix("");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
+    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
 
-    // r = s.search_prefix("banana");
-    // ASSERT_TRUE(r.size() == 1);
-    // ASSERT_TRUE(r[0] == "not_banana");
+    r = s.search_prefix("banana");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    // r = s.search_prefix("ana");
-    // ASSERT_TRUE(r.size() == 2);
-    // ASSERT_TRUE(r[0] == "not_banana" || *r[1] == "not_banana");
-    // ASSERT_TRUE(r[0] == "ana" || *r[1] == "ana");
+    r = s.search_prefix("ana");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
+    ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    // r = s.search_prefix("an");
-    // ASSERT_TRUE(r.size() == 2);
-    // ASSERT_TRUE(r[0] == "not_banana" || *r[1] == "not_banana");
-    // ASSERT_TRUE(r[0] == "ana" || *r[1] == "ana");
+    r = s.search_prefix("an");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
+    ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    // r = s.search_prefix("n");
-    // ASSERT_TRUE(r.size() == 2);
-    // ASSERT_TRUE(r[0] == "not_banana" || *r[1] == "not_banana");
-    // ASSERT_TRUE(r[0] == "ana" || *r[1] == "ana");
+    r = s.search_prefix("n");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
+    ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    // r = s.search_prefix("");
-    // ASSERT_TRUE(r.size() == 2);
-    // ASSERT_TRUE(r[0] == "not_banana" || *r[1] == "not_banana");
-    // ASSERT_TRUE(r[0] == "ana" || *r[1] == "ana");
+    r = s.search_prefix("");
+    ASSERT_TRUE(r.size() == 2);
+    ASSERT_TRUE(r[0]->str() == "not_banana" || r[1]->str() == "not_banana");
+    ASSERT_TRUE(r[0]->str() == "ana" || r[1]->str() == "ana");
 
-    // s.erase_suffix("ana");
+    s.erase("ana");
 
-    // r = s.search_prefix("ana");
-    // ASSERT_TRUE(r.size() == 1);
-    // ASSERT_TRUE(r[0] == "not_banana");
+    r = s.search_prefix("ana");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    // r = s.search_prefix("");
-    // ASSERT_TRUE(r.size() == 1);
-    // ASSERT_TRUE(r[0] == "not_banana");
+    r = s.search_prefix("");
+    ASSERT_TRUE(r.size() == 1);
+    ASSERT_TRUE(r[0]->str() == "not_banana");
 
-    // s.erase_suffix("not_banana");
+    s.erase("not_banana");
 
-    // r = s.search_prefix("");
-    // ASSERT_TRUE(r.size() == 0);
+    r = s.search_prefix("");
+    ASSERT_TRUE(r.size() == 0);
 }
 
 TEST(suffix_trie_tests, sanity_test_4)

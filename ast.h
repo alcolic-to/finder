@@ -2039,9 +2039,7 @@ private:
         Node* node = entry.node_ptr();
         sz cp_len = node->common_header_prefix(prefix, depth);
 
-        // All bytes except terminal byte matched, so just collect leaves.
-        // FIXME! Results should cointain unique elements.
-        //
+        // All bytes except terminal byte matched, so just collect refs.
         if (depth + cp_len == prefix.size() - 1) {
             for_each(entry, [&](const entry_ptr& ent) {
                 if (ent.ref()) {
