@@ -157,13 +157,18 @@ public:
         return kv;
     }
 
-    constexpr bool empty() { return m_key_size == 0; }
+    constexpr bool empty() const noexcept { return m_key_size == 0; }
 
-    constexpr u32 size() { return m_key_size; }
+    constexpr u32 size() const noexcept { return m_key_size; }
 
-    constexpr const u8* key() { return m_key; }
+    constexpr const u8* key() const noexcept { return m_key; }
 
-    constexpr const std::string str() { return std::string(m_key, m_key + m_key_size - 1); }
+    constexpr const std::string str() const noexcept
+    {
+        return std::string(m_key, m_key + m_key_size - 1);
+    }
+
+    constexpr const sz size_in_bytes() const noexcept { return sizeof(KeyValue) + m_key_size; }
 
 private:
     u32 m_key_size;
@@ -249,6 +254,8 @@ public:
     [[nodiscard]] KeyRef next_key_ref() { return m_refs[0]; }
 
     KeyRef operator[](u32 idx) { return m_refs[idx]; }
+
+    sz size_in_bytes() const noexcept { return sizeof(Leaf) + m_capacity * sizeof(KeyRef); }
 
     u32 m_size;
     u32 m_capacity;
@@ -1192,6 +1199,16 @@ public:
         return m_kv[idx];
     }
 
+    sz size_in_bytes() const noexcept
+    {
+        sz size = sizeof(Data) + m_capacity * sizeof(KeyValue*);
+        for (u32 i = 0; i < m_capacity; ++i)
+            if (m_kv[i] != nullptr)
+                size += m_kv[i]->size_in_bytes();
+
+        return size;
+    }
+
 private:
     u32 m_capacity;
     KeyValue** m_kv;
@@ -1445,12 +1462,12 @@ public:
     //
     sz size_in_bytes() const noexcept
     {
-        sz size = sizeof(AST);
+        sz size = sizeof(entry_ptr); // Root entry ptr.
 
         for_each([&](const entry_ptr& entry) {
             if (entry.leaf())
-                size += sizeof(Leaf) + entry.leaf_ptr()->m_capacity();
-            else {
+                size += entry.leaf_ptr()->size_in_bytes();
+            else if (entry.node()) {
                 Node* node = entry.node_ptr();
                 switch (node->m_type) { // clang-format off
                 case Node4_t:   size += sizeof(Node4);   break;
@@ -1462,6 +1479,7 @@ public:
             }
         });
 
+        size += m_data.size_in_bytes();
         return size;
     }
 
