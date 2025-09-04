@@ -1,5 +1,5 @@
-#ifndef SYMBOL_FINDER_H
-#define SYMBOL_FINDER_H
+#ifndef FINDER_H
+#define FINDER_H
 
 #include <algorithm>
 #include <filesystem>
@@ -289,4 +289,4 @@ private: // NOLINT
     Options m_options;
 };
 
-#endif
+#endif // FINDER_H
