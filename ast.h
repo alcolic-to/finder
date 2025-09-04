@@ -150,14 +150,20 @@ private:
 template<class T>
 class KeyValue {
 public:
-    static KeyValue* new_kv(const KeySpan& key, u32 data_idx)
+    template<class... Args>
+    static KeyValue* new_kv(const KeySpan& key, u32 data_idx, Args&&... args)
     {
-        KeyValue* kv = static_cast<KeyValue*>(std::malloc(sizeof(KeyValue) + key.size()));
-        kv->m_data_idx = data_idx;
-        kv->m_key_size = key.size();
-        key.copy_to(kv->m_key, kv->m_key_size);
+        return new (std::malloc(sizeof(KeyValue) + key.size()))
+            KeyValue{key, data_idx, std::forward<Args>(args)...};
+    }
 
-        return kv;
+    template<class... Args>
+    KeyValue(const KeySpan& key, u32 data_idx, Args&&... args)
+        : m_value{std::forward<Args>(args)...}
+        , m_data_idx{data_idx}
+        , m_key_size{static_cast<u32>(key.size())}
+    {
+        key.copy_to(m_key, m_key_size);
     }
 
     constexpr bool empty() const noexcept { return m_key_size == 0; }
@@ -168,6 +174,10 @@ public:
 
     constexpr const u8* key() const noexcept { return m_key; }
 
+    constexpr const T& value() const noexcept { return m_value; }
+
+    constexpr T& value() noexcept { return m_value; }
+
     constexpr const std::string str() const noexcept
     {
         return std::string(m_key, m_key + m_key_size - 1);
@@ -176,6 +186,7 @@ public:
     constexpr const sz size_in_bytes() const noexcept { return sizeof(KeyValue) + m_key_size; }
 
 private:
+    T m_value;
     u32 m_data_idx;
     u32 m_key_size;
     u8 m_key[];
@@ -1166,26 +1177,32 @@ public:
                 std::free(m_kv[i]);
     }
 
-    KeyRef insert(const KeySpan& key)
+    KeyValue** alloc(sz size)
+    {
+        return static_cast<KeyValue**>(std::calloc(size, sizeof(KeyValue*)));
+    }
+
+    template<class... Args>
+    KeyRef insert(const KeySpan& key, Args&&... args)
     {
         if (m_kv == nullptr) {
-            m_kv = static_cast<KeyValue**>(std::calloc(init_size, sizeof(KeyValue*)));
+            m_kv = alloc(init_size);
             m_capacity = init_size;
         }
 
         for (u32 i = 0; i < m_capacity; ++i) {
             if (m_kv[i] == nullptr) {
-                m_kv[i] = KeyValue::new_kv(key, i);
+                m_kv[i] = KeyValue::new_kv(key, i, std::forward<Args>(args)...);
                 return KeyRef{i, 0};
             }
         }
 
         KeyValue** old = m_kv;
-        m_kv = static_cast<KeyValue**>(std::calloc(m_capacity * 2, sizeof(KeyValue*)));
-        std::memcpy(m_kv, old, m_capacity * sizeof(KeyValue));
+        m_kv = alloc(m_capacity * 2);
+        std::memcpy(m_kv, old, m_capacity * sizeof(KeyValue*));
         free(old);
 
-        m_kv[m_capacity] = KeyValue::new_kv(key, m_capacity);
+        m_kv[m_capacity] = KeyValue::new_kv(key, m_capacity, std::forward<Args>(args)...);
         KeyRef ref{m_capacity, 0};
         m_capacity *= 2;
 
@@ -1196,7 +1213,7 @@ public:
     {
         assert(idx < m_capacity);
 
-        std::free(m_kv[idx]);
+        delete m_kv[idx];
         m_kv[idx] = nullptr;
     }
 
@@ -1237,7 +1254,7 @@ private:
     KeyValue** m_kv;
 };
 
-template<class T = void*>
+template<class T = u32>
 class AST {
 public:
     using Node = Node<T>;
@@ -1295,14 +1312,15 @@ public:
     // perfectly forward value to leaf. If we were to use T&& value as a parameter without
     // template declaration, compiler would treat it as a rvalue reference only.
     //
-    void insert(const std::string& s) noexcept
+    template<class... Args>
+    void insert(const std::string& s, Args&&... args) noexcept
     {
         if (search(s) != nullptr)
             return;
 
         const KeySpan key{s};
 
-        KeyRef ref = m_data.insert(key);
+        KeyRef ref = m_data.insert(key, std::forward<Args>(args)...);
         for (sz i = 0; i < key.size(); ++i) {
             KeySpan suffix{key.data() + i, key.size() - 1 - i};
             insert(suffix, ref);

@@ -83,8 +83,8 @@ bool scan_input(Console& console, std::string& query)
 
 int main()
 {
-    using AST = ast::AST<void>;
-    using KeyValue = ast::KeyValue<void>;
+    using AST = ast::AST<u32>;
+    using KeyValue = ast::KeyValue<u32>;
 
     AST ast;
     ast.insert("Aleksandar");
