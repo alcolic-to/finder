@@ -285,11 +285,14 @@ TEST(suffix_trie_tests, sanity_test_4)
     ASSERT_TRUE(r2.size() == 1);
     ASSERT_TRUE(r2[0]->str() == "aaaaaaaaaaaaaaaaaaaa");
 
-    // for (u32 i = 0; i < std::numeric_limits<u32>::max(); ++i) {
-    //     ast.insert("aaaaaaaaaaaaaaaaaaaa" + std::to_string(i));
-    //     if (i % (1024 * 128) == 0)
-    //         std::cout << "Entries: " << i << ", size: " << ast.size_in_bytes() << "\n";
-    // }
+    for (u32 i = 0; i < std::numeric_limits<u32>::max(); ++i) {
+        ast.insert("file_name_file_name_file_name_file_name_file_name_" + std::to_string(i));
+        if (i % (1024 * 128) == 0) {
+            // std::cout << "Entries: " << i << "\n";
+            std::cout << "Entries: " << i << ", size: " << ast.size_in_bytes() / 1024 / 1024
+                      << "MB\n";
+        }
+    }
 }
 
 TEST(suffix_trie_tests, sanity_test_5)

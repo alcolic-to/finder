@@ -227,7 +227,7 @@ static_assert(sizeof(KeyRef<void>) == sizeof(void*));
  * Leaf holding list of KeyRefs. Each reference is used to access original key at the specific
  * offset. This list act as vector: as soon as it is populated, we will double the storage and copy
  * an existing elements. Note that whole AST functionalities depends on elements beeing packed
- * without empty slots.
+ * without empty slots and preserving the same index.
  */
 template<class T>
 class Leaf {
