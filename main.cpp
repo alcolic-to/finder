@@ -2,7 +2,9 @@
 #include <cstdint>
 #include <sstream>
 
+#include "ast.h"
 #include "console.h"
+#include "finder.h"
 #include "os.h"
 #include "symbol_finder.h"
 #include "util.h"
@@ -49,7 +51,8 @@ int main()
     std::stringstream ss{input};
     ss >> root;
 
-    Symbol_finder finder{root, Options{ss.str()}};
+    Finder finder{root, Options{ss.str()}};
+    // Symbol_finder finder{root, Options{ss.str()}};
 
     // Show all files/symbols.
     Console console;

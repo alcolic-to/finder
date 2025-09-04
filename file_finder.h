@@ -1,5 +1,5 @@
-#ifndef FILES_H
-#define FILES_H
+#ifndef FILE_FINDER_H
+#define FILE_FINDER_H
 
 #include <cstddef>
 #include <filesystem>
@@ -9,20 +9,54 @@
 #include <string>
 #include <vector>
 
-#include "file_finder.h"
+#include "art.h"
+#include "ast.h"
 #include "os.h"
 #include "small_string.h"
-#include "suffix_trie.h"
 #include "util.h"
 
 // NOLINTBEGIN
 
 namespace fs = std::filesystem;
 
+class File_info {
+public:
+    File_info() = default;
+
+    File_info(const std::string& file_name) : m_name{file_name} {}
+
+    File_info(const std::string& file_name, std::string_view file_path)
+        : m_name{file_name}
+        , m_path{std::move(file_path)}
+    {
+        if (!file_path.ends_with(file_name))
+            throw std::runtime_error{"File path does not end with file name."};
+    }
+
+    [[nodiscard]] const char* name() const noexcept { return m_name; }
+
+    [[nodiscard]] const std::string_view path() const noexcept { return m_path; }
+
+    [[nodiscard]] std::string full_path() const noexcept
+    {
+        if (path() == "/" || path() == "C:\\")
+            return std::format("{}{}", path(), name());
+
+        const char sep = std::filesystem::path::preferred_separator;
+        return std::format("{}{}{}", path(), sep, name());
+    }
+
+    void set_path(std::string_view path) { m_path = path; }
+
+private:
+    Small_string m_name;     // File name with extension.
+    std::string_view m_path; // Full file path.
+};
+
 // Class that holds all file system files, their paths, size infos, etc.
 // TODO: Files can be found by regex search.
 //
-class Files {
+class FileFinder {
 public:
     // Class that wraps insert result.
     // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
@@ -141,13 +175,11 @@ private:
         file->set_path(res->key_to_string_view());
 
         // TODO: Create emplace to avoid this nonsence.
-        auto ff_res = m_file_finder.insert_suffix(file->name(), std::vector{file});
+        auto ff_res = m_file_finder.insert(file->name(), std::vector{file});
         if (ff_res)
             return {file, true};
 
-        assert(ff_res->get_value() != nullptr);
-
-        auto& file_infos = *ff_res->get_value();
+        auto& file_infos = ff_res->value();
         assert(std::ranges::find(file_infos, file) == file_infos.end());
         file_infos.emplace_back(file);
 
@@ -181,13 +213,13 @@ private:
         auto ff_res = m_file_finder.search(file->name());
         assert(ff_res);
 
-        auto& file_infos = *ff_res->value().get_value();
+        auto& file_infos = ff_res->value();
         auto fi_it = std::ranges::find(file_infos, file);
         assert(fi_it != file_infos.end());
 
         file_infos.erase(fi_it);
         if (file_infos.empty())
-            m_file_finder.erase_suffix(file->name());
+            m_file_finder.erase(file->name());
 
         auto vit = std::ranges::find_if(
             m_files, [&](const auto& unique_file) { return unique_file.get() == file; });
@@ -222,9 +254,9 @@ private:
     // Trie that holds all suffixes of all file names, which enables file search by file name.
     // File name is not unique, so we must hold vector of file pointers.
     //
-    suffix_trie::Suffix_trie<std::vector<File_info*>> m_file_finder;
+    ast::AST<std::vector<File_info*>> m_file_finder;
 };
 
 // NOLINTEND
 
-#endif // FILES_H
+#endif // FILE_FINDER_H
