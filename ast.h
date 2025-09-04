@@ -1451,24 +1451,20 @@ public:
     // returned entries with limit parameter.
     //
     template<class Pred>
-    [[nodiscard]] const std::vector<Leaf*>
-    search_prefix_while(const std::string& prefix, Pred pred,
-                        sz limit = std::numeric_limits<sz>::max()) const noexcept
+    void search_prefix_while(const std::string& prefix, Pred pred) const noexcept
     {
         const KeySpan key{(const u8* const)prefix.data(), prefix.size()};
-        return search_prefix_while((const u8* const)prefix.data(), prefix.size(), pred, limit);
+        search_prefix_while((const u8* const)prefix.data(), prefix.size(), pred);
     }
 
     // Finds all entries whose key starts with provided prefix with given size. User can limit
     // number of returned entries with limit parameter.
     //
     template<class Pred>
-    [[nodiscard]] const std::vector<Leaf*>
-    search_prefix_while(const u8* const prefix, sz prefix_size, Pred pred,
-                        sz limit = std::numeric_limits<sz>::max()) const noexcept
+    void search_prefix_while(const u8* const prefix, sz prefix_size, Pred pred) const noexcept
     {
         const KeySpan key{prefix, prefix_size};
-        return search_prefix_while(key, pred, limit);
+        search_prefix_while(key, pred);
     }
 
     sz nodes_count() const noexcept
@@ -2284,16 +2280,9 @@ private:
     }
 
     template<class Pred>
-    [[nodiscard]]
-    const std::vector<Leaf*> search_prefix_while(const KeySpan& prefix, Pred pred) const noexcept
+    void search_prefix_while(const KeySpan& prefix, Pred pred) const noexcept
     {
-        if (!m_root)
-            return {};
-
-        std::unordered_set<const KeyValue*> result;
-        search_prefix_while(m_root, prefix, 0, result);
-
-        return std::vector<KeyValue*>{result.begin(), result.end()};
+        search_prefix_while(m_root, prefix, 0, pred);
     }
 
     template<class Pred>
@@ -2305,7 +2294,7 @@ private:
             KeySpan key = m_data[ref];
 
             if (key.match_prefix(prefix))
-                pred(*m_data[ref.idx()]);
+                pred(m_data[ref.idx()]->value());
 
             return;
         }
@@ -2315,7 +2304,7 @@ private:
             KeySpan leaf_key = m_data[leaf->m_refs[0]];
             if (leaf_key.match_prefix(prefix)) {
                 for (u32 i = 0; i < leaf->m_size; ++i)
-                    if (!pred(m_data[leaf->m_refs[i].idx()]))
+                    if (!pred(m_data[leaf->m_refs[i].idx()]->value()))
                         return;
             }
 
@@ -2329,7 +2318,7 @@ private:
         if (depth + cp_len == prefix.size() - 1) {
             for_each(entry, [&](const entry_ptr& ent) {
                 if (ent.ref()) {
-                    auto& v = m_data[ent.key_ref().idx()];
+                    auto& v = m_data[ent.key_ref().idx()]->value();
                     if (!pred(v))
                         return false;
                 }
@@ -2337,7 +2326,7 @@ private:
                 if (ent.leaf()) {
                     Leaf* leaf = ent.leaf_ptr();
                     for (u32 i = 0; i < leaf->m_size; ++i) {
-                        auto& v = m_data[leaf->m_refs[i].idx()];
+                        auto& v = m_data[leaf->m_refs[i].idx()]->value();
                         if (!pred(v))
                             return false;
                     }

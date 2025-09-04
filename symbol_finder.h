@@ -14,124 +14,19 @@
 #include <vector>
 
 #include "files.h"
+#include "finder.h"
 #include "small_string.h"
 #include "symbols.h"
 #include "tokens.h"
 #include "util.h"
 
-static const std::vector<std::string> cpp_keywords = {
-    // Keywords
-    "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool", "break",
-    "case", "catch", "char", "char8_t", "char16_t", "char32_t", "class", "compl", "concept",
-    "const", "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await",
-    "co_return", "co_yield", "decltype", "default", "delete", "do", "double", "dynamic_cast",
-    "else", "enum", "explicit", "export", "extern", "false", "float", "for", "friend", "goto", "if",
-    "inline", "int", "long", "mutable", "namespace", "new", "noexcept", "not", "not_eq", "nullptr",
-    "operator", "or", "or_eq", "private", "protected", "public", "register", "reinterpret_cast",
-    "requires", "return", "short", "signed", "sizeof", "static", "static_assert", "static_cast",
-    "struct", "switch", "template", "this", "thread_local", "throw", "true", "try", "typedef",
-    "typeid", "typename", "union", "unsigned", "using", "virtual", "void", "volatile", "wchar_t",
-    "while", "xor", "xor_eq",
-
-    // Operators
-    "+", "-", "*", "/", "%", "++", "--", "=",
-    "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=", "==", "!=", "<", ">",
-    "<=", ">=", "<=>", "!", "&&", "||", "~", "&", "|", "^", "<<", ">>", ".", "->", ".*", "->*",
-    "[]", "()", "?:",
-
-    // Punctuators / Syntax
-    "{", "}", "[", "]", "(", ")", ";", ",", "::", ".", "->", ":", "...", "#", "##", "=>",
-
-    // Preprocessor
-    "#define", "#undef", "#include", "#ifdef", "#ifndef", "#if", "#else", "#elif", "#endif",
-    "#error", "#pragma", "#line",
-
-    // Digraphs
-    "<%", "%>", "<:", ":>", "%:", "%:%:",
-
-    // Trigraphs
-    // "??=", "??(", "??)", "??<", "??>", "??/", "??'", "??!", "??-"
-};
-
-static constexpr bool is_cpp_keyword(const std::string& s)
-{
-    return std::ranges::find(cpp_keywords, s) != cpp_keywords.end();
-}
-
-class Options {
-public:
-    static constexpr u32 opt_files = 1;      // Search files.
-    static constexpr u32 opt_symbols = 2;    // Search both files and symbols.
-    static constexpr u32 opt_stats_only = 4; // Print stats and quit.
-    static constexpr u32 opt_verbose = 8;    // Print stats and quit.
-    static constexpr u32 opt_all = opt_files | opt_symbols | opt_stats_only | opt_verbose;
-
-    Options() : m_opt{opt_all} {}
-
-    explicit Options(const std::string& opt)
-    {
-        std::stringstream ss{opt};
-        std::string s;
-
-        while (ss >> s) {
-            if (s.starts_with("--")) {
-                s = s.substr(2);
-                if (s.starts_with("ignore="))
-                    m_ignore_list = string_split(s.substr(sizeof("ignore")), ",");
-                else if (s.starts_with("include="))
-                    m_include_list = string_split(s.substr(sizeof("include")), ",");
-                else
-                    throw std::runtime_error{std::format("Invalid option {}.", s)};
-            }
-            else if (s.starts_with("-")) {
-                s = s.substr(1);
-
-                if (s.find('f') != std::string::npos)
-                    m_opt |= Options::opt_files;
-
-                if (s.find('s') != std::string::npos)
-                    m_opt |= Options::opt_files | Options::opt_symbols;
-
-                if (s.find('e') != std::string::npos)
-                    m_opt |= Options::opt_stats_only;
-
-                if (s.find('v') != std::string::npos)
-                    m_opt |= Options::opt_verbose;
-            }
-        }
-
-        if ((m_opt & ~opt_all) != 0U)
-            throw std::runtime_error{"Invalid options."};
-
-        if (m_opt == 0U)
-            m_opt = opt_files;
-    }
-
-    [[nodiscard]] bool files_allowed() const noexcept { return (m_opt & opt_files) != 0U; }
-
-    [[nodiscard]] bool symbols_allowed() const noexcept { return (m_opt & opt_symbols) != 0U; }
-
-    [[nodiscard]] bool stats_only() const noexcept { return (m_opt & opt_stats_only) != 0U; }
-
-    [[nodiscard]] bool verbose() const noexcept { return (m_opt & opt_verbose) != 0U; }
-
-    [[nodiscard]] std::vector<std::string> ignore_list() const noexcept { return m_ignore_list; }
-
-    [[nodiscard]] std::vector<std::string> include_list() const noexcept { return m_include_list; }
-
-private:
-    std::vector<std::string> m_ignore_list;
-    std::vector<std::string> m_include_list;
-    u32 m_opt = 0;
-};
-
-class Finder {
+class Symbol_finder {
 public:
     static constexpr sz files_search_limit = 128;
 
     using dir_iter = fs::recursive_directory_iterator;
 
-    explicit Finder(const std::string& dir, Options opt = Options{})
+    explicit Symbol_finder(const std::string& dir, Options opt = Options{})
         : m_dir{dir}
         , m_options{std::move(opt)}
     {

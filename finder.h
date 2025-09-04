@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-#include "files.h"
+#include "file_finder.h"
 #include "small_string.h"
 #include "symbols.h"
 #include "tokens.h"
@@ -181,7 +181,7 @@ public:
 
     [[nodiscard]] Symbols& symbols() noexcept { return m_symbols; }
 
-    [[nodiscard]] Files& files() noexcept { return m_files; }
+    [[nodiscard]] FileFinder& files() noexcept { return m_files; }
 
     [[nodiscard]] const fs::path& dir() const noexcept { return m_dir; }
 
@@ -284,7 +284,7 @@ private:
 
 private: // NOLINT
     fs::path m_dir;
-    Files m_files;
+    FileFinder m_files;
     Symbols m_symbols;
     Options m_options;
 };

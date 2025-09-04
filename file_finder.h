@@ -56,7 +56,7 @@ private:
 // Class that holds all file system files, their paths, size infos, etc.
 // TODO: Files can be found by regex search.
 //
-class Files {
+class FileFinder {
 public:
     // Class that wraps insert result.
     // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert

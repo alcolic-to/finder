@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "file_finder.h"
 #include "os.h"
 #include "small_string.h"
 #include "suffix_trie.h"
@@ -17,40 +18,6 @@
 // NOLINTBEGIN
 
 namespace fs = std::filesystem;
-
-class File_info {
-public:
-    File_info() = default;
-
-    File_info(const std::string& file_name) : m_name{file_name} {}
-
-    File_info(const std::string& file_name, std::string_view file_path)
-        : m_name{file_name}
-        , m_path{std::move(file_path)}
-    {
-        if (!file_path.ends_with(file_name))
-            throw std::runtime_error{"File path does not end with file name."};
-    }
-
-    [[nodiscard]] const char* name() const noexcept { return m_name; }
-
-    [[nodiscard]] const std::string_view path() const noexcept { return m_path; }
-
-    [[nodiscard]] std::string full_path() const noexcept
-    {
-        if (path() == "/" || path() == "C:\\")
-            return std::format("{}{}", path(), name());
-
-        const char sep = std::filesystem::path::preferred_separator;
-        return std::format("{}{}{}", path(), sep, name());
-    }
-
-    void set_path(std::string_view path) { m_path = path; }
-
-private:
-    Small_string m_name;     // File name with extension.
-    std::string_view m_path; // Full file path.
-};
 
 // Class that holds all file system files, their paths, size infos, etc.
 // TODO: Files can be found by regex search.

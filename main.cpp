@@ -4,6 +4,7 @@
 
 #include "ast.h"
 #include "console.h"
+#include "finder.h"
 #include "os.h"
 #include "symbol_finder.h"
 #include "util.h"
@@ -37,50 +38,6 @@ bool scan_input(Console& console, std::string& query)
     return true;
 }
 
-// int main()
-// {
-//     std::string input;
-//     std::string root;
-
-//     std::cout << "Options: <root_dir> <-fsev> <--ignore <path1, path2 ... >>, <--include <path1,
-//     "
-//                  "path2 ... >>\n: ";
-
-//     std::getline(std::cin, input);
-
-//     std::stringstream ss{input};
-//     ss >> root;
-
-//     Symbol_finder finder{root, Options{ss.str()}};
-
-//     // Show all files/symbols.
-//     Console console;
-//     console.clear();
-//     console.draw_search_results(finder.find_files(""));
-//     // console.draw_symbol_search_results(finder.find_symbols(""));
-
-//     Cursor& cursor = console.cursor();
-//     std::string query;
-
-//     while (true) {
-//         cursor.move_to<e_bottom>();
-//         cursor.move_to<e_left>();
-
-//         console.fill_line(' ');
-//         console << "Search: " << query;
-
-//         if (!scan_input(console, query)) {
-//             console << "\n";
-//             return 0;
-//         }
-
-//         console.draw_search_results(finder.find_files(query));
-//         // console.draw_symbol_search_results(finder.find_symbols(query));
-//     }
-
-//     return 0;
-// }
-
 int main()
 {
     std::string input;
@@ -95,6 +52,7 @@ int main()
     ss >> root;
 
     Finder finder{root, Options{ss.str()}};
+    // Symbol_finder finder{root, Options{ss.str()}};
 
     // Show all files/symbols.
     Console console;
@@ -123,41 +81,5 @@ int main()
 
     return 0;
 }
-
-// int main()
-// {
-//     using AST = ast::AST<u32>;
-//     using KeyValue = ast::KeyValue<u32>;
-
-//     AST ast;
-//     ast.insert("Aleksandar");
-//     ast.insert("Aleksandar");
-//     ast.insert("Aleksa");
-//     ast.insert("dar");
-
-//     KeyValue* kv = ast.search("Aleksandar");
-//     std::cout << kv->key();
-
-//     KeyValue* kv2 = ast.search("leksandar");
-
-//     auto r1 = ast.search_prefix("Ale");
-//     auto r2 = ast.search_suffix("dar");
-//     auto r3 = ast.search_suffix("ar");
-//     auto r4 = ast.search_prefix("a");
-
-//     ast.erase("dar");
-
-//     auto r5 = ast.search_prefix("Ale");
-//     auto r6 = ast.search_suffix("dar");
-//     auto r7 = ast.search_suffix("ar");
-//     auto r8 = ast.search_prefix("a");
-
-//     ast.erase("Aleksandar");
-
-//     auto r9 = ast.search_prefix("Ale");
-//     auto r11 = ast.search_suffix("dar");
-//     auto r12 = ast.search_suffix("ar");
-//     auto r13 = ast.search_prefix("a");
-// }
 
 // NOLINTEND
