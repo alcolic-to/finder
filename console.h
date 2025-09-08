@@ -16,17 +16,17 @@
 //
 enum class Direction { up, down, left, right };
 
-static constexpr Direction d_up = Direction::up;
-static constexpr Direction d_down = Direction::down;
-static constexpr Direction d_left = Direction::left;
-static constexpr Direction d_right = Direction::right;
+static constexpr Direction up = Direction::up;
+static constexpr Direction down = Direction::down;
+static constexpr Direction left = Direction::left;
+static constexpr Direction right = Direction::right;
 
 enum class Edge { top, bottom, left, right };
 
-static constexpr Edge e_top = Edge::top;
-static constexpr Edge e_bottom = Edge::bottom;
-static constexpr Edge e_left = Edge::left;
-static constexpr Edge e_right = Edge::right;
+static constexpr Edge edge_top = Edge::top;
+static constexpr Edge edge_bottom = Edge::bottom;
+static constexpr Edge edge_left = Edge::left;
+static constexpr Edge edge_right = Edge::right;
 
 // We will map cursor coordinates as a windows console:
 // Defines the coordinates of a character cell in a console screen buffer. The origin of the
@@ -171,23 +171,23 @@ public:
     template<class T>
     Console& draw_search_results(const std::vector<T>& v)
     {
-        m_cursor.move_to<e_top>();
-        m_cursor.move_to<e_left>();
+        m_cursor.move_to<edge_top>();
+        m_cursor.move_to<edge_left>();
 
         for (auto& it : v) {
             fill_line(' ');
             *this << it->full_path();
 
-            m_cursor.move<d_down>();
-            m_cursor.move_to<e_left>();
+            m_cursor.move<down>();
+            m_cursor.move_to<edge_left>();
             if (m_cursor.y() == m_cursor.max_y() - 1)
                 break;
         }
 
         while (m_cursor.y() != m_cursor.max_y() - 1) {
             fill_line(' ');
-            m_cursor.move<d_down>();
-            m_cursor.move_to<e_left>();
+            m_cursor.move<down>();
+            m_cursor.move_to<edge_left>();
         }
 
         return *this;
@@ -195,8 +195,8 @@ public:
 
     Console& draw_symbol_search_results(const Symbol* symbol)
     {
-        m_cursor.move_to<e_top>();
-        m_cursor.move_to<e_left>();
+        m_cursor.move_to<edge_top>();
+        m_cursor.move_to<edge_left>();
 
         if (symbol != nullptr) {
             for (const auto& symref : symbol->refs()) {
@@ -207,8 +207,8 @@ public:
                                          symref.file()->name(), line.number(),
                                          std::string(line.preview()));
 
-                    m_cursor.move<d_down>();
-                    m_cursor.move_to<e_left>();
+                    m_cursor.move<down>();
+                    m_cursor.move_to<edge_left>();
 
                     if (m_cursor.y() == m_cursor.max_y() - 1)
                         return *this;
@@ -218,8 +218,8 @@ public:
 
         while (m_cursor.y() != m_cursor.max_y() - 1) {
             fill_line(' ');
-            m_cursor.move<d_down>();
-            m_cursor.move_to<e_left>();
+            m_cursor.move<down>();
+            m_cursor.move_to<edge_left>();
         }
 
         return *this;

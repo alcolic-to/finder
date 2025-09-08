@@ -39,7 +39,7 @@ Console::Console() : m_handle{os::init_console_handle()}, m_cursor{m_handle} {}
 Console& Console::operator<<(const std::string& s)
 {
     os::write_to_console(m_handle, static_cast<const void*>(s.data()), s.size());
-    m_cursor.move<d_right, false>(s.size());
+    m_cursor.move<right, false>(s.size());
     return *this;
 }
 
@@ -69,8 +69,8 @@ Console& Console::getline(std::string& line)
 
 Console& Console::clear()
 {
-    m_cursor.move_to<e_top>();
-    m_cursor.move_to<e_left>();
+    m_cursor.move_to<edge_top>();
+    m_cursor.move_to<edge_left>();
 
     while (true) {
         fill_line(' ');
@@ -78,11 +78,11 @@ Console& Console::clear()
         if (m_cursor.y() == m_cursor.max_y())
             break;
 
-        m_cursor.move<d_down>();
+        m_cursor.move<down>();
     }
 
-    m_cursor.move_to<e_top>();
-    m_cursor.move_to<e_left>();
+    m_cursor.move_to<edge_top>();
+    m_cursor.move_to<edge_left>();
 
     return *this;
 }

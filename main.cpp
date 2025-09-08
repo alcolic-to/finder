@@ -1,4 +1,5 @@
 #include <cctype>
+#include <chrono>
 #include <cstdint>
 #include <sstream>
 
@@ -43,8 +44,8 @@ int main()
     std::string input;
     std::string root;
 
-    std::cout << "Options: <root_dir> <-fsev> <--ignore <path1, path2 ... >>, <--include <path1, "
-                 "path2 ... >>\n: ";
+    std::cout << "Options: <root_dir> [-fsev] [--ignore=<path1,path2 ... >], "
+                 "[--include=<path1,path2 ... >]\n: ";
 
     std::getline(std::cin, input);
 
@@ -54,31 +55,39 @@ int main()
     Finder finder{root, Options{ss.str()}};
     // Symbol_finder finder{root, Options{ss.str()}};
 
-    // Show all files/symbols.
+    std::string query{""};
+    std::vector<const File_info*> results;
+    milliseconds time = 0ms;
+    sz objects_count = 0;
+
     Console console;
     console.clear();
-    console.draw_search_results(finder.find_files(""));
-    // console.draw_symbol_search_results(finder.find_symbols(""));
-
     Cursor& cursor = console.cursor();
-    std::string query;
 
     while (true) {
-        cursor.move_to<e_bottom>().move_to<e_left>();
+        {
+            Stopwatch<false, milliseconds> sw;
+            results = finder.find_files(query);
+
+            time = sw.elapsed_units();
+            objects_count = results.size();
+        }
+
+        console.draw_search_results(results);
+        // console.draw_symbol_search_results(finder.find_symbols(query));
+
+        cursor.move_to<edge_bottom>().move_to<edge_left>();
 
         console.fill_line(' ');
         console << "Search: " << query;
 
         cursor.push_coord();
-        cursor.move_to<e_right>().move<d_left>(40);
-        console << std::format("objects: {}, search time: {}", 0ms, 0h);
+        cursor.move_to<edge_right>().move<left>(40);
+        console << std::format("objects: {}, search time: {}", objects_count, time);
         cursor.pop_coord();
 
         if (!scan_input(console, query))
             break;
-
-        console.draw_search_results(finder.find_files(query));
-        // console.draw_symbol_search_results(finder.find_symbols(query));
     }
 
     console << "\n";
