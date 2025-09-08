@@ -1,6 +1,7 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
@@ -37,10 +38,17 @@ class Cursor {
 public:
     friend class Console;
 
+    static constexpr u32 coord_stack_size = 8;
+
+    struct Coord {
+        u32 m_x;
+        u32 m_y;
+    };
+
     explicit Cursor(void* handle);
 
     template<Direction d, bool Apply = true>
-    void move(u32 times = 1U)
+    Cursor& move(u32 times = 1U)
     {
         if constexpr (d == Direction::up)
             m_y = std::max(m_y - times, 0U);
@@ -55,10 +63,12 @@ public:
 
         if constexpr (Apply)
             apply();
+
+        return *this;
     }
 
     template<Edge e, bool Apply = true>
-    void move_to()
+    Cursor& move_to()
     {
         if constexpr (e == Edge::top)
             m_y = os::console_row_start();
@@ -73,6 +83,8 @@ public:
 
         if constexpr (Apply)
             apply();
+
+        return *this;
     }
 
     void set_pos(u32 x, u32 y);
@@ -81,9 +93,40 @@ public:
 
     [[nodiscard]] u32 y() const noexcept { return m_y; }
 
+    [[nodiscard]] Coord coord() const noexcept { return Coord{x(), y()}; }
+
     [[nodiscard]] u32 max_x() const noexcept { return m_max_x; }
 
     [[nodiscard]] u32 max_y() const noexcept { return m_max_y; }
+
+    template<bool Apply = true>
+    Cursor& push_coord()
+    {
+        if (m_stack_size > coord_stack_size)
+            throw std::runtime_error{"Stack is full."};
+
+        m_coord_stack[m_stack_size++] = coord();
+
+        if constexpr (Apply)
+            apply();
+
+        return *this;
+    }
+
+    template<bool Apply = true>
+    Cursor& pop_coord()
+    {
+        if (m_stack_size <= 0)
+            throw std::runtime_error{"Stack is empty."};
+
+        Coord c = m_coord_stack[--m_stack_size];
+        m_x = c.m_x, m_y = c.m_y;
+
+        if constexpr (Apply)
+            apply();
+
+        return *this;
+    }
 
 private:
     void apply();
@@ -107,6 +150,8 @@ private:
     u32 m_y;
     u32 m_max_x;
     u32 m_max_y;
+    std::array<Coord, coord_stack_size> m_coord_stack;
+    u32 m_stack_size = 0;
 };
 
 class Console {

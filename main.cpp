@@ -64,21 +64,24 @@ int main()
     std::string query;
 
     while (true) {
-        cursor.move_to<e_bottom>();
-        cursor.move_to<e_left>();
+        cursor.move_to<e_bottom>().move_to<e_left>();
 
         console.fill_line(' ');
         console << "Search: " << query;
 
-        if (!scan_input(console, query)) {
-            console << "\n";
-            return 0;
-        }
+        cursor.push_coord();
+        cursor.move_to<e_right>().move<d_left>(40);
+        console << std::format("objects: {}, search time: {}", 0ms, 0h);
+        cursor.pop_coord();
+
+        if (!scan_input(console, query))
+            break;
 
         console.draw_search_results(finder.find_files(query));
         // console.draw_symbol_search_results(finder.find_symbols(query));
     }
 
+    console << "\n";
     return 0;
 }
 
