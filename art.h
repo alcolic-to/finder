@@ -933,6 +933,10 @@ private:
     u8 m_key[];
 };
 
+/**
+ * Adaptive radix trie.
+ * TODO: Implement emplace and values in leaves.
+ */
 template<class T = void*>
 class ART {
 public:

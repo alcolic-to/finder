@@ -5,7 +5,6 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <ranges>
 #include <sstream>
 #include <stdexcept>
@@ -13,8 +12,6 @@
 #include <utility>
 #include <vector>
 
-#include "file_finder.h"
-#include "small_string.h"
 #include "symbols.h"
 #include "tokens.h"
 #include "util.h"
@@ -127,8 +124,6 @@ private:
 
 class Finder {
 public:
-    static constexpr sz files_search_limit = 128;
-
     using dir_iter = fs::recursive_directory_iterator;
 
     explicit Finder(const std::string& dir, Options opt = Options{})
@@ -144,7 +139,7 @@ public:
             if (!check_iteration(it, ec))
                 continue;
 
-            File_info* file = m_files.insert(it->path()).get();
+            FileInfo* file = m_files.insert(it->path()).get();
 
             if (!symbols_allowed() || !supported_file(it))
                 continue;
@@ -181,7 +176,7 @@ public:
 
     [[nodiscard]] Symbols& symbols() noexcept { return m_symbols; }
 
-    [[nodiscard]] FileFinder& files() noexcept { return m_files; }
+    [[nodiscard]] Files& files() noexcept { return m_files; }
 
     [[nodiscard]] const fs::path& dir() const noexcept { return m_dir; }
 
@@ -189,7 +184,7 @@ public:
 
     [[nodiscard]] bool symbols_allowed() const noexcept { return m_options.symbols_allowed(); }
 
-    auto find_files(const std::string& regex) { return m_files.search(regex, files_search_limit); }
+    auto find_files(const std::string& regex) { return m_files.search(regex); }
 
     Symbol* find_symbols(const std::string& symbol_name) { return m_symbols.search(symbol_name); }
 
@@ -220,10 +215,8 @@ private:
      */
     constexpr bool check_path(const std::string& path)
     {
-        // Skip all windows and /mnt (WSL) files in order to save space.
-        // Iterating over /mnt always get stuck for some reason.
-        if (path.starts_with("C:\\Windows") || path.starts_with("/Windows") ||
-            path.starts_with("/mnt"))
+        /* Iterating over /mnt always get stuck for some reason. */
+        if (path.starts_with("/mnt"))
             return false;
 
         const std::vector<std::string>& ignore_list = m_options.ignore_list();
@@ -261,8 +254,6 @@ private:
             if (it->is_directory() && it.depth() == 0)
                 std::cout << std::format("Scanning: {}\n", path);
 
-            // TODO: Check whether whis is needed.
-            //
             if (!it->is_regular_file() && !it->is_directory())
                 return false;
         }
@@ -284,7 +275,7 @@ private:
 
 private: // NOLINT
     fs::path m_dir;
-    FileFinder m_files;
+    Files m_files;
     Symbols m_symbols;
     Options m_options;
 };

@@ -230,7 +230,6 @@ void test_fs_search(const std::string& file_name)
     constexpr sz MB = 1024 * 1024;
 
     std::cout << std::format("Files paths size:    {}MB\n", files.file_paths_size() / MB);
-    std::cout << std::format("File finder size:    {}MB\n", files.file_finder_size() / MB);
     std::cout << std::format("Files size:          {}MB\n", files.files_size() / MB);
 
     // std::cout << "Paths count: " << paths.size() << "\n";

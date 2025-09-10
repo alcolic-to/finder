@@ -56,7 +56,7 @@ int main()
     // Symbol_finder finder{root, Options{ss.str()}};
 
     std::string query{""};
-    std::vector<const File_info*> results;
+    std::vector<const FileInfo*> results;
     milliseconds time = 0ms;
     sz objects_count = 0;
 
