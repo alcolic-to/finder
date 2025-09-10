@@ -61,8 +61,6 @@ int main()
     sz objects_count = 0;
 
     Console console;
-    console.clear();
-    Cursor& cursor = console.cursor();
 
     while (true) {
         {
@@ -76,21 +74,22 @@ int main()
         console.draw_search_results(results);
         // console.draw_symbol_search_results(finder.find_symbols(query));
 
-        cursor.move_to<edge_bottom>().move_to<edge_left>();
+        console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>();
 
-        console.fill_line(' ');
-        console << "Search: " << query;
+        console.clear_line();
+        console.write("Search: {}", query);
 
-        cursor.push_coord();
-        cursor.move_to<edge_right>().move<left>(40);
-        console << std::format("objects: {}, search time: {}", objects_count, time);
-        cursor.pop_coord();
+        console.push_coord();
+        console.move_cursor_to<edge_right>().move_cursor<left>(40);
+        console.write("objects: {}, search time: {}", objects_count, time);
+        console.pop_coord();
+        console.flush();
 
         if (!scan_input(console, query))
             break;
     }
 
-    console << "\n";
+    console.write("\n");
     return 0;
 }
 

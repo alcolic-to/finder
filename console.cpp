@@ -11,36 +11,16 @@
 // X - the horizontal coordinate or column value.
 // Y - the vertical coordinate or row value.
 //
-Cursor::Cursor(void* handle)
-    : m_handle{handle}
+Console::Console()
+    : m_handle{os::init_console_handle()}
     , m_x{static_cast<u32>(os::console_col_start())}
     , m_y{static_cast<u32>(os::console_row_start())}
 {
-    os::Coordinates coord = os::console_window_size(handle);
+    os::Coordinates coord = os::console_window_size(m_handle);
     m_max_x = coord.x - 1;
     m_max_y = coord.y - 1;
-
-    apply();
-}
-
-void Cursor::set_pos(u32 x, u32 y)
-{
-    m_x = x, m_y = y;
-    apply();
-}
-
-void Cursor::apply()
-{
-    os::set_console_cursor_position(m_handle, os_coord());
-}
-
-Console::Console() : m_handle{os::init_console_handle()}, m_cursor{m_handle} {}
-
-Console& Console::operator<<(const std::string& s)
-{
-    os::write_to_console(m_handle, static_cast<const void*>(s.data()), s.size());
-    m_cursor.move<right, false>(s.size());
-    return *this;
+    clear();
+    flush();
 }
 
 Console& Console::operator>>(std::string& s)
@@ -55,34 +35,8 @@ Console& Console::operator>>(int32_t& input)
     return *this;
 }
 
-Console& Console::fill_line(char ch)
-{
-    os::fill_console_line(m_handle, m_cursor.os_coord(), ch);
-    return *this;
-}
-
 Console& Console::getline(std::string& line)
 {
     std::getline(std::cin, line);
-    return *this;
-}
-
-Console& Console::clear()
-{
-    m_cursor.move_to<edge_top>();
-    m_cursor.move_to<edge_left>();
-
-    while (true) {
-        fill_line(' ');
-
-        if (m_cursor.y() == m_cursor.max_y())
-            break;
-
-        m_cursor.move<down>();
-    }
-
-    m_cursor.move_to<edge_top>();
-    m_cursor.move_to<edge_left>();
-
     return *this;
 }

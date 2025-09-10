@@ -40,12 +40,12 @@ COORD to_win_coord(Coordinates coord)
 
 i16 console_row_start()
 {
-    return 0;
+    return 1;
 };
 
 i16 console_col_start()
 {
-    return 0;
+    return 1;
 };
 
 bool is_esc(i32 input)
@@ -58,16 +58,29 @@ bool is_backspace(i32 input)
     return input == 8;
 }
 
+static DWORD initial_mode; // Used for settings restoration.
+
 void* init_console_handle()
 {
     HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
     if (handle == INVALID_HANDLE_VALUE || handle == nullptr)
         throw std::exception{"Failed to get console output handle."};
 
+    GetConsoleMode(handle, &initial_mode);
+    BOOL r = SetConsoleMode(handle, initial_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING |
+                                        ENABLE_PROCESSED_OUTPUT);
+    if (r == 0)
+        throw std::exception{"Failed to set new console mode."};
+
     return handle;
 }
 
-void close_console(void* handle) {}
+void close_console(void* handle)
+{
+    BOOL r = SetConsoleMode(handle, initial_mode);
+    if (r == 0)
+        throw std::exception{"Failed to set new console mode."};
+}
 
 Coordinates console_window_size(void* handle)
 {
@@ -78,6 +91,22 @@ Coordinates console_window_size(void* handle)
 
     return Coordinates{csbi.dwMaximumWindowSize.X, csbi.dwMaximumWindowSize.Y};
 }
+
+// void get_console_cursor_position(void* handle, Coordinates coord)
+// {
+// CONSOLE_SCREEN_BUFFER_INFO csbi;
+// if (GetConsoleScreenBufferInfo(handle, &csbi)) {
+// int row = csbi.dwCursorPosition.Y + 1; // 1-based
+// int col = csbi.dwCursorPosition.X + 1; // 1-based
+// std::cout << "Row: " << row << " Col: " << col << "\n";
+// }
+// else {
+// std::cerr << "Failed to get cursor position.\n";
+// }
+// BOOL r = (handle, to_win_coord(coord));
+// if (r == 0)
+// throw std::exception{"Could not apply new cursor position."};
+// }
 
 void set_console_cursor_position(void* handle, Coordinates coord)
 {
