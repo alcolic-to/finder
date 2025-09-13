@@ -156,8 +156,6 @@ private:
             if (it->is_directory() && it.depth() == 0)
                 std::cout << std::format("Scanning: {}\n", path);
 
-            // TODO: Check whether whis is needed.
-            //
             if (!it->is_regular_file() && !it->is_directory())
                 return false;
         }

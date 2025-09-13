@@ -197,7 +197,7 @@ private:
     qlist_entry* m_occu_head = nullptr;
     qlist_entry* m_occu_tail = nullptr;
     unsigned long long m_size = 0;
-    qlist_entry m_list[size];
+    qlist_entry m_list[size]; // NOLINT
 };
 
 #endif
