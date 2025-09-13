@@ -8,7 +8,6 @@
 
 #include "files.h"
 #include "small_string.h"
-#include "suffix_trie.h"
 #include "util.h"
 
 // NOLINTBEGIN

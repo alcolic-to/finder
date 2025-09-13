@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
+#include "art.h"
 #include "os.h"
 #include "small_string.h"
-#include "suffix_trie.h"
 #include "util.h"
 
 // NOLINTBEGIN
