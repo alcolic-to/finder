@@ -144,12 +144,8 @@ private:
         m_files.push_back(std::make_unique<FileInfo>(file_name));
         FileInfo* file = m_files.back().get();
 
-        /* Create emplace to avoid this nonsence. */
-        auto res = m_file_paths.insert(file_path, std::vector{file});
-        if (!res)
-            res->value().push_back(file);
-
-        file->set_path(res->key_to_string_view());
+        m_file_paths[file_path].push_back(file);
+        file->set_path(m_file_paths.leaf_from_value(m_file_paths[file_path])->key_to_string_view());
         return {file, true};
     }
 

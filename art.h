@@ -932,7 +932,7 @@ private:
 
 /**
  * Adaptive radix trie.
- * TODO: Implement emplace and values in leaves.
+ * TODO: Implement values within leaves and enable user to store whatever he wants.
  */
 template<class T = void*>
 class ART {
@@ -949,10 +949,11 @@ public:
     using reference = T&;
     using const_reference = const T&;
 
-    // Class that wraps insert result.
-    // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
-    // for more details).
-    //
+    /**
+     * Class that wraps insert result.
+     * It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
+     * for more details).
+     */
     class result {
     public:
         result(Leaf* value, bool ok) : m_value{value}, m_ok{ok} { assert(m_value != nullptr); }
@@ -987,12 +988,15 @@ public:
     ART& operator=(const ART& other) = delete;
     ART& operator=(ART&& other) noexcept = delete;
 
-    // Inserts single key/value pair into the tree. In order to support keys insertions without
-    // values, we will default class T = void*, and default initialize value parameter. Also, in
-    // order to avoid duplicating code, we need to introduce new template class V in order to
-    // perfectly forward value to leaf. If we were to use T&& value as a parameter without template
-    // declaration, compiler would treat it as a rvalue reference only.
-    //
+    /**
+     * Returns leaf from provided value stored in leaf. It is user's responsibility to provide value
+     * from leaf.
+     */
+    Leaf* leaf_from_value(const T& value) { return std::bit_cast<Leaf*>(&value); }
+
+    /**
+     * Inserts single key/value pair into the tree.
+     */
     template<class... Args>
     result insert(const std::string& s, Args&&... args) noexcept
     {
@@ -1000,12 +1004,9 @@ public:
         return insert(key, std::forward<Args>(args)...);
     }
 
-    // Inserts single key/value pair into the tree. In order to support keys insertions without
-    // values, we will default class T = void*, and default initialize value parameter. Also, in
-    // order to avoid duplicating code, we need to introduce new template class V in order to
-    // perfectly forward value to leaf. If we were to use T&& value as a parameter without template
-    // declaration, compiler would treat it as a rvalue reference only.
-    //
+    /**
+     * Inserts single key/value pair into the tree.
+     */
     template<class... Args>
     result insert(const u8* const data, sz size, Args&&... args) noexcept
     {
@@ -1035,6 +1036,12 @@ public:
     {
         const Key key{data, size};
         return search(key);
+    }
+
+    [[nodiscard]] T& operator[](const std::string& s)
+    {
+        const Key key{s};
+        return insert(key)->value();
     }
 
     // Finds all entries whose key starts with provided string. User can limit number of returned

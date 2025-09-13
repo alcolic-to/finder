@@ -1306,12 +1306,9 @@ public:
     AST& operator=(const AST& other) = delete;
     AST& operator=(AST&& other) noexcept = delete;
 
-    // Inserts single key/value pair into the tree. In order to support keys insertions without
-    // values, we will default class T = void*, and default initialize value parameter. Also, in
-    // order to avoid duplicating code, we need to introduce new template class V in order to
-    // perfectly forward value to leaf. If we were to use T&& value as a parameter without
-    // template declaration, compiler would treat it as a rvalue reference only.
-    //
+    /**
+     * Inserts single key/value pair into the tree.
+     */
     template<class... Args>
     result insert(const std::string& s, Args&&... args) noexcept
     {
@@ -1329,19 +1326,6 @@ public:
         }
 
         return {m_data[ref.idx()], true};
-    }
-
-    // Inserts single key/value pair into the tree. In order to support keys insertions without
-    // values, we will default class T = void*, and default initialize value parameter. Also, in
-    // order to avoid duplicating code, we need to introduce new template class V in order to
-    // perfectly forward value to leaf. If we were to use T&& value as a parameter without
-    // template declaration, compiler would treat it as a rvalue reference only.
-    //
-    template<class V = T>
-    result insert(const u8* const data, sz size, V&& value = V{}) noexcept
-    {
-        const KeySpan key{data, size};
-        return insert(key, std::forward<V>(value));
     }
 
     void erase(const std::string& s) noexcept
@@ -1826,9 +1810,10 @@ private:
         entry = new Node4{key, value, depth, old_key, *leaf};
     }
 
-    // Handles insertion when we reached innder node and key at provided depth did not match
-    // full node prefix.
-    //
+    /**
+     * Handles insertion when we reached innder node and key at provided depth did not match
+     * full node prefix.
+     */
     void insert_at_node(entry_ptr& entry, const KeySpan& key, KeyRef value, sz depth,
                         sz cp_len) noexcept
     {
