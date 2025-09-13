@@ -167,6 +167,17 @@ private:
             return;
 
         files_on_path.erase(fpaths_it);
+
+        auto file_it = std::ranges::find_if(m_files, [&](const std::unique_ptr<FileInfo>& file) {
+            return file->name() == file_name && file->path() == file_path;
+        });
+
+        assert(file_it != m_files.end());
+        m_files.erase(file_it);
+
+        /* This must be done after removing file from m_files, since file's path is in file paths,
+         * and we won't be able to match path when searching for file.
+         */
         if (files_on_path.empty())
             m_file_paths.erase(file_path);
     }

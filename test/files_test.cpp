@@ -73,7 +73,6 @@ TEST(files_test, sanity_test_2)
     std::string file_name = "attach.cpp";
 
     std::string file_path_1 =
-
 #if defined _WIN32
         R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac)";
 #elif defined __linux__
