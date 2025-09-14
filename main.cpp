@@ -76,8 +76,8 @@ int main()
 
         console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>();
 
-        console.clear_line();
         console.write("Search: {}", query);
+        console.clear_rest_of_line();
 
         console.push_coord();
         console.move_cursor_to<edge_right>().move_cursor<left>(40);

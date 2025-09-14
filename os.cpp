@@ -79,7 +79,7 @@ void close_console(void* handle)
 {
     BOOL r = SetConsoleMode(handle, initial_mode);
     if (r == 0)
-        throw std::exception{"Failed to set new console mode."};
+        throw std::exception{"Failed to restore console settings."};
 }
 
 Coordinates console_window_size(void* handle)

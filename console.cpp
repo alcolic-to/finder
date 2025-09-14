@@ -17,8 +17,8 @@ Console::Console()
     , m_y{static_cast<u32>(os::console_row_start())}
 {
     os::Coordinates coord = os::console_window_size(m_handle);
-    m_max_x = coord.x - 1;
-    m_max_y = coord.y - 1;
+    m_max_x = coord.x;
+    m_max_y = coord.y;
     clear();
     flush();
 }

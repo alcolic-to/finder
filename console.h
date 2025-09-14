@@ -95,7 +95,7 @@ public:
         return *this;
     }
 
-    Console& clear_line()
+    Console& clear_rest_of_line()
     {
         command(CSI "K");
         return *this;
@@ -190,22 +190,21 @@ public:
         move_cursor_to<edge_top>();
         move_cursor_to<edge_left>();
 
-        for (auto& it : v) {
-            clear_line();
-            write(it->full_path());
-
-            move_cursor<down>();
-            move_cursor_to<edge_left>();
-            if (y() == max_y() - 1)
-                break;
-        }
+        auto it = v.begin();
+        const auto it_end = v.end();
 
         while (y() != max_y() - 1) {
-            clear_line();
+            if (it != it_end) {
+                write((*it)->full_path());
+                ++it;
+            }
+
+            clear_rest_of_line();
             move_cursor<down>();
             move_cursor_to<edge_left>();
         }
 
+        clear_rest_of_line();
         return *this;
     }
 
@@ -217,7 +216,7 @@ public:
         if (symbol != nullptr) {
             for (const auto& symref : symbol->refs()) {
                 for (const auto& line : symref.lines()) {
-                    clear_line();
+                    clear_rest_of_line();
 
                     *this << std::format("{}\\{} {}: {}\n", symref.file()->path(),
                                          symref.file()->name().c_str(), line.number(),
@@ -233,7 +232,7 @@ public:
         }
 
         while (y() != max_y() - 1) {
-            clear_line();
+            clear_rest_of_line();
             move_cursor<down>();
             move_cursor_to<edge_left>();
         }
@@ -256,13 +255,13 @@ private:
 
     os::Coordinates os_coord() { return os::Coordinates{short_x(), short_y()}; }
 
-private:
+private: // NOLINT
     void* m_handle;
     u32 m_x;
     u32 m_y;
     u32 m_max_x;
     u32 m_max_y;
-    std::array<Coord, coord_stack_size> m_coord_stack;
+    std::array<Coord, coord_stack_size> m_coord_stack{};
     u32 m_stack_size = 0;
 };
 
