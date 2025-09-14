@@ -2,6 +2,7 @@
 #define FILES_H
 
 #include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -32,22 +33,22 @@ public:
             throw std::runtime_error{"File path does not end with file name."};
     }
 
-    [[nodiscard]] const std::string& name() const noexcept { return m_name; }
+    [[nodiscard]] constexpr const SmallString& name() const noexcept { return m_name; }
 
     [[nodiscard]] const std::string_view path() const noexcept { return m_path; }
 
     [[nodiscard]] std::string full_path() const noexcept
     {
         if (path() == "/" || path() == "C:\\")
-            return std::format("{}{}", path(), name());
+            return std::format("{}{}", path(), name().c_str());
 
-        return std::format("{}{}{}", path(), os::path_sep, name());
+        return std::format("{}{}{}", path(), os::path_sep, name().c_str());
     }
 
     void set_path(std::string_view path) { m_path = path; }
 
 private:
-    std::string m_name;      // File name with extension.
+    SmallString m_name;      // File name with extension.
     std::string_view m_path; // Full file path.
 };
 
@@ -105,7 +106,7 @@ public:
             return results;
 
         for (const auto& file : m_files)
-            if (file->name().find(name) != std::string::npos && file->path().starts_with(path))
+            if (std::strstr(file->name(), name.c_str()) && file->path().starts_with(path))
                 results.emplace_back(file.get());
 
         return results;

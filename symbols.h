@@ -22,7 +22,7 @@ public:
 
 private:
     sz m_number;
-    Small_string m_preview; // Line preview which will be displayed with symbol in print.
+    SmallString m_preview; // Line preview which will be displayed with symbol in print.
 };
 
 class Symbol_file_refs {
@@ -59,7 +59,7 @@ public:
     auto& refs() noexcept { return m_refs; }
 
 private:
-    Small_string m_name;
+    SmallString m_name;
     std::vector<Symbol_file_refs> m_refs;
 };
 

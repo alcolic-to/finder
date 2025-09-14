@@ -1,6 +1,6 @@
 #ifndef SMALL_STRING_H
 #define SMALL_STRING_H
-#include <bit>
+
 #include <string.h>
 #include <string>
 
@@ -13,17 +13,17 @@
 // point to allocated string. We will set pointer tag (small or big) which indicates whether string
 // is small or big.
 //
-class Small_string {
+class SmallString {
     static constexpr size_t small_limit = 6;
     static constexpr uintptr_t small_tag = 0;
     static constexpr uintptr_t big_tag = 1;
 
 public:
-    Small_string() : m_data{nullptr} {}
+    constexpr SmallString() : m_data{nullptr} {}
 
-    Small_string(const std::string& s) : Small_string(s.c_str(), s.size()) {}
+    constexpr SmallString(const std::string& s) : SmallString(s.c_str(), s.size()) {}
 
-    Small_string(const char* s, size_t size = 0) : m_data{nullptr}
+    constexpr SmallString(const char* s, size_t size = 0) : m_data{nullptr}
     {
         if (s == nullptr)
             return;
@@ -39,39 +39,39 @@ public:
         ctr_from_big(s, size);
     }
 
-    Small_string(const Small_string& other)
+    constexpr SmallString(const SmallString& other)
     {
         if (other.small())
             m_data = other.m_data;
         else
-            ctr_from_big(other.data(), other.size());
+            ctr_from_big(other.c_str(), other.size());
     }
 
-    Small_string(Small_string&& other) noexcept
+    SmallString(SmallString&& other) noexcept
     {
         m_data = other.m_data;
         other.m_data = nullptr;
     }
 
-    ~Small_string()
+    ~SmallString()
     {
         if (empty() || small())
             return;
 
-        delete[] data();
+        delete[] c_str();
     }
 
-    Small_string& operator=(const Small_string& other)
+    SmallString& operator=(const SmallString& other)
     {
         if (other.small())
             m_data = other.m_data;
         else
-            ctr_from_big(other.data(), other.size());
+            ctr_from_big(other.c_str(), other.size());
 
         return *this;
     }
 
-    Small_string& operator=(Small_string&& other) noexcept
+    SmallString& operator=(SmallString&& other) noexcept
     {
         m_data = other.m_data;
         other.m_data = nullptr;
@@ -80,22 +80,26 @@ public:
 
     [[nodiscard]] bool operator==(const std::string& other) const noexcept
     {
-        return !std::strcmp(data(), other.c_str());
+        return !std::strcmp(c_str(), other.c_str());
     }
 
-    [[nodiscard]] bool operator==(const Small_string& other) const noexcept
+    [[nodiscard]] bool operator==(const SmallString& other) const noexcept
     {
-        return !std::strcmp(data(), other.data());
+        return !std::strcmp(c_str(), other.c_str());
     }
 
     [[nodiscard]] constexpr bool empty() const noexcept { return m_data == nullptr; }
 
-    [[nodiscard]] const char* data() const noexcept
+    [[nodiscard]] constexpr const char* c_str() const noexcept
     {
         return small() ? &m_sso[1] : static_cast<char*>(clear_tag(m_data));
     }
 
-    [[nodiscard]] operator const char*() const noexcept { return data(); }
+    [[nodiscard]] constexpr std::string str() const noexcept { return std::string{c_str()}; }
+
+    [[nodiscard]] constexpr operator const char*() const noexcept { return c_str(); }
+
+    [[nodiscard]] constexpr operator bool() const noexcept { return !empty(); }
 
     [[nodiscard]] size_t size() const noexcept { return std::strlen(*this); }
 
@@ -120,7 +124,7 @@ private:
     };
 };
 
-static_assert(sizeof(Small_string) == 8);
+static_assert(sizeof(SmallString) == 8);
 
 // NOLINTEND
 

@@ -220,7 +220,7 @@ public:
                     clear_line();
 
                     *this << std::format("{}\\{} {}: {}\n", symref.file()->path(),
-                                         symref.file()->name(), line.number(),
+                                         symref.file()->name().c_str(), line.number(),
                                          std::string(line.preview()));
 
                     move_cursor<down>();
