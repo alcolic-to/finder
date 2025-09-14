@@ -106,7 +106,7 @@ public:
             return results;
 
         for (const auto& file : m_files)
-            if (std::strstr(file->name(), name.c_str()) && file->path().starts_with(path))
+            if (file->path().starts_with(path) && std::strstr(file->name(), name.c_str()))
                 results.emplace_back(file.get());
 
         return results;
