@@ -18,6 +18,16 @@ TEST(small_string_test, sanity_test_1)
     ASSERT_TRUE(s3 == std::string{"1234567"});
     ASSERT_TRUE(s4 == std::string{"12345678"});
 
+    ASSERT_TRUE(s1.starts_with(s0));
+    ASSERT_TRUE(s2.starts_with(s1));
+    ASSERT_TRUE(s3.starts_with(s2));
+    ASSERT_TRUE(s4.starts_with(s3));
+
+    ASSERT_FALSE(s0.starts_with(s1));
+    ASSERT_FALSE(s1.starts_with(s2));
+    ASSERT_FALSE(s2.starts_with(s3));
+    ASSERT_FALSE(s3.starts_with(s4));
+
     SmallString s0_copy{s0};
     SmallString s1_copy{s1};
 

@@ -78,6 +78,11 @@ public:
         return *this;
     }
 
+    [[nodiscard]] bool operator==(const char* other) const noexcept
+    {
+        return !std::strcmp(c_str(), other);
+    }
+
     [[nodiscard]] bool operator==(const std::string& other) const noexcept
     {
         return !std::strcmp(c_str(), other.c_str());
@@ -102,6 +107,11 @@ public:
     [[nodiscard]] constexpr operator bool() const noexcept { return !empty(); }
 
     [[nodiscard]] size_t size() const noexcept { return std::strlen(*this); }
+
+    [[nodiscard]] bool starts_with(const SmallString& other) const noexcept
+    {
+        return std::strncmp(c_str(), other.c_str(), other.size()) == 0;
+    }
 
 private:
     [[nodiscard]] constexpr bool small() const noexcept { return tag(m_data) == small_tag; }
