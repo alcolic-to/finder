@@ -65,7 +65,7 @@ int main()
     while (true) {
         {
             Stopwatch<false, milliseconds> sw;
-            results = finder.find_files(query);
+            results = finder.find_files_partial(query, 2, 0);
 
             time = sw.elapsed_units();
             objects_count = results.size();

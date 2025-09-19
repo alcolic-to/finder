@@ -112,6 +112,36 @@ public:
         return results;
     }
 
+    /**
+     * Partial files search user for multithreaded search. User should provide number of slices
+     * (threads) and a slice number (thread number) that is used for search.
+     * Slice number is 0 based.
+     */
+    auto partial_search(const std::string& regex, sz slice_count, sz slice_number)
+    {
+        assert(slice_count > slice_number);
+
+        std::vector<const FileInfo*> results;
+        results.reserve(1024);
+
+        sz slash_pos = regex.find_last_of(os::path_sep);
+        std::string name{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) : regex};
+        std::string path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
+
+        if (!m_file_paths.search_prefix_node(path))
+            return results;
+
+        sz chunk = std::max(sz(1), m_files.size() / slice_count);
+        auto file = m_files.begin() + chunk * slice_number;
+        const auto& last = slice_count == slice_number + 1 ? m_files.end() : file + chunk;
+
+        for (; file < last; ++file)
+            if (std::strstr((*file)->name(), name.c_str()) && (*file)->path().starts_with(path))
+                results.emplace_back((*file).get());
+
+        return results;
+    }
+
     auto files_count() { return m_files.size(); }
 
     auto files_size()

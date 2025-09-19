@@ -184,6 +184,11 @@ public:
 
     [[nodiscard]] bool symbols_allowed() const noexcept { return m_options.symbols_allowed(); }
 
+    auto find_files_partial(const std::string& regex, sz slice_count, sz slice_number)
+    {
+        return m_files.partial_search(regex, slice_count, slice_number);
+    }
+
     auto find_files(const std::string& regex) { return m_files.search(regex); }
 
     Symbol* find_symbols(const std::string& symbol_name) { return m_symbols.search(symbol_name); }
