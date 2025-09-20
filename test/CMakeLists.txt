@@ -1,5 +1,5 @@
-OPTION(BUILD_TEST "If set, builds all tests." ON)
-if (NOT BUILD_TEST)
+OPTION(FINDER_BUILD_TEST "If set, builds all tests." OFF)
+if (NOT FINDER_BUILD_TEST)
     return()
 endif()
 

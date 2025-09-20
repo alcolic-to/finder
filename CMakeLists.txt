@@ -12,7 +12,7 @@
 # Also, on windows, make sure to run program as administrator so tracy can collect stack traces.
 
 cmake_minimum_required(VERSION 3.10)
-project(art)
+project(finder)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -30,24 +30,15 @@ include(cmake/project_config.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/compiler_options.cmake)
 
-set(CPP_FILES art.cpp console.cpp os.cpp)
-set(HPP_FILES art.h trie.h console.h os.h)
+set(CPP_FILES main.cpp console.cpp os.cpp)
+set(HPP_FILES art.h ast.h trie.h console.h os.h files.h finde.h ptr_tag.h small_string.h symbol_finder.h symbols.h tokens.h util.h)
 set(ALL_FILES ${CPP_FILES} ${HPP_FILES})
 
-add_library(art_lib STATIC ${CPP_FILES})
+add_executable(finder ${CPP_FILES})
 
 include(cmake/profilers.cmake)
 if (ENABLE_TRACY)
-    add_tracy(art_lib)
-endif()
-
-set(ART_LIBRARIES art_lib)
-
-OPTION(BUILD_MAIN "If set, builds main.cpp." ON)
-if (BUILD_MAIN)
-    add_executable(art_main main.cpp)
-    target_link_libraries(art_main PRIVATE ${ART_LIBRARIES})
-    target_include_directories(art_main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_tracy(finder)
 endif()
 
 include(CTest)

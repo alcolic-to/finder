@@ -10,6 +10,13 @@
 #include "symbol_finder.h"
 #include "util.h"
 
+/**
+ * Skipping ums lib for now.
+ *
+ * #include "ums.h"
+ * #include "async.h"
+ */
+
 // NOLINTBEGIN
 
 bool scan_input(Console& console, std::string& query)
@@ -39,8 +46,64 @@ bool scan_input(Console& console, std::string& query)
     return true;
 }
 
-int main()
+// int finder_main(int argc, char* argv[])
+// {
+//     std::string input;
+//     std::string root;
+
+//     std::cout << "Options: <root_dir> [-fsev] [--ignore=<path1,path2 ... >], "
+//                  "[--include=<path1,path2 ... >]\n: ";
+
+//     std::getline(std::cin, input);
+
+//     std::stringstream ss{input};
+//     ss >> root;
+
+//     Finder finder{root, Options{ss.str()}};
+//     // Symbol_finder finder{root, Options{ss.str()}};
+
+//     std::string query{""};
+//     std::vector<const FileInfo*> results;
+//     milliseconds time = 0ms;
+//     sz objects_count = 0;
+
+//     Console console;
+
+//     while (true) {
+//         {
+//             Stopwatch<false, milliseconds> sw;
+//             results = finder.find_files(query);
+
+//             time = sw.elapsed_units();
+//             objects_count = results.size();
+//         }
+
+//         console.draw_search_results(results);
+//         // console.draw_symbol_search_results(finder.find_symbols(query));
+
+//         console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>();
+
+//         console.write("Search: {}", query);
+//         console.clear_rest_of_line();
+
+//         console.push_coord();
+//         console.move_cursor_to<edge_right>().move_cursor<left>(40);
+//         console.write("objects: {}, search time: {}", objects_count, time);
+//         console.pop_coord();
+//         console.flush();
+
+//         if (!scan_input(console, query))
+//             break;
+//     }
+
+//     console.write("\n");
+//     return 0;
+// }
+
+int main(int argc, char* argv[])
 {
+    // ums::init_ums([&] { finder_main(argc, argv); });
+
     std::string input;
     std::string root;
 

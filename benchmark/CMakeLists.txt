@@ -1,5 +1,5 @@
-OPTION(BUILD_BENCHMARK "If set, builds all benchmarks." ON)
-if (NOT BUILD_BENCHMARK)
+OPTION(FINDER_BUILD_BENCHMARK "If set, builds all benchmarks." OFF)
+if (NOT FINDER_BUILD_BENCHMARK)
     return ()
 endif()
 
@@ -21,11 +21,11 @@ message("Disabling clang-tidy for google benchmark.")
 set_property(TARGET benchmark PROPERTY CXX_CLANG_TIDY "")
 set_property(TARGET benchmark_main PROPERTY CXX_CLANG_TIDY "")
 
-function(add_benchmark BENCHMARK_FILE)
+function(add_finder_benchmark BENCHMARK_FILE)
     get_filename_component(BENCHMARK_NAME ${BENCHMARK_FILE} NAME_WE)
     add_executable(${BENCHMARK_NAME} ${BENCHMARK_FILE})
     target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ART_LIBRARIES} benchmark::benchmark)
     target_include_directories(${BENCHMARK_NAME} PUBLIC ${CMAKE_SOURCE_DIR})
 endfunction()
 
-# add_benchmark("my_benchmark.cpp")
+# add_finder_benchmark("my_benchmark.cpp")
