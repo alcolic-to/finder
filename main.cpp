@@ -130,10 +130,10 @@ int finder_main(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-    u32 cpus_count = std::clamp(std::thread::hardware_concurrency(), u32(1), u32(8));
+    u32 cpus_count = std::clamp(std::thread::hardware_concurrency(), u32(1), u32(64));
 
     auto sch = ums::Options::Schedulers_count{cpus_count};
-    auto workers = ums::Options::Workers_per_scheduler{1};
+    auto workers = ums::Options::Workers_per_scheduler{4};
 
     ums::init_ums([&] { finder_main(argc, argv); }, ums::Options{sch, workers});
 }
