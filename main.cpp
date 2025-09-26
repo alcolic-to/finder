@@ -72,7 +72,7 @@ int finder_main(int argc, char* argv[])
     Console console;
 
     /* Tasks related. */
-    u32 workers_count = ums::schedulers->workers_count();
+    u32 workers_count = ums::schedulers->cpus_count();
     u32 worker_id = 0;
     std::vector<std::shared_ptr<ums::Task>> tasks;
     tasks.reserve(workers_count);
@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
     u32 cpus_count = std::clamp(std::thread::hardware_concurrency(), u32(1), u32(64));
 
     auto sch = ums::Options::Schedulers_count{cpus_count};
-    auto workers = ums::Options::Workers_per_scheduler{4};
+    auto workers = ums::Options::Workers_per_scheduler{1};
 
     ums::init_ums([&] { finder_main(argc, argv); }, ums::Options{sch, workers});
 }

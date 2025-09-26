@@ -117,7 +117,7 @@ public:
      * (threads) and a slice number (thread number) that is used for search.
      * Slice number is 0 based.
      */
-    auto partial_search(const std::string& regex, sz slice_count, sz slice_number)
+    auto partial_search(const std::string& regex, sz slice_count, sz slice_number) const noexcept
     {
         assert(slice_count > slice_number);
 
