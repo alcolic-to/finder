@@ -26,7 +26,7 @@ bool scan_input(Console& console, std::string& query)
         console >> input_ch;
 
         if (os::is_esc(input_ch))
-            return false;
+            continue; // -> Ignore escape.
 
         if (os::is_backspace(input_ch)) {
             if (query.empty())

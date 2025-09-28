@@ -92,7 +92,7 @@ public:
         static u8* m_memory = nullptr;
         static sz m_allocated = 0;
 
-        sz aligned_size = (size + align_mask) & ~(align_mask);
+        sz aligned_size = (size + align_mask) & ~align_mask;
 
         if (m_memory == nullptr || m_allocated + aligned_size > chunk_size) {
             m_memory = static_cast<u8*>(std::malloc(chunk_size)); // NOLINT
@@ -195,7 +195,7 @@ private:
     };
 };
 
-static_assert(sizeof(SmallString) == 8);
+static_assert(sizeof(SmallString) == 8); // NOLINT
 
 // NOLINTEND
 
