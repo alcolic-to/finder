@@ -136,7 +136,7 @@ public:
         const auto& last = slice_count == slice_number + 1 ? m_files.end() : file + chunk;
 
         for (; file < last; ++file)
-            if (std::strstr((*file)->name(), name.c_str()) && (*file)->path().starts_with(path))
+            if ((*file)->path().starts_with(path) && (*file)->name().contains(name))
                 results.emplace_back((*file).get());
 
         return results;

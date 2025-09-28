@@ -1,12 +1,28 @@
 #ifndef SMALL_STRING_H
 #define SMALL_STRING_H
 
-#include <string.h>
+#include <cstring>
+#include <iostream>
 #include <string>
 
 #include "ptr_tag.h"
 
-// NOLINTBEGIN
+using i8 = std::int8_t;
+using i16 = std::int16_t;
+using i32 = std::int32_t;
+using i64 = std::int64_t;
+
+using u8 = std::uint8_t;
+using u16 = std::uint16_t;
+using u32 = std::uint32_t;
+using u64 = std::uint64_t;
+
+using f32 = std::float_t;
+using f64 = std::double_t;
+
+using sz = std::size_t;
+using iptr = std::intptr_t;
+using uptr = std::uintptr_t;
 
 // Small string.
 // If string is smaller than 7 bytes, data will be stored in pointer directly, otherwise m_data will
@@ -14,16 +30,16 @@
 // is small or big.
 //
 class SmallString {
-    static constexpr size_t small_limit = 6;
-    static constexpr uintptr_t small_tag = 0;
-    static constexpr uintptr_t big_tag = 1;
+    static constexpr sz small_limit = 6;
+    static constexpr uptr small_tag = 0;
+    static constexpr uptr big_tag = 1;
 
 public:
     constexpr SmallString() : m_data{nullptr} {}
 
     constexpr SmallString(const std::string& s) : SmallString(s.c_str(), s.size()) {}
 
-    constexpr SmallString(const char* s, size_t size = 0) : m_data{nullptr}
+    constexpr SmallString(const char* s, sz size = 0) : m_data{nullptr}
     {
         if (s == nullptr)
             return;
@@ -58,8 +74,41 @@ public:
         if (empty() || small())
             return;
 
-        delete[] c_str();
+        free_buffer(big_data());
     }
+
+    /**
+     * Allocates buffer long enough to hold size bytes.
+     * It allocates memory from pools of 1MB. When chunk is exceeded, new chunk is requested with
+     * malloc. Allocations are aligned on a std::max_align_t (usually 16) bytes.
+     * Note that this function is not thread safe.
+     */
+    static void* allocate_buffer(sz size)
+    {
+        static constexpr sz align = alignof(std::max_align_t);
+        static constexpr sz align_mask = align - 1;
+        static constexpr sz chunk_size = 1024UL * 1024;
+
+        static u8* m_memory = nullptr;
+        static sz m_allocated = 0;
+
+        sz aligned_size = (size + align_mask) & ~(align_mask);
+
+        if (m_memory == nullptr || m_allocated + aligned_size > chunk_size) {
+            m_memory = static_cast<u8*>(std::malloc(chunk_size)); // NOLINT
+            m_allocated = 0;
+        }
+
+        void* allocation = m_memory + m_allocated; // NOLINT
+        m_allocated += aligned_size;
+
+        return allocation;
+    }
+
+    /**
+     * Nothing to do in delete.
+     */
+    static void free_buffer([[maybe_unused]] void* memory) {}
 
     SmallString& operator=(const SmallString& other)
     {
@@ -95,6 +144,8 @@ public:
 
     [[nodiscard]] constexpr bool empty() const noexcept { return m_data == nullptr; }
 
+    [[nodiscard]] constexpr void* big_data() const noexcept { return clear_tag(m_data); }
+
     [[nodiscard]] constexpr const char* c_str() const noexcept
     {
         return small() ? &m_sso[1] : static_cast<char*>(clear_tag(m_data));
@@ -106,11 +157,21 @@ public:
 
     [[nodiscard]] constexpr operator bool() const noexcept { return !empty(); }
 
-    [[nodiscard]] size_t size() const noexcept { return std::strlen(*this); }
+    [[nodiscard]] sz size() const noexcept { return std::strlen(*this); }
 
     [[nodiscard]] bool starts_with(const SmallString& other) const noexcept
     {
         return std::strncmp(c_str(), other.c_str(), other.size()) == 0;
+    }
+
+    [[nodiscard]] bool contains(const char* needle) const noexcept
+    {
+        return std::strstr(c_str(), needle);
+    }
+
+    [[nodiscard]] bool contains(const std::string& needle) const noexcept
+    {
+        return std::strstr(c_str(), needle.c_str());
     }
 
 private:
@@ -118,14 +179,14 @@ private:
 
     [[nodiscard]] constexpr bool big() const noexcept { return tag(m_data) == big_tag; }
 
-    void ctr_from_big(const char* big, size_t size)
+    void ctr_from_big(const char* big, sz size)
     {
         assert(size > small_limit);
 
-        char* str = new char[size + 1];
+        char* str = static_cast<char*>(allocate_buffer(size + 1));
         std::memcpy(str, big, size);
-        str[size] = 0;
-        m_data = set_tag(str, big_tag);
+        str[size] = 0;                  // NOLINT
+        m_data = set_tag(str, big_tag); // NOLINT
     }
 
     union {
