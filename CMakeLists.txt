@@ -39,6 +39,7 @@ add_executable(finder ${CPP_FILES})
 add_subdirectory(third_party/cos-cooperative-scheduling)
 target_link_libraries(finder PRIVATE ums_lib)
 target_include_directories(finder PUBLIC third_party/cos-cooperative-scheduling)
+target_include_directories(finder PUBLIC third_party/cli11)
 
 include(cmake/profilers.cmake)
 if (ENABLE_TRACY)

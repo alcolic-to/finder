@@ -57,91 +57,75 @@ static constexpr bool is_cpp_keyword(const std::string& s)
 
 class Options {
 public:
-    static constexpr u32 opt_files = 1;      // Search files.
-    static constexpr u32 opt_symbols = 2;    // Search both files and symbols.
-    static constexpr u32 opt_stats_only = 4; // Print stats and quit.
-    static constexpr u32 opt_verbose = 8;    // Print stats and quit.
-    static constexpr u32 opt_all = opt_files | opt_symbols | opt_stats_only | opt_verbose;
-
-    Options() : m_opt{opt_all} {}
-
-    explicit Options(const std::string& opt)
+    explicit Options(std::string root, std::vector<std::string> ignore_list,
+                     std::vector<std::string> include_list, bool files, bool symbols,
+                     bool stat_only, bool verbose)
+        : m_root{std::move(root)}
+        , m_ignore_list{std::move(ignore_list)}
+        , m_include_list{std::move(include_list)}
+        , m_files{files}
+        , m_symbols{symbols}
+        , m_stat_only{stat_only}
+        , m_verbose{verbose}
     {
-        std::stringstream ss{opt};
-        std::string s;
-
-        while (ss >> s) {
-            if (s.starts_with("--")) {
-                s = s.substr(2);
-                if (s.starts_with("ignore="))
-                    m_ignore_list = string_split(s.substr(sizeof("ignore")), ",");
-                else if (s.starts_with("include="))
-                    m_include_list = string_split(s.substr(sizeof("include")), ",");
-                else
-                    throw std::runtime_error{std::format("Invalid option {}.", s)};
-            }
-            else if (s.starts_with("-")) {
-                s = s.substr(1);
-
-                if (s.find('f') != std::string::npos)
-                    m_opt |= Options::opt_files;
-
-                if (s.find('s') != std::string::npos)
-                    m_opt |= Options::opt_files | Options::opt_symbols;
-
-                if (s.find('e') != std::string::npos)
-                    m_opt |= Options::opt_stats_only;
-
-                if (s.find('v') != std::string::npos)
-                    m_opt |= Options::opt_verbose;
-            }
-        }
-
-        if ((m_opt & ~opt_all) != 0U)
-            throw std::runtime_error{"Invalid options."};
-
-        if (m_opt == 0U)
-            m_opt = opt_files;
     }
 
-    [[nodiscard]] bool files_allowed() const noexcept { return (m_opt & opt_files) != 0U; }
+    [[nodiscard]] const std::string& root() const noexcept { return m_root; }
 
-    [[nodiscard]] bool symbols_allowed() const noexcept { return (m_opt & opt_symbols) != 0U; }
+    [[nodiscard]] bool files_allowed() const noexcept { return m_files; }
 
-    [[nodiscard]] bool stats_only() const noexcept { return (m_opt & opt_stats_only) != 0U; }
+    [[nodiscard]] bool symbols_allowed() const noexcept { return m_symbols; }
 
-    [[nodiscard]] bool verbose() const noexcept { return (m_opt & opt_verbose) != 0U; }
+    [[nodiscard]] bool stats_only() const noexcept { return m_stat_only; }
 
-    [[nodiscard]] std::vector<std::string> ignore_list() const noexcept { return m_ignore_list; }
+    [[nodiscard]] bool verbose() const noexcept { return m_verbose; }
 
-    [[nodiscard]] std::vector<std::string> include_list() const noexcept { return m_include_list; }
+    [[nodiscard]] const std::vector<std::string>& ignore_list() const noexcept
+    {
+        return m_ignore_list;
+    }
+
+    [[nodiscard]] const std::vector<std::string>& include_list() const noexcept
+    {
+        return m_include_list;
+    }
 
 private:
+    std::string m_root;
     std::vector<std::string> m_ignore_list;
     std::vector<std::string> m_include_list;
-    u32 m_opt = 0;
+    bool m_files;
+    bool m_symbols;
+    bool m_stat_only;
+    bool m_verbose;
 };
 
 class Finder {
 public:
     using dir_iter = fs::recursive_directory_iterator;
 
-    explicit Finder(const std::string& dir, Options opt = Options{})
-        : m_dir{dir}
-        , m_options{std::move(opt)}
+    explicit Finder(const Options& opt)
+        : m_root{opt.root()}
+        , m_ignore_list{opt.ignore_list()}
+        , m_include_list{opt.include_list()}
+        , m_files_allowed(opt.files_allowed())
+        , m_symbols_allowed(opt.symbols_allowed())
+        , m_stat_only(opt.stats_only())
+        , m_verbose(opt.verbose())
     {
         constexpr auto it_opt = fs::directory_options::skip_permission_denied;
 
         std::error_code ec;
-        dir_iter it{dir, it_opt, ec};
+        dir_iter it{m_root, it_opt, ec};
 
         for (; it != dir_iter{}; it.increment(ec)) {
             if (!check_iteration(it, ec))
                 continue;
 
-            FileInfo* file = m_files.insert(it->path()).get();
+            fs::path path = it->path(); // Need copy for make_prefrred.
+            FileInfo* file = m_files.insert(path.make_preferred()).get();
 
-            if (!symbols_allowed() || !supported_file(it))
+            if (!m_symbols_allowed || !supported_file(it))
                 continue;
 
             // TODO: Use file_to_string for quick file read.
@@ -170,7 +154,7 @@ public:
         }
 
         print_stats();
-        if (m_options.stats_only())
+        if (m_stat_only)
             std::exit(0); // NOLINT
     }
 
@@ -178,11 +162,7 @@ public:
 
     [[nodiscard]] Files& files() noexcept { return m_files; }
 
-    [[nodiscard]] const fs::path& dir() const noexcept { return m_dir; }
-
-    [[nodiscard]] bool files_allowed() const noexcept { return m_options.files_allowed(); }
-
-    [[nodiscard]] bool symbols_allowed() const noexcept { return m_options.symbols_allowed(); }
+    [[nodiscard]] const fs::path& dir() const noexcept { return m_root; }
 
     auto find_files_partial(const std::string& regex, sz slice_count,
                             sz slice_number) const noexcept
@@ -199,7 +179,7 @@ private:
     {
         m_files.print_stats();
 
-        if (symbols_allowed())
+        if (m_symbols_allowed)
             m_symbols.print_stats();
     }
 
@@ -219,32 +199,31 @@ private:
      * Note that if include list contains path, we must not break iterations on that path, hence we
      * check whether ignore list paths starts with provided path.
      */
-    constexpr bool check_path(const std::string& path)
+    [[nodiscard]] constexpr bool check_path(const std::string& path) const noexcept
     {
         /* Iterating over /mnt always get stuck for some reason. */
         if (path.starts_with("/mnt"))
             return false;
 
-        const std::vector<std::string>& ignore_list = m_options.ignore_list();
-        const std::vector<std::string>& include_list = m_options.include_list();
-
         const auto ignore_pred = [&](const std::string& s) { return path.starts_with(s); };
-        if (std::ranges::find_if(ignore_list, ignore_pred) == ignore_list.end())
+        if (std::ranges::find_if(m_ignore_list, ignore_pred) == m_ignore_list.end())
             return true;
 
         const auto include_pred = [&](const std::string& s) {
             return s.size() >= path.size() ? s.starts_with(path) : path.starts_with(s);
         };
-        return std::ranges::find_if(include_list, include_pred) != include_list.end();
+
+        return std::ranges::find_if(m_include_list, include_pred) != m_include_list.end();
     }
 
-    constexpr bool check_iteration(dir_iter& it, std::error_code& ec)
+    [[nodiscard]] constexpr bool check_iteration(dir_iter& it, std::error_code& ec) const noexcept
     {
         try {
-            std::string path{it->path().string()};
+            fs::path path_copy = it->path();
+            std::string path{path_copy.make_preferred().string()};
 
             if (ec) {
-                if (m_options.verbose())
+                if (m_verbose)
                     std::cerr << std::format("Error accessing {}: {}\n", path, ec.message());
 
                 ec.clear();
@@ -264,13 +243,13 @@ private:
                 return false;
         }
         catch (const std::filesystem::filesystem_error& err) {
-            if (m_options.verbose())
+            if (m_verbose)
                 std::cout << err.what() << "\n";
 
             return false;
         }
         catch (...) {
-            if (m_options.verbose())
+            if (m_verbose)
                 std::cout << "Path to string conversion failed.\n";
 
             return false;
@@ -280,10 +259,15 @@ private:
     }
 
 private: // NOLINT
-    fs::path m_dir;
     Files m_files;
     Symbols m_symbols;
-    Options m_options;
+    fs::path m_root;
+    std::vector<std::string> m_ignore_list;
+    std::vector<std::string> m_include_list;
+    bool m_files_allowed;
+    bool m_symbols_allowed;
+    bool m_stat_only;
+    bool m_verbose;
 };
 
 #endif // FINDER_H

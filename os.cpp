@@ -53,6 +53,11 @@ bool is_esc(i32 input)
     return input == 27;
 }
 
+bool is_term(i32 input)
+{
+    return input == 3;
+}
+
 bool is_backspace(i32 input)
 {
     return input == 8;
@@ -146,6 +151,11 @@ void console_scan(i32& input)
     input = _getch();
 }
 
+std::string root_dir()
+{
+    return "C:\\";
+}
+
 #elif defined(OS_LINUX)
 
 // NOLINTBEGIN
@@ -167,6 +177,11 @@ i16 console_col_start()
 bool is_esc(i32 input)
 {
     return input == 27;
+}
+
+bool is_term(i32 input)
+{
+    return input == 15;
 }
 
 bool is_backspace(i32 input)
@@ -240,6 +255,11 @@ void console_scan(i32& input)
         std::cerr << "Failed to read input.\n";
         std::terminate();
     }
+}
+
+std::string root_dir()
+{
+    return "/";
 }
 
 // NOLINTEND

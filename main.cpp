@@ -4,7 +4,9 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <thread>
 
+#include "CLI11.hpp"
 #include "ast.h"
 #include "async.h"
 #include "console.h"
@@ -13,7 +15,6 @@
 #include "options.h"
 #include "os.h"
 #include "scheduler.h"
-#include "symbol_finder.h"
 #include "ums.h"
 #include "util.h"
 
@@ -24,6 +25,9 @@ bool scan_input(Console& console, std::string& query)
     i32 input_ch;
     while (true) {
         console >> input_ch;
+
+        if (os::is_term(input_ch))
+            return false;
 
         if (os::is_esc(input_ch))
             continue; // -> Ignore escape.
@@ -46,20 +50,9 @@ bool scan_input(Console& console, std::string& query)
     return true;
 }
 
-int finder_main(int argc, char* argv[])
+int finder_main(const Options& opt)
 {
-    std::string input;
-    std::string root;
-
-    std::cout << "Options: <root_dir> [-fsev] [--ignore=<path1,path2 ... >], "
-                 "[--include=<path1,path2 ... >]\n: ";
-
-    std::getline(std::cin, input);
-
-    std::stringstream ss{input};
-    ss >> root;
-
-    Finder finder{root, Options{ss.str()}};
+    Finder finder{opt};
     // Symbol_finder finder{root, Options{ss.str()}};
 
     /* Query related info. */
@@ -72,10 +65,11 @@ int finder_main(int argc, char* argv[])
     Console console;
 
     /* Tasks related. */
-    u32 workers_count = ums::schedulers->cpus_count();
+    u32 cpus_count = ums::schedulers->cpus_count();
+    u32 workers_count = ums::schedulers->workers_count();
     u32 worker_id = 0;
     std::vector<std::shared_ptr<ums::Task>> tasks;
-    tasks.reserve(workers_count);
+    tasks.reserve(cpus_count);
     ums::Mutex mtx;
 
     while (true) {
@@ -84,13 +78,13 @@ int finder_main(int argc, char* argv[])
         {
             Stopwatch<false, milliseconds> sw;
 
-            for (worker_id = 0; worker_id < workers_count; ++worker_id) {
+            for (worker_id = 0; worker_id < cpus_count; ++worker_id) {
                 /*
                  * Single worker search task.
                  */
                 auto search_task = [&, worker_id] {
                     std::vector<const FileInfo*> partial =
-                        finder.find_files_partial(query, workers_count, worker_id);
+                        finder.find_files_partial(query, cpus_count, worker_id);
 
                     std::scoped_lock<ums::Mutex> lock{mtx};
                     results.insert(results.end(), partial.begin(), partial.end());
@@ -115,8 +109,9 @@ int finder_main(int argc, char* argv[])
         console.clear_rest_of_line();
 
         console.push_coord();
-        console.move_cursor_to<edge_right>().move_cursor<left>(40);
-        console.write("objects: {}, search time: {}", objects_count, time);
+        console.move_cursor_to<edge_right>().move_cursor<left>(60);
+        console.write("cpus: {}, workers: {}, objects: {}, search time: {}", cpus_count,
+                      workers_count, objects_count, time);
         console.pop_coord();
         console.flush();
 
@@ -130,12 +125,41 @@ int finder_main(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-    u32 cpus_count = std::clamp(std::thread::hardware_concurrency(), u32(1), u32(64));
+    CLI::App app{"Finder application that searches files and symbols."};
+    argv = app.ensure_utf8(argv);
 
-    auto sch = ums::Options::Schedulers_count{cpus_count};
-    auto workers = ums::Options::Workers_per_scheduler{1};
+    std::string root = os::root_dir();
+    std::vector<std::string> ignore_list;
+    std::vector<std::string> include_list;
+    bool files = true;
+    bool symbols = false;
+    bool stats_only = false;
+    bool verbose = false;
+    u32 wps = 2;
+    u32 cpus = std::thread::hardware_concurrency();
 
-    ums::init_ums([&] { finder_main(argc, argv); }, ums::Options{sch, workers});
+    app.add_option("-r,--root", root,
+                   "Root directory for files/symbols. Default is OS root directory.");
+    app.add_option("-i,--ignore", ignore_list,
+                   "Ignores provided paths. Paths should be separated by space.");
+    app.add_option(
+        "-n,--include", include_list,
+        "Includes provided paths even if they are ignored. Paths should be separated by space.");
+    app.add_flag("-f,--files", files, "Files search. Default is true.");
+    app.add_flag("-s,--symbols", symbols, "Symbols search. Default is false.");
+    app.add_flag("-t,--stat_only", stats_only, "Prints stats and quit. Default is false.");
+    app.add_flag("-v,--verbose", verbose, "Enables verbose output. Default is false.");
+
+    app.add_option("-w,--workers", wps, "Number of workers per scheduler.");
+    app.add_option("-c,--cpus", cpus, "Number of CPUs to be used. Default is all available CPUs.");
+
+    CLI11_PARSE(app, argc, argv);
+
+    ums::Options ums_opt{ums::Options::Schedulers_count{cpus},
+                         ums::Options::Workers_per_scheduler{wps}};
+    Options finder_opt{root, ignore_list, include_list, files, symbols, stats_only, verbose};
+
+    ums::init_ums([&] { finder_main(finder_opt); }, ums_opt);
 }
 
 // NOLINTEND
