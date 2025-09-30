@@ -216,7 +216,7 @@ private:
         return std::ranges::find_if(m_include_list, include_pred) != m_include_list.end();
     }
 
-    [[nodiscard]] constexpr bool check_iteration(dir_iter& it, std::error_code& ec) const noexcept
+    [[nodiscard]] bool check_iteration(dir_iter& it, std::error_code& ec) const noexcept
     {
         try {
             fs::path path_copy = it->path();
