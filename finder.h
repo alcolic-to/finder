@@ -59,7 +59,7 @@ class Options {
 public:
     explicit Options(std::string root, std::vector<std::string> ignore_list,
                      std::vector<std::string> include_list, bool files, bool symbols,
-                     bool stat_only, bool verbose)
+                     bool stat_only, bool verbose, u32 tasks_count)
         : m_root{std::move(root)}
         , m_ignore_list{std::move(ignore_list)}
         , m_include_list{std::move(include_list)}
@@ -67,18 +67,11 @@ public:
         , m_symbols{symbols}
         , m_stat_only{stat_only}
         , m_verbose{verbose}
+        , m_tasks_count{tasks_count}
     {
     }
 
     [[nodiscard]] const std::string& root() const noexcept { return m_root; }
-
-    [[nodiscard]] bool files_allowed() const noexcept { return m_files; }
-
-    [[nodiscard]] bool symbols_allowed() const noexcept { return m_symbols; }
-
-    [[nodiscard]] bool stats_only() const noexcept { return m_stat_only; }
-
-    [[nodiscard]] bool verbose() const noexcept { return m_verbose; }
 
     [[nodiscard]] const std::vector<std::string>& ignore_list() const noexcept
     {
@@ -90,6 +83,16 @@ public:
         return m_include_list;
     }
 
+    [[nodiscard]] bool files_allowed() const noexcept { return m_files; }
+
+    [[nodiscard]] bool symbols_allowed() const noexcept { return m_symbols; }
+
+    [[nodiscard]] bool stats_only() const noexcept { return m_stat_only; }
+
+    [[nodiscard]] bool verbose() const noexcept { return m_verbose; }
+
+    [[nodiscard]] u32 tasks_count() const noexcept { return m_tasks_count; }
+
 private:
     std::string m_root;
     std::vector<std::string> m_ignore_list;
@@ -98,6 +101,7 @@ private:
     bool m_symbols;
     bool m_stat_only;
     bool m_verbose;
+    u32 m_tasks_count;
 };
 
 class Finder {

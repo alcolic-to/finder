@@ -68,8 +68,9 @@ int finder_main(const Options& opt)
     u32 cpus_count = ums::schedulers->cpus_count();
     u32 workers_count = ums::schedulers->workers_count();
     u32 worker_id = 0;
+    u32 tasks_count = opt.tasks_count();
     std::vector<std::shared_ptr<ums::Task>> tasks;
-    tasks.reserve(cpus_count);
+    tasks.reserve(tasks_count);
     ums::Mutex mtx;
 
     while (true) {
@@ -78,13 +79,13 @@ int finder_main(const Options& opt)
         {
             Stopwatch<false, milliseconds> sw;
 
-            for (worker_id = 0; worker_id < cpus_count; ++worker_id) {
+            for (worker_id = 0; worker_id < tasks_count; ++worker_id) {
                 /*
                  * Single worker search task.
                  */
                 auto search_task = [&, worker_id] {
                     std::vector<const FileInfo*> partial =
-                        finder.find_files_partial(query, cpus_count, worker_id);
+                        finder.find_files_partial(query, tasks_count, worker_id);
 
                     std::scoped_lock<ums::Mutex> lock{mtx};
                     results.insert(results.end(), partial.begin(), partial.end());
@@ -109,9 +110,9 @@ int finder_main(const Options& opt)
         console.clear_rest_of_line();
 
         console.push_coord();
-        console.move_cursor_to<edge_right>().move_cursor<left>(60);
-        console.write("cpus: {}, workers: {}, objects: {}, search time: {}", cpus_count,
-                      workers_count, objects_count, time);
+        console.move_cursor_to<edge_right>().move_cursor<left>(70);
+        console.write("cpus: {}, workers: {}, tasks: {}, objects: {}, search time: {}", cpus_count,
+                      workers_count, tasks_count, objects_count, time);
         console.pop_coord();
         console.flush();
 
@@ -137,6 +138,7 @@ int main(int argc, char* argv[])
     bool verbose = false;
     u32 wps = 2;
     u32 cpus = std::thread::hardware_concurrency();
+    u32 tasks_count = cpus;
 
     app.add_option("-r,--root", root,
                    "Root directory for files/symbols. Default is OS root directory.");
@@ -147,17 +149,20 @@ int main(int argc, char* argv[])
         "Includes provided paths even if they are ignored. Paths should be separated by space.");
     app.add_flag("-f,--files", files, "Files search. Default is true.");
     app.add_flag("-s,--symbols", symbols, "Symbols search. Default is false.");
-    app.add_flag("-t,--stat_only", stats_only, "Prints stats and quit. Default is false.");
+    app.add_flag("-o,--stat-only", stats_only, "Prints stats and quit. Default is false.");
     app.add_flag("-v,--verbose", verbose, "Enables verbose output. Default is false.");
 
     app.add_option("-w,--workers", wps, "Number of workers per scheduler.");
     app.add_option("-c,--cpus", cpus, "Number of CPUs to be used. Default is all available CPUs.");
+    app.add_option("-t,--tasks-count", tasks_count,
+                   "Number of search tasks. Default is number of CPUs.");
 
     CLI11_PARSE(app, argc, argv);
 
     ums::Options ums_opt{ums::Options::Schedulers_count{cpus},
                          ums::Options::Workers_per_scheduler{wps}};
-    Options finder_opt{root, ignore_list, include_list, files, symbols, stats_only, verbose};
+    Options finder_opt{root,    ignore_list, include_list, files,
+                       symbols, stats_only,  verbose,      tasks_count};
 
     ums::init_ums([&] { finder_main(finder_opt); }, ums_opt);
 }
