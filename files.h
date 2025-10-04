@@ -35,7 +35,7 @@ public:
 
     [[nodiscard]] constexpr const SmallString& name() const noexcept { return m_name; }
 
-    [[nodiscard]] const std::string_view path() const noexcept { return m_path; }
+    [[nodiscard]] const std::string_view& path() const noexcept { return m_path; }
 
     [[nodiscard]] std::string full_path() const noexcept
     {
@@ -135,9 +135,11 @@ public:
         auto file = m_files.begin() + chunk * slice_number;
         const auto& last = slice_count == slice_number + 1 ? m_files.end() : file + chunk;
 
-        for (; file < last; ++file)
-            if ((*file)->path().starts_with(path) && (*file)->name().contains(name))
+        for (; file < last; ++file) {
+            const bool on_path = path.empty() || (*file)->path().starts_with(path);
+            if (on_path && (*file)->name().contains(name))
                 results.emplace_back((*file).get());
+        }
 
         return results;
     }
@@ -202,8 +204,8 @@ private:
         assert(file_it != m_files.end());
         m_files.erase(file_it);
 
-        /* This must be done after removing file from m_files, since file's path is in file paths,
-         * and we won't be able to match path when searching for file.
+        /* This must be done after removing file from m_files, since file's path is in file
+         * paths, and we won't be able to match path when searching for file.
          */
         if (files_on_path.empty())
             m_file_paths.erase(file_path);
