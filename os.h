@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef OS_SPECIFIC_H
-#define OS_SPECIFIC_H
+#ifndef OS_H
+#define OS_H
 
 #include <cstddef>
 #include <filesystem>
@@ -35,4 +35,4 @@ std::string root_dir();
 
 } // namespace os
 
-#endif // OS_SPECIFIC_H
+#endif // OS_H

@@ -6,17 +6,18 @@
 #include <sstream>
 #include <thread>
 
-#include "CLI11.hpp"
 #include "ast.h"
-#include "async.h"
+#include "cli11/CLI11.hpp"
 #include "console.h"
+#include "cos-cooperative-scheduling/async.h"
+#include "cos-cooperative-scheduling/mutex.h"
+#include "cos-cooperative-scheduling/options.h"
+#include "cos-cooperative-scheduling/scheduler.h"
+#include "cos-cooperative-scheduling/ums.h"
 #include "finder.h"
-#include "mutex.h"
-#include "options.h"
 #include "os.h"
-#include "scheduler.h"
-#include "ums.h"
 #include "util.h"
+
 
 // NOLINTBEGIN
 
@@ -69,7 +70,7 @@ int finder_main(const Options& opt)
     u32 workers_count = ums::schedulers->workers_count();
     u32 worker_id = 0;
     u32 tasks_count = opt.tasks_count();
-    std::vector<std::shared_ptr<ums::Task>> tasks;
+    std::vector<ums::Task<void>> tasks;
     tasks.reserve(tasks_count);
     ums::Mutex mtx;
 
