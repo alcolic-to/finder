@@ -1,9 +1,9 @@
+// NOLINTBEGIN
+#include <array>
 #include <cctype>
 #include <chrono>
-#include <cstdint>
+#include <cstddef>
 #include <memory>
-#include <mutex>
-#include <sstream>
 #include <thread>
 
 #include "ast.h"
@@ -18,6 +18,7 @@
 #include "os.h"
 #include "util.h"
 
+// NOLINTEND
 
 // NOLINTBEGIN
 
@@ -51,6 +52,15 @@ bool scan_input(Console& console, std::string& query)
     return true;
 }
 
+/**
+ * Single search task.
+ */
+std::vector<const FileInfo*> search_task(const Finder& finder, const std::string& query,
+                                         u32 tasks_count, u32 worker_id)
+{
+    return finder.find_files_partial(query, tasks_count, worker_id);
+}
+
 int finder_main(const Options& opt)
 {
     Finder finder{opt};
@@ -68,35 +78,28 @@ int finder_main(const Options& opt)
     /* Tasks related. */
     u32 cpus_count = ums::schedulers->cpus_count();
     u32 workers_count = ums::schedulers->workers_count();
-    u32 worker_id = 0;
+    u32 task_id = 0;
     u32 tasks_count = opt.tasks_count();
-    std::vector<ums::Task<void>> tasks;
+    std::vector<ums::Task<std::vector<const FileInfo*>>> tasks;
     tasks.reserve(tasks_count);
-    ums::Mutex mtx;
 
     while (true) {
         results.clear();
+        tasks.clear();
 
         {
             Stopwatch<false, milliseconds> sw;
 
-            for (worker_id = 0; worker_id < tasks_count; ++worker_id) {
-                /*
-                 * Single worker search task.
-                 */
-                auto search_task = [&, worker_id] {
-                    std::vector<const FileInfo*> partial =
-                        finder.find_files_partial(query, tasks_count, worker_id);
-
-                    std::scoped_lock<ums::Mutex> lock{mtx};
-                    results.insert(results.end(), partial.begin(), partial.end());
-                };
-
-                tasks.emplace_back(ums::async(search_task));
+            for (task_id = 0; task_id < tasks_count; ++task_id) {
+                tasks.emplace_back(ums::async([&, tasks_count, task_id] {
+                    return finder.find_files_partial(query, tasks_count, task_id);
+                }));
             }
 
-            for (auto& task : tasks)
-                task->wait();
+            for (auto& task : tasks) {
+                std::vector<const FileInfo*> partial = task->get();
+                results.insert(results.end(), partial.begin(), partial.end());
+            }
 
             time = sw.elapsed_units();
             objects_count = results.size();
