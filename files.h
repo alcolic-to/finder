@@ -4,18 +4,17 @@
 #include <cstddef>
 #include <cstring>
 #include <filesystem>
-#include <limits>
 #include <memory>
-#include <ranges>
 #include <string>
 #include <vector>
 
 #include "art.h"
 #include "os.h"
 #include "small_string.h"
-#include "util.h"
+#include "types.h"
 
-// NOLINTBEGIN
+// NOLINTBEGIN(readability-implicit-bool-conversion, readability-redundant-access-specifiers,
+// hicpp-explicit-conversions)
 
 namespace fs = std::filesystem;
 
@@ -23,11 +22,11 @@ class FileInfo {
 public:
     FileInfo() = default;
 
-    FileInfo(const std::string& file_name) : m_name{file_name} {}
+    explicit FileInfo(const std::string& file_name) : m_name{file_name} {}
 
-    FileInfo(std::string file_name, std::string_view file_path)
-        : m_name{std::move(file_name)}
-        , m_path{std::move(file_path)}
+    FileInfo(const std::string& file_name, std::string_view file_path)
+        : m_name{file_name}
+        , m_path{file_path}
     {
         if (!file_path.ends_with(file_name))
             throw std::runtime_error{"File path does not end with file name."};
@@ -52,23 +51,36 @@ private:
     std::string_view m_path; // Full file path.
 };
 
-// Class that holds all file system files, their paths, size infos, etc.
-//
+/**
+ * Class that holds all file system files, their paths, size infos, etc.
+ */
 class Files {
 public:
-    // Class that wraps insert result.
-    // It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
-    // for more details).
-    //
+    /**
+     * Struct that holds file info pointer and offset at which we matched file name. Offset is
+     * used to highlight matched string with different color for easy visualization on console.
+     */
+    struct Match {
+        const FileInfo* m_file;
+        u32 m_path_size;
+        u16 m_offset;
+        u16 m_size;
+    };
+
+    /**
+     * Class that wraps insert result.
+     * It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
+     * for more details).
+     */
     class result {
     public:
         result(FileInfo* value, bool ok) : m_value{value}, m_ok{ok} { assert(m_value != nullptr); }
 
         FileInfo* get() noexcept { return m_value; }
 
-        const FileInfo* get() const noexcept { return m_value; }
+        [[nodiscard]] const FileInfo* get() const noexcept { return m_value; }
 
-        constexpr bool ok() const noexcept { return m_ok; }
+        [[nodiscard]] constexpr bool ok() const noexcept { return m_ok; }
 
         FileInfo* operator->() noexcept { return get(); }
 
@@ -93,7 +105,7 @@ public:
         erase(path.filename().string(), path.parent_path().string());
     }
 
-    auto search(const std::string& regex, size_t limit = std::numeric_limits<size_t>::max())
+    auto search(const std::string& regex)
     {
         std::vector<const FileInfo*> results;
         results.reserve(1024 * 1024);
@@ -117,18 +129,19 @@ public:
      * (threads) and a slice number (thread number) that is used for search.
      * Slice number is 0 based.
      */
-    auto partial_search(const std::string& regex, sz slice_count, sz slice_number) const noexcept
+    std::vector<Match> partial_search(const std::string& regex, sz slice_count,
+                                      sz slice_number) const noexcept
     {
         assert(slice_count > slice_number);
 
-        std::vector<const FileInfo*> results;
+        std::vector<Match> results;
         results.reserve(1024);
 
         sz slash_pos = regex.find_last_of(os::path_sep);
         std::string name{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) : regex};
         std::string path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
 
-        if (!m_file_paths.search_prefix_node(path))
+        if (!path.empty() && !m_file_paths.search_prefix_node(path))
             return results;
 
         sz chunk = std::max(sz(1), m_files.size() / slice_count);
@@ -137,8 +150,10 @@ public:
 
         for (; file < last; ++file) {
             const bool on_path = path.empty() || (*file)->path().starts_with(path);
-            if (on_path && (*file)->name().contains(name))
-                results.emplace_back((*file).get());
+            const sz offset = (*file)->name().find(name);
+            const bool match = offset != SmallString::npos;
+            if (on_path && match)
+                results.emplace_back((*file).get(), path.size(), offset, name.size());
         }
 
         return results;
@@ -235,6 +250,7 @@ private:
     art::ART<std::vector<FileInfo*>> m_file_paths;
 };
 
-// NOLINTEND
+// NOLINTEND(readability-implicit-bool-conversion, readability-redundant-access-specifiers,
+// hicpp-explicit-conversions)
 
 #endif // FILES_H

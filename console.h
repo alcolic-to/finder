@@ -5,14 +5,14 @@
 #include <cassert>
 #include <format>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "os.h"
 #include "symbols.h"
 
-#define ESC "\x1b"
-#define CSI "\x1b["
+#define ESC "\x1b["
 
 // Horizontal and vertical coordinate limit values.
 //
@@ -29,6 +29,25 @@ static constexpr Edge edge_top = Edge::top;
 static constexpr Edge edge_bottom = Edge::bottom;
 static constexpr Edge edge_left = Edge::left;
 static constexpr Edge edge_right = Edge::right;
+
+enum class Color { green, red, term_default };
+
+static constexpr Color green = Color::green;
+static constexpr Color red = Color::red;
+static constexpr Color term_default = Color::term_default;
+
+template<Color c>
+static constexpr u32 color_value()
+{
+    if constexpr (c == green)
+        return 32;
+    else if constexpr (c == red)
+        return 31;
+    else if constexpr (c == term_default)
+        return 0;
+    else
+        static_assert(false, "Invalid color.");
+}
 
 // Defines the coordinates of a character cell in a console screen buffer. The origin of the
 // coordinate system (0, 0) is at the top, left cell of the buffer.
@@ -58,20 +77,32 @@ public:
     Console& operator>>(std::string& s);
     Console& operator>>(i32& input);
 
-    template<class... Args>
+    template<Color color = term_default, class... Args>
     void write(std::format_string<Args...> str, Args&&... args)
     {
+        if constexpr (color != term_default)
+            std::cout << std::format("\x1b[{}m", color_value<color>());
+
         std::string fmt = std::format(str, std::forward<Args>(args)...);
         std::cout << fmt;
         m_x += fmt.size();
+
+        if constexpr (color != term_default)
+            std::cout << std::format("\x1b[{}m", color_value<term_default>());
     }
 
-    template<class Arg>
+    template<Color color = term_default, class Arg>
     void write(Arg&& arg)
     {
+        if constexpr (color != term_default)
+            std::cout << std::format("\x1b[{}m", color_value<color>());
+
         std::string fmt{std::forward<Arg>(arg)};
         std::cout << fmt;
         m_x += fmt.size();
+
+        if constexpr (color != term_default)
+            std::cout << std::format("\x1b[{}m", color_value<term_default>());
     }
 
     template<class... Args>
@@ -88,7 +119,7 @@ public:
 
     Console& clear()
     {
-        command(CSI "2J" CSI "H");
+        command(ESC "2J" ESC "H");
         set_cursor_pos(1, 1);
         return *this;
     }
@@ -101,13 +132,13 @@ public:
 
     Console& clear_rest_of_line()
     {
-        command(CSI "K");
+        command(ESC "K");
         return *this;
     };
 
     Console& apply_cursor_pos()
     {
-        command(CSI "{};{}H", m_y, m_x);
+        command(ESC "{};{}H", m_y, m_x);
         return *this;
     }
 
@@ -204,7 +235,23 @@ public:
 
         while (y() >= min_y()) {
             if (it != it_end) {
-                write((*it)->full_path());
+                const FileInfo* file = it->m_file;
+                const std::string_view& path = file->path();
+                const char* name = file->name().c_str();
+                sz path_size = it->m_path_size;
+                sz name_offset = it->m_offset;
+                sz name_size = it->m_size;
+
+                write<green>(path.substr(0, path_size));
+                write(path.substr(path_size));
+                if (path != "/" && path != "C:\\")
+                    write(os::path_sep);
+
+                write(std::string_view{name, name_offset});
+                write<green>(std::string_view{name + name_offset, name_size});
+                write(std::string_view{name + name_offset + name_size,
+                                       file->name().size() - name_size - name_offset});
+
                 ++it;
             }
 

@@ -1080,6 +1080,14 @@ public:
         return search_prefix_node(key);
     }
 
+    // Find an entry pointer whose key starts with provided string
+    //
+    [[nodiscard]] const entry_ptr search_prefix_node(const std::string_view& prefix) const noexcept
+    {
+        const Key key{(const u8* const)prefix.data(), prefix.size()};
+        return search_prefix_node(key);
+    }
+
     // Find an entry pointer whose key starts with provided string.
     //
     [[nodiscard]] const entry_ptr search_prefix_node(const u8* const prefix,

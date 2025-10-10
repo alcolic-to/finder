@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "files.h"
 #include "symbols.h"
 #include "tokens.h"
 #include "util.h"
@@ -168,8 +169,8 @@ public:
 
     [[nodiscard]] const fs::path& dir() const noexcept { return m_root; }
 
-    auto find_files_partial(const std::string& regex, sz slice_count,
-                            sz slice_number) const noexcept
+    [[nodiscard]] std::vector<Files::Match>
+    find_files_partial(const std::string& regex, sz slice_count, sz slice_number) const noexcept
     {
         return m_files.partial_search(regex, slice_count, slice_number);
     }

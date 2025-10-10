@@ -20,6 +20,8 @@ class SmallString {
     static constexpr uptr big_tag = 1;
 
 public:
+    static constexpr sz npos = -1;
+
     constexpr SmallString() : m_data{nullptr} {}
 
     constexpr SmallString(const std::string& s) : SmallString(s.c_str(), s.size()) {}
@@ -156,7 +158,20 @@ public:
 
     [[nodiscard]] bool contains(const std::string& needle) const noexcept
     {
-        return std::strstr(c_str(), needle.c_str());
+        return contains(needle.c_str());
+    }
+
+    [[nodiscard]] sz find(const char* needle) const noexcept
+    {
+        const char* r = std::strstr(c_str(), needle);
+        return r != nullptr ? r - c_str() : npos;
+    }
+
+    [[nodiscard]] sz find(const std::string& needle) const noexcept { return find(needle.c_str()); }
+
+    [[nodiscard]] sz find(const std::string_view& needle) const noexcept
+    {
+        return find(needle.data());
     }
 
 private:
