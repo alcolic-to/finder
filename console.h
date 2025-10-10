@@ -3,8 +3,6 @@
 
 #include <array>
 #include <cassert>
-#include <cstdint>
-#include <filesystem>
 #include <format>
 #include <string>
 #include <utility>
@@ -48,6 +46,12 @@ public:
 
     explicit Console();
 
+    Console(const Console&) = delete;
+    Console(Console&&) noexcept = delete;
+
+    Console& operator=(const Console&) = delete;
+    Console& operator=(Console&&) noexcept = delete;
+
     ~Console() { os::close_console(m_handle); }
 
     Console& operator<<(const std::string& s);
@@ -79,7 +83,7 @@ public:
     template<class Arg>
     void command(Arg&& arg)
     {
-        std::cout << std::forward<Arg>(arg);
+        std::cout << std::forward<Arg>(arg); // NOLINT
     }
 
     Console& clear()
@@ -168,7 +172,7 @@ public:
         if (m_stack_size > coord_stack_size)
             throw std::runtime_error{"Stack is full."};
 
-        m_coord_stack[m_stack_size++] = coord();
+        m_coord_stack[m_stack_size++] = coord(); // NOLINT
         return *this;
     }
 
@@ -177,7 +181,7 @@ public:
         if (m_stack_size <= 0)
             throw std::runtime_error{"Stack is empty."};
 
-        Coord c = m_coord_stack[--m_stack_size];
+        Coord c = m_coord_stack[--m_stack_size]; // NOLINT
         m_x = c.m_x, m_y = c.m_y;
 
         apply_cursor_pos();
