@@ -123,11 +123,11 @@ public:
     Console& move_cursor(u32 times = 1U)
     {
         if constexpr (d == Direction::up)
-            m_y = std::max(m_y - times, 0U);
+            m_y = std::max(m_y - times, m_min_y);
         else if constexpr (d == Direction::down)
             m_y = std::min(m_y + times, m_max_y);
         else if constexpr (d == Direction::left)
-            m_x = std::max(m_x - times, 0U);
+            m_x = std::max(m_x - times, m_min_x);
         else if constexpr (d == Direction::right)
             m_x = std::min(m_x + times, m_max_x);
         else
@@ -161,7 +161,11 @@ public:
 
     [[nodiscard]] u32 y() const noexcept { return m_y; }
 
-    [[nodiscard]] Coord coord() const noexcept { return Coord{x(), y()}; }
+    [[nodiscard]] Coord coord() const noexcept { return Coord{.m_x = x(), .m_y = y()}; }
+
+    [[nodiscard]] u32 min_x() const noexcept { return 1; } // NOLINT
+
+    [[nodiscard]] u32 min_y() const noexcept { return 1; } // NOLINT
 
     [[nodiscard]] u32 max_x() const noexcept { return m_max_x; }
 
@@ -191,24 +195,28 @@ public:
     template<class T>
     Console& draw_search_results(const std::vector<T>& v)
     {
-        move_cursor_to<edge_top>();
+        /* We are always on a bottom line when this funcion is called. */
+        move_cursor<up>(2);
         move_cursor_to<edge_left>();
 
         auto it = v.begin();
         const auto it_end = v.end();
 
-        while (y() != max_y() - 1) {
+        while (y() >= min_y()) {
             if (it != it_end) {
                 write((*it)->full_path());
                 ++it;
             }
 
             clear_rest_of_line();
-            move_cursor<down>();
+
+            if (y() == min_y())
+                break;
+
+            move_cursor<up>();
             move_cursor_to<edge_left>();
         }
 
-        clear_rest_of_line();
         return *this;
     }
 
@@ -263,6 +271,8 @@ private: // NOLINT
     void* m_handle;
     u32 m_x;
     u32 m_y;
+    u32 m_min_x = 1U;
+    u32 m_min_y = 1U;
     u32 m_max_x;
     u32 m_max_y;
     std::array<Coord, coord_stack_size> m_coord_stack{};

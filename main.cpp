@@ -86,19 +86,22 @@ int finder_main(const Options& opt) // NOLINT
             objects_count = results.size();
         }
 
-        console.draw_search_results(results);
-        // console.draw_symbol_search_results(finder.find_symbols(query));
-
         console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>();
 
         console.write("Search: {}", query);
         console.clear_rest_of_line();
+        console.push_coord();
 
         console.push_coord();
         console.move_cursor_to<edge_right>().move_cursor<left>(70); // NOLINT
         console.write("cpus: {}, workers: {}, tasks: {}, objects: {}, search time: {}", cpus_count,
                       workers_count, tasks_count, objects_count, time);
         console.pop_coord();
+
+        console.draw_search_results(results);
+        console.pop_coord();
+        // console.draw_symbol_search_results(finder.find_symbols(query));
+
         console.flush();
 
         if (!scan_input(console, query))
