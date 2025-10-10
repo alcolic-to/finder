@@ -2,27 +2,12 @@
 #define SMALL_STRING_H
 
 #include <cstring>
-#include <iostream>
 #include <string>
 
 #include "ptr_tag.h"
+#include "types.h"
 
-using i8 = std::int8_t;
-using i16 = std::int16_t;
-using i32 = std::int32_t;
-using i64 = std::int64_t;
-
-using u8 = std::uint8_t;
-using u16 = std::uint16_t;
-using u32 = std::uint32_t;
-using u64 = std::uint64_t;
-
-using f32 = std::float_t;
-using f64 = std::double_t;
-
-using sz = std::size_t;
-using iptr = std::intptr_t;
-using uptr = std::uintptr_t;
+// NOLINTBEGIN
 
 // Small string.
 // If string is smaller than 7 bytes, data will be stored in pointer directly, otherwise m_data will
@@ -95,11 +80,11 @@ public:
         sz aligned_size = (size + align_mask) & ~align_mask;
 
         if (m_memory == nullptr || m_allocated + aligned_size > chunk_size) {
-            m_memory = static_cast<u8*>(std::malloc(chunk_size)); // NOLINT
+            m_memory = static_cast<u8*>(std::malloc(chunk_size));
             m_allocated = 0;
         }
 
-        void* allocation = m_memory + m_allocated; // NOLINT
+        void* allocation = m_memory + m_allocated;
         m_allocated += aligned_size;
 
         return allocation;
@@ -185,8 +170,8 @@ private:
 
         char* str = static_cast<char*>(allocate_buffer(size + 1));
         std::memcpy(str, big, size);
-        str[size] = 0;                  // NOLINT
-        m_data = set_tag(str, big_tag); // NOLINT
+        str[size] = 0;
+        m_data = set_tag(str, big_tag);
     }
 
     union {
@@ -195,7 +180,7 @@ private:
     };
 };
 
-static_assert(sizeof(SmallString) == 8); // NOLINT
+static_assert(sizeof(SmallString) == 8);
 
 // NOLINTEND
 
