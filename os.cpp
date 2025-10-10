@@ -63,6 +63,16 @@ bool is_backspace(i32 input)
     return input == 8;
 }
 
+bool is_ctrl_j(i32 input)
+{
+    return input == 10;
+}
+
+bool is_ctrl_k(i32 input)
+{
+    return input == 11;
+}
+
 static DWORD initial_mode; // Used for settings restoration.
 
 void* init_console_handle()
@@ -187,6 +197,16 @@ bool is_term(i32 input)
 bool is_backspace(i32 input)
 {
     return input == 127;
+}
+
+bool is_ctrl_j(i32 input)
+{
+    return input == 10;
+}
+
+bool is_ctrl_k(i32 input)
+{
+    return input == 11;
 }
 
 static termios initial_termios; // Used for settings restoration.

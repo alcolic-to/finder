@@ -22,6 +22,8 @@ i16 console_col_start();
 bool is_esc(i32 input);
 bool is_term(i32 input);
 bool is_backspace(i32 input);
+bool is_ctrl_j(i32 input);
+bool is_ctrl_k(i32 input);
 
 void* init_console_handle();
 void close_console(void* handle);

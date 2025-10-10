@@ -19,6 +19,8 @@ Console::Console()
     os::Coordinates coord = os::console_window_size(m_handle);
     m_max_x = coord.x;
     m_max_y = coord.y;
+    m_picker.m_x = 0;
+    m_picker.m_y = m_max_y - 2;
     clear();
     flush();
 }

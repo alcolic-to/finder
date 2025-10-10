@@ -1,6 +1,7 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <format>
@@ -9,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "files.h"
 #include "os.h"
 #include "symbols.h"
 
@@ -142,6 +144,8 @@ public:
         return *this;
     }
 
+    Console& set_cursor_pos(Coord coord) { return set_cursor_pos(coord.m_x, coord.m_y); }
+
     Console& set_cursor_pos(u32 x, u32 y)
     {
         m_x = x, m_y = y;
@@ -202,7 +206,7 @@ public:
 
     [[nodiscard]] u32 max_y() const noexcept { return m_max_y; }
 
-    Console& push_coord()
+    Console& push_cursor_coord()
     {
         if (m_stack_size > coord_stack_size)
             throw std::runtime_error{"Stack is full."};
@@ -211,7 +215,7 @@ public:
         return *this;
     }
 
-    Console& pop_coord()
+    Console& pop_cursor_coord()
     {
         if (m_stack_size <= 0)
             throw std::runtime_error{"Stack is empty."};
@@ -223,35 +227,98 @@ public:
         return *this;
     }
 
-    template<class T>
-    Console& draw_search_results(const std::vector<T>& v)
+    /**
+     * Draws single search result on a current line.
+     */
+    Console& draw_single_search_result(std::vector<Files::Match>::const_iterator it)
     {
-        /* We are always on a bottom line when this funcion is called. */
-        move_cursor<up>(2);
-        move_cursor_to<edge_left>();
+        const FileInfo* file = it->m_file;
+        const std::string_view& path = file->path();
+        const char* name = file->name().c_str();
+        sz path_size = it->m_path_size;
+        sz name_offset = it->m_offset;
+        sz name_size = it->m_size;
+
+        write<green>(path.substr(0, path_size));
+        write(path.substr(path_size));
+        if (path != "/" && path != "C:\\")
+            write(os::path_sep);
+
+        write(std::string_view{name, name_offset});
+        write<green>(std::string_view{name + name_offset, name_size});
+        write(std::string_view{name + name_offset + name_size,
+                               file->name().size() - name_size - name_offset});
+
+        return *this;
+    }
+
+    /**
+     * Initializes picker.
+     * It first deletes current picker from console, and, if search results exist, shows picker on
+     * initial position.
+     */
+    Console& init_picker(bool has_results)
+    {
+        push_cursor_coord();
+        set_cursor_pos(m_picker);
+        write(" ");
+
+        if (has_results) {
+            m_picker.m_x = 0;
+            m_picker.m_y = m_max_y - 2;
+
+            set_cursor_pos(m_picker);
+            write<red>(">");
+        }
+
+        pop_cursor_coord();
+
+        return *this;
+    }
+
+    /**
+     * Moves picker in provided direction. Results size is used to limit movement scope.
+     */
+    template<Direction d>
+    Console& move_picker(u64 results_size)
+    {
+        push_cursor_coord();
+        set_cursor_pos(m_picker);
+        write(" ");
+
+        if constexpr (d == Direction::up) {
+            u32 max1 = std::max(m_picker.m_y - 1U, m_min_y);
+            u32 max2 =
+                results_size > m_max_y - 1 ? m_min_y : m_max_y - 1 - static_cast<u32>(results_size);
+
+            m_picker.m_y = std::max(max1, max2);
+        }
+        else if constexpr (d == Direction::down)
+            m_picker.m_y = std::min(m_picker.m_y + 1U, m_max_y - 2);
+        else
+            static_assert("Invalid direction.");
+
+        set_cursor_pos(m_picker);
+        write<red>(">");
+        pop_cursor_coord();
+
+        return *this;
+    }
+
+    /**
+     * Draws search results on the screen.
+     * We are always on a bottom line when this funcion is called.
+     */
+    Console& draw_search_results(const std::vector<Files::Match>& v)
+    {
+        move_cursor<up>(2).move_cursor_to<edge_left>().move_cursor<right>();
 
         auto it = v.begin();
         const auto it_end = v.end();
 
         while (y() >= min_y()) {
             if (it != it_end) {
-                const FileInfo* file = it->m_file;
-                const std::string_view& path = file->path();
-                const char* name = file->name().c_str();
-                sz path_size = it->m_path_size;
-                sz name_offset = it->m_offset;
-                sz name_size = it->m_size;
-
-                write<green>(path.substr(0, path_size));
-                write(path.substr(path_size));
-                if (path != "/" && path != "C:\\")
-                    write(os::path_sep);
-
-                write(std::string_view{name, name_offset});
-                write<green>(std::string_view{name + name_offset, name_size});
-                write(std::string_view{name + name_offset + name_size,
-                                       file->name().size() - name_size - name_offset});
-
+                draw_single_search_result(it);
                 ++it;
             }
 
@@ -260,8 +327,7 @@ public:
             if (y() == min_y())
                 break;
 
-            move_cursor<up>();
-            move_cursor_to<edge_left>();
+            move_cursor<up>().move_cursor_to<edge_left>().move_cursor<right>();
         }
 
         return *this;
@@ -324,6 +390,7 @@ private: // NOLINT
     u32 m_max_y;
     std::array<Coord, coord_stack_size> m_coord_stack{};
     u32 m_stack_size = 0;
+    Coord m_picker; // ">" - file picker.
 };
 
 #endif // CONSOLE_H

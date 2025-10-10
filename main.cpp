@@ -1,6 +1,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstddef>
+#include <exception>
 #include <memory>
 #include <thread>
 
@@ -18,7 +19,8 @@
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion)
 
-static bool scan_input(Console& console, std::string& query)
+static bool scan_input(Console& console, std::string& query,
+                       const std::vector<Files::Match>& results)
 {
     i32 input_ch = 0;
     while (true) {
@@ -27,7 +29,19 @@ static bool scan_input(Console& console, std::string& query)
         if (os::is_term(input_ch))
             return false; // Terminate.
         else if (os::is_esc(input_ch))
-            continue; // -> Ignore escape.
+            ; // -> Ignore escape.
+        else if (os::is_ctrl_j(input_ch)) {
+            if (!results.empty()) {
+                console.move_picker<down>(results.size());
+                console.flush();
+            }
+        }
+        else if (os::is_ctrl_k(input_ch)) {
+            if (!results.empty()) {
+                console.move_picker<up>(results.size());
+                console.flush();
+            }
+        }
         else if (os::is_backspace(input_ch)) {
             if (!query.empty()) {
                 query.pop_back();
@@ -87,25 +101,26 @@ int finder_main(const Options& opt) // NOLINT
             objects_count = results.size();
         }
 
-        console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>();
+        console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>().move_cursor<right>();
 
         console.write("Search: {}", query);
         console.clear_rest_of_line();
-        console.push_coord();
+        console.push_cursor_coord();
 
-        console.push_coord();
+        console.push_cursor_coord();
         console.move_cursor_to<edge_right>().move_cursor<left>(70); // NOLINT
         console.write("cpus: {}, workers: {}, tasks: {}, objects: {}, search time: {}", cpus_count,
                       workers_count, tasks_count, objects_count, time);
-        console.pop_coord();
+        console.pop_cursor_coord();
 
         console.draw_search_results(results);
-        console.pop_coord();
+        console.pop_cursor_coord();
         // console.draw_symbol_search_results(finder.find_symbols(query));
 
+        console.init_picker(!results.empty());
         console.flush();
 
-        if (!scan_input(console, query))
+        if (!scan_input(console, query, results))
             break;
     }
 
