@@ -1,5 +1,3 @@
-// NOLINTBEGIN
-#include <array>
 #include <cctype>
 #include <chrono>
 #include <cstddef>
@@ -10,7 +8,6 @@
 #include "cli11/CLI11.hpp"
 #include "console.h"
 #include "cos-cooperative-scheduling/async.h"
-#include "cos-cooperative-scheduling/mutex.h"
 #include "cos-cooperative-scheduling/options.h"
 #include "cos-cooperative-scheduling/scheduler.h"
 #include "cos-cooperative-scheduling/ums.h"
@@ -18,33 +15,26 @@
 #include "os.h"
 #include "util.h"
 
-// NOLINTEND
+// NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion)
 
-// NOLINTBEGIN
-
-bool scan_input(Console& console, std::string& query)
+static bool scan_input(Console& console, std::string& query)
 {
-    i32 input_ch;
+    i32 input_ch = 0;
     while (true) {
         console >> input_ch;
 
         if (os::is_term(input_ch))
-            return false;
-
-        if (os::is_esc(input_ch))
+            return false; // Terminate.
+        else if (os::is_esc(input_ch))
             continue; // -> Ignore escape.
-
-        if (os::is_backspace(input_ch)) {
-            if (query.empty())
-                continue;
-
-            query.pop_back();
-            break;
+        else if (os::is_backspace(input_ch)) {
+            if (!query.empty()) {
+                query.pop_back();
+                break;
+            }
         }
-
-        u8 prnt = static_cast<u8>(input_ch);
-        if (std::isprint(prnt)) {
-            query += prnt;
+        else if (std::isprint(static_cast<u8>(input_ch))) {
+            query += static_cast<char>(input_ch);
             break;
         }
     }
@@ -52,22 +42,13 @@ bool scan_input(Console& console, std::string& query)
     return true;
 }
 
-/**
- * Single search task.
- */
-std::vector<const FileInfo*> search_task(const Finder& finder, const std::string& query,
-                                         u32 tasks_count, u32 worker_id)
-{
-    return finder.find_files_partial(query, tasks_count, worker_id);
-}
-
-int finder_main(const Options& opt)
+int finder_main(const Options& opt) // NOLINT
 {
     Finder finder{opt};
     // Symbol_finder finder{root, Options{ss.str()}};
 
     /* Query related info. */
-    std::string query{""};
+    std::string query;
     std::vector<const FileInfo*> results;
     milliseconds time = 0ms;
     sz objects_count = 0;
@@ -114,7 +95,7 @@ int finder_main(const Options& opt)
         console.clear_rest_of_line();
 
         console.push_coord();
-        console.move_cursor_to<edge_right>().move_cursor<left>(70);
+        console.move_cursor_to<edge_right>().move_cursor<left>(70); // NOLINT
         console.write("cpus: {}, workers: {}, tasks: {}, objects: {}, search time: {}", cpus_count,
                       workers_count, tasks_count, objects_count, time);
         console.pop_coord();
@@ -171,4 +152,4 @@ int main(int argc, char* argv[])
     ums::init_ums([&] { finder_main(finder_opt); }, ums_opt);
 }
 
-// NOLINTEND
+// NOLINTEND(misc-use-anonymous-namespace, readability-implicit-bool-conversion)
