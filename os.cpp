@@ -1,7 +1,9 @@
 #include "os.h"
 
 #include <exception>
+#include <format>
 #include <iostream>
+#include <stdexcept>
 
 #include "util.h"
 
@@ -73,6 +75,31 @@ bool is_ctrl_k(i32 input)
     return input == 11;
 }
 
+bool is_ctrl_f(i32 input)
+{
+    return input == 6;
+}
+
+bool is_ctrl_p(i32 input)
+{
+    return input == 16;
+}
+
+bool is_ctrl_y(i32 input)
+{
+    return input == 25;
+}
+
+bool is_ctrl_u(i32 input)
+{
+    return input == 21;
+}
+
+bool is_ctrl_d(i32 input)
+{
+    return input == 4;
+}
+
 static DWORD initial_mode; // Used for settings restoration.
 
 void* init_console_handle()
@@ -106,22 +133,6 @@ Coordinates console_window_size(void* handle)
 
     return Coordinates{csbi.dwMaximumWindowSize.X, csbi.dwMaximumWindowSize.Y};
 }
-
-// void get_console_cursor_position(void* handle, Coordinates coord)
-// {
-// CONSOLE_SCREEN_BUFFER_INFO csbi;
-// if (GetConsoleScreenBufferInfo(handle, &csbi)) {
-// int row = csbi.dwCursorPosition.Y + 1; // 1-based
-// int col = csbi.dwCursorPosition.X + 1; // 1-based
-// std::cout << "Row: " << row << " Col: " << col << "\n";
-// }
-// else {
-// std::cerr << "Failed to get cursor position.\n";
-// }
-// BOOL r = (handle, to_win_coord(coord));
-// if (r == 0)
-// throw std::exception{"Could not apply new cursor position."};
-// }
 
 void set_console_cursor_position(void* handle, Coordinates coord)
 {
@@ -166,6 +177,13 @@ std::string root_dir()
     return "C:\\";
 }
 
+void exec_cmd_internal(std::string cmd)
+{
+    u32 r = system(cmd.c_str());
+    if (r != 0)
+        throw std::runtime_error{std::format("Failed to execute cmd: {}, error: {}", cmd, r)};
+}
+
 #elif defined(OS_LINUX)
 
 // NOLINTBEGIN
@@ -207,6 +225,31 @@ bool is_ctrl_j(i32 input)
 bool is_ctrl_k(i32 input)
 {
     return input == 11;
+}
+
+bool is_ctrl_f(i32 input)
+{
+    return input == 6;
+}
+
+bool is_ctrl_p(i32 input)
+{
+    return input == 16;
+}
+
+bool is_ctrl_y(i32 input)
+{
+    return input == 25;
+}
+
+bool is_ctrl_u(i32 input)
+{
+    return input == 21;
+}
+
+bool is_ctrl_d(i32 input)
+{
+    return input == 4;
 }
 
 static termios initial_termios; // Used for settings restoration.
@@ -282,10 +325,34 @@ std::string root_dir()
     return "/";
 }
 
+template<bool throws>
+i32 exec_cmd_internal(const std::string& cmd)
+{
+    u32 r = system(cmd.c_str());
+    if constexpr (throws) {
+        if (r != 0)
+            throw std::runtime_error{std::format("Failed to execute cmd: {}, error: {}", cmd, r)};
+    }
+
+    return r;
+}
+
+template<bool throws>
+i32 copy_to_clipboard(const std::string& str)
+{
+    return exec_cmd<throws>("echo -n '{}' | xclip -selection clipboard", str);
+}
+
 // NOLINTEND
 
 #else
 static_assert(!"Unsupported OS.");
 #endif
+
+template i32 copy_to_clipboard<true>(const std::string& str);
+template i32 copy_to_clipboard<false>(const std::string& str);
+
+template i32 exec_cmd_internal<true>(const std::string& cmd);
+template i32 exec_cmd_internal<false>(const std::string& cmd);
 
 } // namespace os

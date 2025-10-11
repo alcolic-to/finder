@@ -51,6 +51,8 @@ static constexpr u32 color_value()
         static_assert(false, "Invalid color.");
 }
 
+enum class CopyOpt { file_name, file_path, full, full_quoted };
+
 // Defines the coordinates of a character cell in a console screen buffer. The origin of the
 // coordinate system (0, 0) is at the top, left cell of the buffer.
 // X - the horizontal coordinate or column value.
@@ -301,6 +303,33 @@ public:
         set_cursor_pos(m_picker);
         write<red>(">");
         pop_cursor_coord();
+
+        return *this;
+    }
+
+    /**
+     * Copies result string from picker position into the clipboard.
+     */
+    template<CopyOpt copy_opt>
+    Console& copy_result_to_clipboard(const std::vector<Files::Match>& results)
+    {
+        assert(!results.empty());
+        u32 first = m_max_y - 2;
+        sz idx = first - m_picker.m_y;
+
+        assert(idx >= 0 && idx < results.size());
+        idx = std::clamp(idx, 0UL, results.size());
+
+        if constexpr (copy_opt == CopyOpt::file_name)
+            os::copy_to_clipboard<true>(std::string(results[idx].m_file->name()));
+        else if constexpr (copy_opt == CopyOpt::file_path)
+            os::copy_to_clipboard<true>(std::string(results[idx].m_file->path()));
+        else if constexpr (copy_opt == CopyOpt::full)
+            os::copy_to_clipboard<true>(results[idx].m_file->full_path());
+        else if constexpr (copy_opt == CopyOpt::full_quoted)
+            os::copy_to_clipboard<true>("\"" + results[idx].m_file->full_path() + "\"");
+        else
+            static_assert(false, "Invalid copy opt.");
 
         return *this;
     }

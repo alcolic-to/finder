@@ -42,6 +42,26 @@ static bool scan_input(Console& console, std::string& query,
                 console.flush();
             }
         }
+        else if (os::is_ctrl_f(input_ch)) {
+            if (!results.empty())
+                console.copy_result_to_clipboard<CopyOpt::file_name>(results);
+        }
+        else if (os::is_ctrl_p(input_ch)) {
+            if (!results.empty())
+                console.copy_result_to_clipboard<CopyOpt::file_path>(results);
+        }
+        else if (os::is_ctrl_y(input_ch)) {
+            if (!results.empty())
+                console.copy_result_to_clipboard<CopyOpt::full>(results);
+        }
+        else if (os::is_ctrl_u(input_ch)) {
+            if (!results.empty())
+                console.copy_result_to_clipboard<CopyOpt::full_quoted>(results);
+        }
+        else if (os::is_ctrl_d(input_ch)) {
+            query.clear();
+            break;
+        }
         else if (os::is_backspace(input_ch)) {
             if (!query.empty()) {
                 query.pop_back();
