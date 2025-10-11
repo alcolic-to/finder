@@ -177,11 +177,53 @@ std::string root_dir()
     return "C:\\";
 }
 
-void exec_cmd_internal(std::string cmd)
+template<bool throws>
+i32 exec_cmd_internal(const std::string& cmd)
 {
-    u32 r = system(cmd.c_str());
-    if (r != 0)
-        throw std::runtime_error{std::format("Failed to execute cmd: {}, error: {}", cmd, r)};
+    i32 r = system(cmd.c_str());
+    if constexpr (throws) {
+        if (r != 0)
+            throw std::runtime_error{std::format("Failed to execute cmd: {}, error: {}", cmd, r)};
+    }
+
+    return r;
+}
+
+template<bool throws>
+i32 copy_to_clipboard(const std::string& str)
+{
+    auto res = [&](i32 error) {
+        if constexpr (throws) {
+            if (error != 0)
+                throw std::runtime_error{
+                    std::format("Failed to copy to clipboard. Win32: {}", GetLastError())};
+        }
+
+        return error;
+    };
+
+    if (OpenClipboard(nullptr) == 0)
+        return res(-1);
+
+    if (EmptyClipboard() == 0)
+        return res(-1);
+
+    HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, str.size() + 1);
+    if (!mem) {
+        CloseClipboard();
+        return res(-1);
+    }
+
+    std::memcpy(GlobalLock(mem), str.c_str(), str.size() + 1);
+    GlobalUnlock(mem);
+
+    if (SetClipboardData(CF_TEXT, mem) == nullptr) {
+        CloseClipboard();
+        return res(-1);
+    }
+
+    CloseClipboard();
+    return 0;
 }
 
 #elif defined(OS_LINUX)
@@ -328,7 +370,7 @@ std::string root_dir()
 template<bool throws>
 i32 exec_cmd_internal(const std::string& cmd)
 {
-    u32 r = system(cmd.c_str());
+    i32 r = system(cmd.c_str());
     if constexpr (throws) {
         if (r != 0)
             throw std::runtime_error{std::format("Failed to execute cmd: {}, error: {}", cmd, r)};

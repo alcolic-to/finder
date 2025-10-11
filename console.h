@@ -318,7 +318,7 @@ public:
         sz idx = first - m_picker.m_y;
 
         assert(idx >= 0 && idx < results.size());
-        idx = std::clamp(idx, 0UL, results.size());
+        idx = std::clamp(idx, sz(0), results.size());
 
         if constexpr (copy_opt == CopyOpt::file_name)
             os::copy_to_clipboard<true>(std::string(results[idx].m_file->name()));
