@@ -83,28 +83,28 @@ public:
     void write(std::format_string<Args...> str, Args&&... args)
     {
         if constexpr (color != term_default)
-            std::cout << std::format("\x1b[{}m", color_value<color>());
+            std::cout << std::format(ESC "{}m", color_value<color>());
 
         std::string fmt = std::format(str, std::forward<Args>(args)...);
         std::cout << fmt;
         m_x += fmt.size();
 
         if constexpr (color != term_default)
-            std::cout << std::format("\x1b[{}m", color_value<term_default>());
+            std::cout << std::format(ESC "{}m", color_value<term_default>());
     }
 
     template<Color color = term_default, class Arg>
     void write(Arg&& arg)
     {
         if constexpr (color != term_default)
-            std::cout << std::format("\x1b[{}m", color_value<color>());
+            std::cout << std::format(ESC "{}m", color_value<color>());
 
         std::string fmt{std::forward<Arg>(arg)};
         std::cout << fmt;
         m_x += fmt.size();
 
         if constexpr (color != term_default)
-            std::cout << std::format("\x1b[{}m", color_value<term_default>());
+            std::cout << std::format(ESC "{}m", color_value<term_default>());
     }
 
     template<class... Args>
