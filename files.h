@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstring>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -67,6 +68,72 @@ public:
         u16 m_size;
     };
 
+    static constexpr sz usize_max = std::numeric_limits<sz>::max();
+    static constexpr sz match_max = 256;
+
+    /**
+     * Struct that holds vector of matches and total number of objects matched. Since number of
+     * matches can be limited (no need to put all objects in a results if user limits it), we need
+     * to separate results from number of objects matched.
+     */
+    class Matches {
+    public:
+        Matches(sz limit = usize_max) : m_limit(limit == usize_max ? match_max : limit)
+        {
+            m_results.reserve(m_limit);
+        }
+
+        /**
+         * Inserts other matches into the final matches.
+         */
+        void insert(const Matches& other)
+        {
+            if (m_results.size() < m_limit) {
+                const std::vector<Match>& other_res = other.m_results;
+                sz ins = std::min(m_limit - m_results.size(), other_res.size());
+
+                if (ins > 0)
+                    m_results.insert(m_results.end(), other_res.begin(), other_res.begin() + ins);
+            }
+
+            m_objects += other.m_objects;
+        }
+
+        template<class... Args>
+        void insert(Args&&... args)
+        {
+            if (m_objects < m_limit)
+                m_results.emplace_back(std::forward<Args>(args)...);
+
+            ++m_objects;
+        }
+
+        void clear() noexcept
+        {
+            m_results.clear();
+            m_objects = 0;
+        }
+
+        const std::vector<Match>& data() const noexcept { return m_results; }
+
+        sz objects_count() const noexcept { return m_objects; }
+
+        sz size() const noexcept { return m_results.size(); }
+
+        bool empty() const noexcept { return m_objects == 0; }
+
+        const Match& operator[](sz idx) const noexcept
+        {
+            assert(idx < m_results.size());
+            return m_results[idx];
+        }
+
+    private:
+        std::vector<Match> m_results;
+        sz m_objects = 0;
+        sz m_limit;
+    };
+
     /**
      * Class that wraps insert result.
      * It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
@@ -92,8 +159,6 @@ public:
         FileInfo* m_value;
         bool m_ok;
     };
-
-    static constexpr size_t search_limit = 128;
 
     result insert(const fs::path& path)
     {
@@ -129,20 +194,18 @@ public:
      * (threads) and a slice number (thread number) that is used for search.
      * Slice number is 0 based.
      */
-    std::vector<Match> partial_search(const std::string& regex, sz slice_count,
-                                      sz slice_number) const noexcept
+    Matches partial_search(const std::string& regex, sz slice_count, sz slice_number) const noexcept
     {
         assert(slice_count > slice_number);
 
-        std::vector<Match> results;
-        results.reserve(1024);
-
+        Matches matches;
         sz slash_pos = regex.find_last_of(os::path_sep);
+
         std::string name{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) : regex};
         std::string path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
 
         if (!path.empty() && !m_file_paths.search_prefix_node(path))
-            return results;
+            return matches;
 
         sz chunk = std::max(sz(1), m_files.size() / slice_count);
         auto file = m_files.begin() + chunk * slice_number;
@@ -150,13 +213,17 @@ public:
 
         for (; file < last; ++file) {
             const bool on_path = path.empty() || (*file)->path().starts_with(path);
+            if (!on_path)
+                continue;
+
             const sz offset = (*file)->name().find(name);
-            const bool match = offset != SmallString::npos;
-            if (on_path && match)
-                results.emplace_back((*file).get(), path.size(), offset, name.size());
+            if (offset == SmallString::npos)
+                continue;
+
+            matches.insert((*file).get(), path.size(), offset, name.size());
         }
 
-        return results;
+        return matches;
     }
 
     auto files_count() { return m_files.size(); }

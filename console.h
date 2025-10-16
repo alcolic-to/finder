@@ -311,7 +311,7 @@ public:
      * Copies result string from picker position into the clipboard.
      */
     template<CopyOpt copy_opt>
-    Console& copy_result_to_clipboard(const std::vector<Files::Match>& results)
+    Console& copy_result_to_clipboard(const Files::Matches& results)
     {
         assert(!results.empty());
         u32 first = m_max_y - 2;
@@ -338,12 +338,12 @@ public:
      * Draws search results on the screen.
      * We are always on a bottom line when this funcion is called.
      */
-    Console& draw_search_results(const std::vector<Files::Match>& v)
+    Console& draw_search_results(const Files::Matches& matches)
     {
         move_cursor<up>(2).move_cursor_to<edge_left>().move_cursor<right>();
 
-        auto it = v.begin();
-        const auto it_end = v.end();
+        auto it = matches.data().begin();
+        const auto it_end = matches.data().end();
 
         while (y() >= min_y()) {
             if (it != it_end) {

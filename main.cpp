@@ -19,8 +19,7 @@
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion)
 
-static bool scan_input(Console& console, std::string& query,
-                       const std::vector<Files::Match>& results)
+static bool scan_input(Console& console, std::string& query, const Files::Matches& results)
 {
     i32 input_ch = 0;
     while (true) {
@@ -84,7 +83,7 @@ int finder_main(const Options& opt) // NOLINT
 
     /* Query related info. */
     std::string query;
-    std::vector<Files::Match> results;
+    Files::Matches results;
     milliseconds time = 0ms;
     sz objects_count = 0;
 
@@ -96,7 +95,7 @@ int finder_main(const Options& opt) // NOLINT
     u32 workers_count = ums::schedulers->workers_count();
     u32 task_id = 0;
     u32 tasks_count = opt.tasks_count();
-    std::vector<ums::Task<std::vector<Files::Match>>> tasks;
+    std::vector<ums::Task<Files::Matches>> tasks;
     tasks.reserve(tasks_count);
 
     while (true) {
@@ -113,12 +112,12 @@ int finder_main(const Options& opt) // NOLINT
             }
 
             for (auto& task : tasks) {
-                std::vector<Files::Match> partial = task->get();
-                results.insert(results.end(), partial.begin(), partial.end());
+                const Files::Matches matches = task->get();
+                results.insert(matches);
             }
 
             time = sw.elapsed_units();
-            objects_count = results.size();
+            objects_count = results.objects_count();
         }
 
         console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>().move_cursor<right>();
