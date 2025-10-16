@@ -183,7 +183,7 @@ template<class Delim>
 inline std::vector<std::string> string_split(const std::string& str, const Delim& delim)
 {
     if (str.empty())
-        return {};
+        return {""};
 
     sz delim_len = 0;
     using DelimType = std::remove_cv_t<std::remove_reference_t<Delim>>;

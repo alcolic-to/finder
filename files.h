@@ -13,6 +13,7 @@
 #include "os.h"
 #include "small_string.h"
 #include "types.h"
+#include "util.h"
 
 // NOLINTBEGIN(readability-implicit-bool-conversion, readability-redundant-access-specifiers,
 // hicpp-explicit-conversions)
@@ -64,19 +65,17 @@ static fs::path parent_path(const fs::path& path)
  */
 class Files {
 public:
+    static constexpr sz usize_max = std::numeric_limits<sz>::max();
+    static constexpr sz match_max = 256;
+
     /**
      * Struct that holds file info pointer and offset at which we matched file name. Offset is
      * used to highlight matched string with different color for easy visualization on console.
      */
     struct Match {
         const FileInfo* m_file;
-        u32 m_path_size;
-        u16 m_offset;
-        u16 m_size;
+        std::bitset<match_max> m_match_bs;
     };
-
-    static constexpr sz usize_max = std::numeric_limits<sz>::max();
-    static constexpr sz match_max = 256;
 
     /**
      * Struct that holds vector of matches and total number of objects matched. Since number of
@@ -212,26 +211,48 @@ public:
         Matches matches;
         sz slash_pos = regex.find_last_of(os::path_sep);
 
-        std::string name{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) : regex};
-        std::string path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
+        std::string search_name{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) :
+                                                                 regex};
+        std::string search_path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
 
-        if (!path.empty() && !m_file_paths.search_prefix_node(path))
+        if (!search_path.empty() && !m_file_paths.search_prefix_node(search_path))
             return matches;
 
         sz chunk = std::max(sz(1), m_files.size() / slice_count);
         auto file = m_files.begin() + chunk * slice_number;
         const auto& last = slice_count == slice_number + 1 ? m_files.end() : file + chunk;
 
+        std::vector<std::string> parts{string_split(search_name, "*")};
+
         for (; file < last; ++file) {
-            const bool on_path = path.empty() || (*file)->path().starts_with(path);
+            const bool on_path = search_path.empty() || (*file)->path().starts_with(search_path);
             if (!on_path)
                 continue;
 
-            const sz offset = (*file)->name().find(name);
-            if (offset == SmallString::npos)
-                continue;
+            std::bitset<match_max> match_bs{(sz(1) << search_path.size()) - 1};
 
-            matches.insert((*file).get(), path.size(), offset, name.size());
+            bool parts_match = true;
+            sz total_offset = 0;
+
+            for (const std::string& part : parts) {
+                if (part.empty())
+                    continue;
+
+                const sz offset = (*file)->name().find(part, total_offset);
+                if (offset == SmallString::npos || offset < total_offset) {
+                    parts_match = false;
+                    break;
+                }
+
+                std::bitset<match_max> match_count{(sz(1) << part.size()) - 1};
+                sz shift = (*file)->path().size() + offset;
+                match_bs |= match_count << shift;
+
+                total_offset = offset + part.size();
+            }
+
+            if (parts_match)
+                matches.insert((*file).get(), match_bs);
         }
 
         return matches;

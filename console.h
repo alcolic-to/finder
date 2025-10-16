@@ -234,20 +234,32 @@ public:
      */
     Console& draw_single_search_result(std::vector<Files::Match>::const_iterator it)
     {
+        auto bs = it->m_match_bs;
         const FileInfo* file = it->m_file;
-        const std::string_view& path = file->path();
-        const char* name = file->name().c_str();
-        sz path_size = it->m_path_size;
-        sz name_offset = it->m_offset;
-        sz name_size = it->m_size;
 
-        write<green>(path.substr(0, path_size));
-        write(path.substr(path_size));
+        std::string print = file->full_path();
+        for (sz i = 0; i < print.size(); ++i)
+            if (bs.test(i))
+                write<green>(print[i]);
+            else
+                write(print[i]);
 
-        write(std::string_view{name, name_offset});
-        write<green>(std::string_view{name + name_offset, name_size});
-        write(std::string_view{name + name_offset + name_size,
-                               file->name().size() - name_size - name_offset});
+        // const FileInfo* file = it->m_file;
+        // const std::string_view& path = file->path();
+        // const char* name = file->name().c_str();
+        // sz path_size = it->m_path_size;
+        // sz name_offset = it->m_offset;
+        // sz name_size = it->m_size;
+
+        // write<green>(path.substr(0, path_size));
+        // write(path.substr(path_size));
+        // if (path != "/" && path != "C:\\")
+        //     write(os::path_sep);
+
+        // write(std::string_view{name, name_offset});
+        // write<green>(std::string_view{name + name_offset, name_size});
+        // write(std::string_view{name + name_offset + name_size,
+        //                        file->name().size() - name_size - name_offset});
 
         return *this;
     }

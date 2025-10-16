@@ -161,17 +161,22 @@ public:
         return contains(needle.c_str());
     }
 
-    [[nodiscard]] sz find(const char* needle) const noexcept
+    [[nodiscard]] sz find(const char* needle, sz offset = 0) const noexcept
     {
-        const char* r = std::strstr(c_str(), needle);
+        assert(offset < size());
+
+        const char* r = std::strstr(c_str() + offset, needle);
         return r != nullptr ? r - c_str() : npos;
     }
 
-    [[nodiscard]] sz find(const std::string& needle) const noexcept { return find(needle.c_str()); }
-
-    [[nodiscard]] sz find(const std::string_view& needle) const noexcept
+    [[nodiscard]] sz find(const std::string& needle, sz offset = 0) const noexcept
     {
-        return find(needle.data());
+        return find(needle.c_str(), offset);
+    }
+
+    [[nodiscard]] sz find(const std::string_view& needle, sz offset = 0) const noexcept
+    {
+        return find(needle.data(), offset);
     }
 
 private:
