@@ -2080,7 +2080,7 @@ private:
             return;
         }
 
-        if (cp_len != hdrlen(node->m_prefix_len))
+        if (cp_len != node->m_prefix_len)
             return;
 
         depth += node->m_prefix_len;
@@ -2163,7 +2163,7 @@ private:
         if (depth + cp_len == prefix.size() - 1)
             return entry;
 
-        if (cp_len != hdrlen(node->m_prefix_len))
+        if (cp_len != node->m_prefix_len)
             return nullptr;
 
         depth += node->m_prefix_len;
@@ -2247,7 +2247,7 @@ private:
             return;
         }
 
-        if (cp_len != hdrlen(node->m_prefix_len))
+        if (cp_len != node->m_prefix_len)
             return;
 
         depth += node->m_prefix_len;
@@ -2317,7 +2317,7 @@ private:
             return;
         }
 
-        if (cp_len != hdrlen(node->m_prefix_len))
+        if (cp_len != node->m_prefix_len)
             return;
 
         depth += node->m_prefix_len;
