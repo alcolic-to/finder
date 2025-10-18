@@ -243,8 +243,6 @@ public:
 
         write<green>(path.substr(0, path_size));
         write(path.substr(path_size));
-        if (path != "/" && path != "C:\\")
-            write(os::path_sep);
 
         write(std::string_view{name, name_offset});
         write<green>(std::string_view{name + name_offset, name_size});

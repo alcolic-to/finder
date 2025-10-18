@@ -39,10 +39,7 @@ public:
 
     [[nodiscard]] std::string full_path() const noexcept
     {
-        if (path() == "/" || path() == "C:\\")
-            return std::format("{}{}", path(), name().c_str());
-
-        return std::format("{}{}{}", path(), os::path_sep, name().c_str());
+        return std::format("{}{}", path(), name().c_str());
     }
 
     void set_path(std::string_view path) { m_path = path; }
@@ -51,6 +48,16 @@ private:
     SmallString m_name;      // File name with extension.
     std::string_view m_path; // Full file path.
 };
+
+static fs::path parent_path(const fs::path& path)
+{
+    fs::path parrent = path.parent_path();
+    if (parrent == path.root_path())
+        return parrent;
+
+    parrent += os::path_sep_str;
+    return parrent;
+}
 
 /**
  * Class that holds all file system files, their paths, size infos, etc.
@@ -160,15 +167,19 @@ public:
         bool m_ok;
     };
 
+    /**
+     * Inserts file into the files. Path is slit to filename and file path (with path separator "/"
+     * or "\\").
+     */
     result insert(const fs::path& path)
     {
-        return insert(path.filename().string(), path.parent_path().string());
+        return insert(path.filename().string(), parent_path(path));
     }
 
-    void erase(const fs::path& path)
-    {
-        erase(path.filename().string(), path.parent_path().string());
-    }
+    /**
+     * Erases file from files.
+     */
+    void erase(const fs::path& path) { erase(path.filename().string(), parent_path(path)); }
 
     auto search(const std::string& regex)
     {
