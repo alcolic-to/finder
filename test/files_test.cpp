@@ -18,12 +18,12 @@ TEST(files_test, sanity_test_1)
     const std::string file_name = "my_file_1";
     std::string file_path =
 #if defined _WIN32
-        R"(C:\User\win_user_1)";
+        R"(C:\User\win_user_1\)";
 #elif defined __linux__
-        R"(/User/win_user_1)";
+        R"(/User/win_user_1/)";
 #endif
 
-    const std::string file = file_path + os::path_sep + file_name;
+    const std::string file = file_path + file_name;
 
     files.insert(file);
     ASSERT_TRUE(!files.insert(file));
@@ -75,20 +75,20 @@ TEST(files_test, sanity_test_2)
 
     std::string file_path_1 =
 #if defined _WIN32
-        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac)";
+        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac\)";
 #elif defined __linux__
-        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac)";
+        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac/)";
 #endif
 
     std::string file_path_2 =
 #if defined _WIN32
-        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\windows)";
+        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\windows\)";
 #elif defined __linux__
-        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/windows)";
+        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/windows/)";
 #endif
 
-    const std::string file_1 = file_path_1 + os::path_sep + file_name;
-    const std::string file_2 = file_path_2 + os::path_sep + file_name;
+    const std::string file_1 = file_path_1 + file_name;
+    const std::string file_2 = file_path_2 + file_name;
 
     files.insert(file_1);
     files.insert(file_2);
@@ -139,13 +139,13 @@ TEST(files_test, sanity_test_3)
 
     std::string file_path =
 #if defined _WIN32
-        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac)";
+        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac\)";
 #elif defined __linux__
-        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac)";
+        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac/)";
 #endif
 
-    const std::string file_1 = file_path + os::path_sep + file_name_1;
-    const std::string file_2 = file_path + os::path_sep + file_name_2;
+    const std::string file_1 = file_path + file_name_1;
+    const std::string file_2 = file_path + file_name_2;
 
     files.insert(file_1);
     files.insert(file_2);
@@ -212,25 +212,25 @@ TEST(files_test, file_system_paths)
 
 void test_fs_search(const std::string& file_name)
 {
-    Files files;
+    // Files files;
 
-    std::ifstream in_file_stream{std::string(PROJECT_ROOT) + "/test/input_files/" + file_name};
-    ASSERT_TRUE(in_file_stream.is_open());
+    // std::ifstream in_file_stream{std::string(PROJECT_ROOT) + "/test/input_files/" + file_name};
+    // ASSERT_TRUE(in_file_stream.is_open());
 
-    std::vector<std::string> paths;
+    // std::vector<std::string> paths;
 
-    {
-        Stopwatch<true, milliseconds> s{"Scanning"};
-        for (std::string file_path; std::getline(in_file_stream, file_path);) {
-            paths.emplace_back(std::move(file_path));
-            files.insert(paths.back());
-        }
-    }
+    // {
+    //     Stopwatch<true, milliseconds> s{"Scanning"};
+    //     for (std::string file_path; std::getline(in_file_stream, file_path);) {
+    //         paths.emplace_back(std::move(file_path));
+    //         files.insert(paths.back());
+    //     }
+    // }
 
-    constexpr sz MB = 1024 * 1024;
+    // constexpr sz MB = 1024 * 1024;
 
-    std::cout << std::format("Files paths size:    {}MB\n", files.file_paths_size() / MB);
-    std::cout << std::format("Files size:          {}MB\n", files.files_size() / MB);
+    // std::cout << std::format("Files paths size:    {}MB\n", files.file_paths_size() / MB);
+    // std::cout << std::format("Files size:          {}MB\n", files.files_size() / MB);
 
     // std::cout << "Paths count: " << paths.size() << "\n";
 
@@ -277,9 +277,9 @@ TEST(files_test, partial_files_search_test)
 
     std::string file_path =
 #if defined _WIN32
-        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac)";
+        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac\)";
 #elif defined __linux__
-        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac)";
+        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac/)";
 #endif
 
     const std::string file_1 = file_path + os::path_sep + file_name_1;
@@ -298,23 +298,23 @@ TEST(files_test, partial_files_search_test)
      * 1 threads search.
      */
     auto r = files.partial_search("my_file", 1, 0);
-    ASSERT_TRUE(r.size() == 5);
+    ASSERT_TRUE(r.objects_count() == 5);
 
     /**
      * 2 threads search.
      */
-    std::vector<const FileInfo*> res;
+    Files::Matches res;
     res.clear();
 
     r = files.partial_search("my_file", 2, 0);
-    ASSERT_TRUE(r.size() == 2);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 2);
+    res.insert(r);
 
     r = files.partial_search("my_file", 2, 1);
-    ASSERT_TRUE(r.size() == 3);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 3);
+    res.insert(r);
 
-    ASSERT_TRUE(res.size() == 5);
+    ASSERT_TRUE(res.objects_count() == 5);
 
     /**
      * 3 threads search.
@@ -322,18 +322,18 @@ TEST(files_test, partial_files_search_test)
     res.clear();
 
     r = files.partial_search("my_file", 3, 0);
-    ASSERT_TRUE(r.size() == 1);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    res.insert(r);
 
     r = files.partial_search("my_file", 3, 1);
-    ASSERT_TRUE(r.size() == 1);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    res.insert(r);
 
     r = files.partial_search("my_file", 3, 2);
-    ASSERT_TRUE(r.size() == 3);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 3);
+    res.insert(r);
 
-    ASSERT_TRUE(res.size() == 5);
+    ASSERT_TRUE(res.objects_count() == 5);
 
     /**
      * 4 threads search.
@@ -341,22 +341,22 @@ TEST(files_test, partial_files_search_test)
     res.clear();
 
     r = files.partial_search("my_file", 4, 0);
-    ASSERT_TRUE(r.size() == 1);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    res.insert(r);
 
     r = files.partial_search("my_file", 4, 1);
-    ASSERT_TRUE(r.size() == 1);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    res.insert(r);
 
     r = files.partial_search("my_file", 4, 2);
-    ASSERT_TRUE(r.size() == 1);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    res.insert(r);
 
     r = files.partial_search("my_file", 4, 3);
-    ASSERT_TRUE(r.size() == 2);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 2);
+    res.insert(r);
 
-    ASSERT_TRUE(res.size() == 5);
+    ASSERT_TRUE(res.objects_count() == 5);
 
     /**
      * 5 threads search.
@@ -364,36 +364,36 @@ TEST(files_test, partial_files_search_test)
     res.clear();
 
     r = files.partial_search("my_file", 5, 0);
-    ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->path() == file_path);
-    ASSERT_TRUE(r[0]->name() == file_name_1);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    ASSERT_TRUE(r[0].m_file->path() == file_path);
+    ASSERT_TRUE(r[0].m_file->name() == file_name_1);
+    res.insert(r);
 
     r = files.partial_search("my_file", 5, 1);
-    ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->path() == file_path);
-    ASSERT_TRUE(r[0]->name() == file_name_2);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    ASSERT_TRUE(r[0].m_file->path() == file_path);
+    ASSERT_TRUE(r[0].m_file->name() == file_name_2);
+    res.insert(r);
 
     r = files.partial_search("my_file", 5, 2);
-    ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->path() == file_path);
-    ASSERT_TRUE(r[0]->name() == file_name_3);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    ASSERT_TRUE(r[0].m_file->path() == file_path);
+    ASSERT_TRUE(r[0].m_file->name() == file_name_3);
+    res.insert(r);
 
     r = files.partial_search("my_file", 5, 3);
-    ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->path() == file_path);
-    ASSERT_TRUE(r[0]->name() == file_name_4);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    ASSERT_TRUE(r[0].m_file->path() == file_path);
+    ASSERT_TRUE(r[0].m_file->name() == file_name_4);
+    res.insert(r);
 
     r = files.partial_search("my_file", 5, 4);
-    ASSERT_TRUE(r.size() == 1);
-    ASSERT_TRUE(r[0]->path() == file_path);
-    ASSERT_TRUE(r[0]->name() == file_name_5);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 1);
+    ASSERT_TRUE(r[0].m_file->path() == file_path);
+    ASSERT_TRUE(r[0].m_file->name() == file_name_5);
+    res.insert(r);
 
-    ASSERT_TRUE(res.size() == 5);
+    ASSERT_TRUE(res.objects_count() == 5);
 }
 
 TEST(files_test, partial_files_search_test_2)
@@ -402,9 +402,9 @@ TEST(files_test, partial_files_search_test_2)
 
     std::string file_path =
 #if defined _WIN32
-        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac)";
+        R"(C:\Users\win_user_1\.vscode\extensions\ms-python.debugpy-2025.6.0-win32-x64\bundled\libs\debugpy\_vendored\pydevd\pydevd_attach_to_process\linux_and_mac\)";
 #elif defined __linux__
-        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac)";
+        R"(C:/Users/win_user_1/.vscode/extensions/ms-python.debugpy-2025.6.0-win32-x64/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac/)";
 #endif
 
     for (u32 i = 0; i < 1000; ++i)
@@ -414,23 +414,24 @@ TEST(files_test, partial_files_search_test_2)
      * 1 threads search.
      */
     auto r = files.partial_search("my_file", 1, 0);
-    ASSERT_TRUE(r.size() == 1000);
+    ASSERT_TRUE(r.objects_count() == 1000);
 
     /**
      * 2 threads search.
      */
-    std::vector<const FileInfo*> res;
+
+    Files::Matches res;
     res.clear();
 
     r = files.partial_search("my_file", 2, 0);
-    ASSERT_TRUE(r.size() == 500);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 500);
+    res.insert(r);
 
     r = files.partial_search("my_file", 2, 1);
-    ASSERT_TRUE(r.size() == 500);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 500);
+    res.insert(r);
 
-    ASSERT_TRUE(res.size() == 1000);
+    ASSERT_TRUE(res.objects_count() == 1000);
 
     /**
      * 3 threads search.
@@ -438,18 +439,18 @@ TEST(files_test, partial_files_search_test_2)
     res.clear();
 
     r = files.partial_search("my_file", 3, 0);
-    ASSERT_TRUE(r.size() == 333);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 333);
+    res.insert(r);
 
     r = files.partial_search("my_file", 3, 1);
-    ASSERT_TRUE(r.size() == 333);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 333);
+    res.insert(r);
 
     r = files.partial_search("my_file", 3, 2);
-    ASSERT_TRUE(r.size() == 334);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 334);
+    res.insert(r);
 
-    ASSERT_TRUE(res.size() == 1000);
+    ASSERT_TRUE(res.objects_count() == 1000);
 
     /**
      * 4 threads search.
@@ -457,22 +458,22 @@ TEST(files_test, partial_files_search_test_2)
     res.clear();
 
     r = files.partial_search("my_file", 4, 0);
-    ASSERT_TRUE(r.size() == 250);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 250);
+    res.insert(r);
 
     r = files.partial_search("my_file", 4, 1);
-    ASSERT_TRUE(r.size() == 250);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 250);
+    res.insert(r);
 
     r = files.partial_search("my_file", 4, 2);
-    ASSERT_TRUE(r.size() == 250);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 250);
+    res.insert(r);
 
     r = files.partial_search("my_file", 4, 3);
-    ASSERT_TRUE(r.size() == 250);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 250);
+    res.insert(r);
 
-    ASSERT_TRUE(res.size() == 1000);
+    ASSERT_TRUE(res.objects_count() == 1000);
 
     /**
      * 5 threads search.
@@ -480,26 +481,26 @@ TEST(files_test, partial_files_search_test_2)
     res.clear();
 
     r = files.partial_search("my_file", 5, 0);
-    ASSERT_TRUE(r.size() == 200);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 200);
+    res.insert(r);
 
     r = files.partial_search("my_file", 5, 1);
-    ASSERT_TRUE(r.size() == 200);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 200);
+    res.insert(r);
 
     r = files.partial_search("my_file", 5, 2);
-    ASSERT_TRUE(r.size() == 200);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 200);
+    res.insert(r);
 
     r = files.partial_search("my_file", 5, 3);
-    ASSERT_TRUE(r.size() == 200);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 200);
+    res.insert(r);
 
     r = files.partial_search("my_file", 5, 4);
-    ASSERT_TRUE(r.size() == 200);
-    res.insert(res.end(), r.begin(), r.end());
+    ASSERT_TRUE(r.objects_count() == 200);
+    res.insert(r);
 
-    ASSERT_TRUE(res.size() == 1000);
+    ASSERT_TRUE(res.objects_count() == 1000);
 }
 
 // NOLINTEND

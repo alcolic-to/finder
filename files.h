@@ -92,6 +92,22 @@ public:
         /**
          * Inserts other matches into the final matches.
          */
+        void insert(Matches& other)
+        {
+            if (m_results.size() < m_limit) {
+                const std::vector<Match>& other_res = other.m_results;
+                sz ins = std::min(m_limit - m_results.size(), other_res.size());
+
+                if (ins > 0)
+                    m_results.insert(m_results.end(), other_res.begin(), other_res.begin() + ins);
+            }
+
+            m_objects += other.m_objects;
+        }
+
+        /**
+         * Inserts other matches into the final matches.
+         */
         void insert(const Matches& other)
         {
             if (m_results.size() < m_limit) {
@@ -215,8 +231,12 @@ public:
                                                                  regex};
         std::string search_path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
 
+        // std::cout << "Search name: " << search_name << "Search path: " << search_path << "\n";
+
         if (!search_path.empty() && !m_file_paths.search_prefix_node(search_path))
             return matches;
+
+        // std::cout << "Search path not found\n";
 
         sz chunk = std::max(sz(1), m_files.size() / slice_count);
         auto file = m_files.begin() + chunk * slice_number;
@@ -238,6 +258,7 @@ public:
                 if (part.empty())
                     continue;
 
+                // FIXME! We have a bug when total_offset == file->name.len
                 const sz offset = (*file)->name().find(part, total_offset);
                 if (offset == SmallString::npos || offset < total_offset) {
                     parts_match = false;
@@ -285,6 +306,9 @@ public:
 private:
     result insert(std::string file_name, std::string file_path)
     {
+        if (file_path == "/home/alcolic/development/")
+            std::cout << " FP: " << file_path << "FN: " << file_name << "\n";
+
         if (FileInfo* res = search(file_name, file_path); res != nullptr) // File already exist.
             return {res, false};
 

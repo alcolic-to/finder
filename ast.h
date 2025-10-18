@@ -2055,7 +2055,7 @@ private:
         }
 
         Node* node = entry.node_ptr();
-        sz cp_len = node->common_header_prefix(prefix, depth);
+        sz cp_len = node->common_prefix(*this, prefix, depth);
 
         // All bytes except terminal byte matched, so just collect refs.
         if (depth + cp_len == prefix.size() - 1) {
@@ -2084,9 +2084,7 @@ private:
             return;
 
         depth += node->m_prefix_len;
-
-        if (depth >= prefix.size())
-            return;
+        assert(depth < prefix.size());
 
         entry_ptr* next = node->find_child(prefix[depth]);
         if (next)
@@ -2158,7 +2156,7 @@ private:
             return entry.leaf_ptr()->match_prefix(prefix) ? entry : nullptr;
 
         Node* node = entry.node_ptr();
-        sz cp_len = node->common_header_prefix(prefix, depth);
+        sz cp_len = node->common_prefix(*this, prefix, depth);
 
         // All bytes except terminal byte matched, so just return an entry.
         //
@@ -2169,9 +2167,7 @@ private:
             return nullptr;
 
         depth += node->m_prefix_len;
-
-        if (depth >= prefix.size())
-            return nullptr;
+        assert(depth < prefix.size());
 
         entry_ptr* next = node->find_child(prefix[depth]);
         return next ? search_prefix_node(*next, prefix, depth + 1) : nullptr;
@@ -2220,7 +2216,7 @@ private:
         }
 
         Node* node = entry.node_ptr();
-        sz cp_len = node->common_header_prefix(prefix, depth);
+        sz cp_len = node->common_prefix(*this, prefix, depth);
 
         // All bytes except terminal byte matched, so just collect refs.
         if (depth + cp_len == prefix.size() - 1) {
@@ -2255,9 +2251,7 @@ private:
             return;
 
         depth += node->m_prefix_len;
-
-        if (depth >= prefix.size())
-            return;
+        assert(depth < prefix.size());
 
         entry_ptr* next = node->find_child(prefix[depth]);
         if (next)
@@ -2297,7 +2291,7 @@ private:
         }
 
         Node* node = entry.node_ptr();
-        sz cp_len = node->common_header_prefix(prefix, depth);
+        sz cp_len = node->common_prefix(*this, prefix, depth);
 
         // All bytes except terminal byte matched, so just collect refs.
         if (depth + cp_len == prefix.size() - 1) {
@@ -2327,9 +2321,7 @@ private:
             return;
 
         depth += node->m_prefix_len;
-
-        if (depth >= prefix.size())
-            return;
+        assert(depth < prefix.size());
 
         entry_ptr* next = node->find_child(prefix[depth]);
         if (next)
