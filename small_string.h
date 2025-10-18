@@ -163,7 +163,7 @@ public:
 
     [[nodiscard]] sz find(const char* needle, sz offset = 0) const noexcept
     {
-        assert(offset < size());
+        assert(offset <= size()); // we are always 0 terminated.
 
         const char* r = std::strstr(c_str() + offset, needle);
         return r != nullptr ? r - c_str() : npos;

@@ -101,7 +101,7 @@ public:
         if constexpr (color != term_default)
             std::cout << std::format(ESC "{}m", color_value<color>());
 
-        std::string fmt{std::forward<Arg>(arg)};
+        std::string fmt{std::forward<Arg>(arg)}; // NOLINT
         std::cout << fmt;
         m_x += fmt.size();
 
@@ -243,23 +243,6 @@ public:
                 write<green>(print[i]);
             else
                 write(print[i]);
-
-        // const FileInfo* file = it->m_file;
-        // const std::string_view& path = file->path();
-        // const char* name = file->name().c_str();
-        // sz path_size = it->m_path_size;
-        // sz name_offset = it->m_offset;
-        // sz name_size = it->m_size;
-
-        // write<green>(path.substr(0, path_size));
-        // write(path.substr(path_size));
-        // if (path != "/" && path != "C:\\")
-        //     write(os::path_sep);
-
-        // write(std::string_view{name, name_offset});
-        // write<green>(std::string_view{name + name_offset, name_size});
-        // write(std::string_view{name + name_offset + name_size,
-        //                        file->name().size() - name_size - name_offset});
 
         return *this;
     }

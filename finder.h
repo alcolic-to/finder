@@ -128,8 +128,6 @@ public:
                 continue;
 
             fs::path path = it->path(); // Need copy for make_prefrred.
-            if (!path.is_absolute())
-                std::cout << "Not an absolute path: " << path << "\n";
 
             FileInfo* file = m_files.insert(path.make_preferred()).get();
 

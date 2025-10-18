@@ -231,12 +231,8 @@ public:
                                                                  regex};
         std::string search_path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
 
-        // std::cout << "Search name: " << search_name << "Search path: " << search_path << "\n";
-
         if (!search_path.empty() && !m_file_paths.search_prefix_node(search_path))
             return matches;
-
-        // std::cout << "Search path not found\n";
 
         sz chunk = std::max(sz(1), m_files.size() / slice_count);
         auto file = m_files.begin() + chunk * slice_number;
@@ -245,7 +241,10 @@ public:
         std::vector<std::string> parts{string_split(search_name, "*")};
 
         for (; file < last; ++file) {
-            const bool on_path = search_path.empty() || (*file)->path().starts_with(search_path);
+            const SmallString& file_name = (*file)->name();
+            const std::string_view& file_path = (*file)->path();
+
+            const bool on_path = search_path.empty() || file_path.starts_with(search_path);
             if (!on_path)
                 continue;
 
@@ -258,15 +257,14 @@ public:
                 if (part.empty())
                     continue;
 
-                // FIXME! We have a bug when total_offset == file->name.len
-                const sz offset = (*file)->name().find(part, total_offset);
-                if (offset == SmallString::npos || offset < total_offset) {
+                const sz offset = file_name.find(part, total_offset);
+                if (offset == SmallString::npos) {
                     parts_match = false;
                     break;
                 }
 
                 std::bitset<match_max> match_count{(sz(1) << part.size()) - 1};
-                sz shift = (*file)->path().size() + offset;
+                sz shift = file_path.size() + offset;
                 match_bs |= match_count << shift;
 
                 total_offset = offset + part.size();
@@ -306,9 +304,6 @@ public:
 private:
     result insert(std::string file_name, std::string file_path)
     {
-        if (file_path == "/home/alcolic/development/")
-            std::cout << " FP: " << file_path << "FN: " << file_name << "\n";
-
         if (FileInfo* res = search(file_name, file_path); res != nullptr) // File already exist.
             return {res, false};
 
