@@ -1,5 +1,6 @@
 #include "console.h"
 
+#include <cstddef>
 #include <iostream>
 #include <string>
 
@@ -21,6 +22,7 @@ Console::Console()
     m_max_y = coord.y;
     m_picker.m_x = 0;
     m_picker.m_y = m_max_y - 2;
+    m_stream.reserve(sz(m_max_x) * m_max_y);
     clear();
     flush();
 }

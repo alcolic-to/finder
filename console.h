@@ -5,6 +5,7 @@
 #include <array>
 #include <cassert>
 #include <format>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -75,7 +76,12 @@ public:
     Console& operator=(const Console&) = delete;
     Console& operator=(Console&&) noexcept = delete;
 
-    ~Console() { os::close_console(m_handle); }
+    ~Console()
+    {
+        write<term_default>(""); // Reset color.
+        flush();
+        os::close_console(m_handle);
+    }
 
     Console& operator<<(const std::string& s);
     Console& operator>>(std::string& s);
@@ -84,41 +90,39 @@ public:
     template<Color color = term_default, class... Args>
     void write(std::format_string<Args...> str, Args&&... args)
     {
-        if constexpr (color != term_default)
-            std::cout << std::format(ESC "{}m", color_value<color>());
+        if (color != m_color) {
+            m_stream.append(std::format(ESC "{}m", color_value<color>()));
+            m_color = color;
+        }
 
         std::string fmt = std::format(str, std::forward<Args>(args)...);
-        std::cout << fmt;
+        m_stream.append(fmt);
         m_x += fmt.size();
-
-        if constexpr (color != term_default)
-            std::cout << std::format(ESC "{}m", color_value<term_default>());
     }
 
     template<Color color = term_default, class Arg>
     void write(Arg&& arg)
     {
-        if constexpr (color != term_default)
-            std::cout << std::format(ESC "{}m", color_value<color>());
+        if (color != m_color) {
+            m_stream.append(std::format(ESC "{}m", color_value<color>()));
+            m_color = color;
+        }
 
         std::string fmt{std::forward<Arg>(arg)}; // NOLINT
-        std::cout << fmt;
+        m_stream.append(fmt);
         m_x += fmt.size();
-
-        if constexpr (color != term_default)
-            std::cout << std::format(ESC "{}m", color_value<term_default>());
     }
 
     template<class... Args>
     void command(std::format_string<Args...> str, Args&&... args)
     {
-        std::cout << std::format(str, std::forward<Args>(args)...);
+        m_stream.append(std::format(str, std::forward<Args>(args)...));
     }
 
     template<class Arg>
     void command(Arg&& arg)
     {
-        std::cout << std::forward<Arg>(arg); // NOLINT
+        m_stream.append(arg); // NOLINT
     }
 
     Console& clear()
@@ -130,7 +134,10 @@ public:
 
     Console& flush()
     {
+        std::cout << m_stream;
         std::cout.flush();
+        m_stream.clear();
+
         return *this;
     }
 
@@ -413,6 +420,8 @@ private: // NOLINT
     std::array<Coord, coord_stack_size> m_coord_stack{};
     u32 m_stack_size = 0;
     Coord m_picker; // ">" - file picker.
+    Color m_color = term_default;
+    std::string m_stream; // need to cache cout, because of horrible windows terminal performance.
 };
 
 #endif // CONSOLE_H

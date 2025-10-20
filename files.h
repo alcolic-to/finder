@@ -1,6 +1,7 @@
 #ifndef FILES_H
 #define FILES_H
 
+#include <bitset>
 #include <cstddef>
 #include <cstring>
 #include <filesystem>
@@ -190,13 +191,16 @@ public:
      */
     result insert(const fs::path& path)
     {
-        return insert(path.filename().string(), parent_path(path));
+        return insert(path.filename().string(), parent_path(path).string());
     }
 
     /**
      * Erases file from files.
      */
-    void erase(const fs::path& path) { erase(path.filename().string(), parent_path(path)); }
+    void erase(const fs::path& path)
+    {
+        erase(path.filename().string(), parent_path(path).string());
+    }
 
     auto search(const std::string& regex)
     {

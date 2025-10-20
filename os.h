@@ -12,7 +12,7 @@
 namespace os {
 
 constexpr char path_sep = std::filesystem::path::preferred_separator;
-constexpr std::string path_sep_str = std::string{path_sep};
+const inline std::string path_sep_str = std::string{path_sep}; // NOLINT
 
 struct Coordinates {
     i16 x;
