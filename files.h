@@ -67,6 +67,7 @@ static fs::path parent_path(const fs::path& path)
 class Files {
 public:
     static constexpr sz usize_max = std::numeric_limits<sz>::max();
+    static constexpr sz objects_max = 80;
     static constexpr sz match_max = 256;
 
     /**
@@ -85,10 +86,7 @@ public:
      */
     class Matches {
     public:
-        Matches(sz limit = usize_max) : m_limit(limit == usize_max ? match_max : limit)
-        {
-            m_results.reserve(m_limit);
-        }
+        Matches(sz limit = objects_max) : m_limit(limit) { m_results.reserve(m_limit); }
 
         /**
          * Inserts other matches into the final matches.
