@@ -144,6 +144,8 @@ public:
 
         bool empty() const noexcept { return m_objects == 0; }
 
+        bool full() const noexcept { return m_results.size() == m_limit; }
+
         const Match& operator[](sz idx) const noexcept
         {
             assert(idx < m_results.size());
@@ -248,33 +250,80 @@ public:
             if (!on_path)
                 continue;
 
-            std::bitset<match_max> match_bs{(sz(1) << search_path.size()) - 1};
-
-            bool parts_match = true;
-            sz total_offset = 0;
-
-            for (const std::string& part : parts) {
-                if (part.empty())
-                    continue;
-
-                const sz offset = file_name.find(part, total_offset);
-                if (offset == SmallString::npos) {
-                    parts_match = false;
-                    break;
-                }
-
-                std::bitset<match_max> match_count{(sz(1) << part.size()) - 1};
-                sz shift = file_path.size() + offset;
-                match_bs |= match_count << shift;
-
-                total_offset = offset + part.size();
+            if (matches.full()) {
+                match_fast(matches, parts, file_name);
+                continue;
             }
 
-            if (parts_match)
-                matches.insert((*file).get(), match_bs);
+            match_slow(matches, parts, file_name, file_path, search_path, (*file).get());
         }
 
         return matches;
+    }
+
+    /**
+     * Fast file name match.
+     * It iterates over all parts (strings in the original string separated by *) and checks if file
+     * name constains them in order. If all checks passed, it inserts an empty match (just increases
+     * objects count in matches).
+     */
+    void match_fast(Matches& matches, const std::vector<std::string>& parts,
+                    const SmallString& file_name) const noexcept
+
+    {
+        assert(matches.full());
+
+        sz offset = 0;
+        for (const std::string& part : parts) {
+            if (part.empty())
+                continue;
+
+            offset = file_name.find(part, offset);
+            if (offset == SmallString::npos)
+                return;
+
+            offset += part.size();
+        }
+
+        matches.insert();
+    }
+
+    /**
+     * Slow file name match.
+     * Similar to fast match, it iterates over all parts (strings in the original string separated
+     * by *) and checks if file name constains them in order. If all checks passed, it inserts a
+     * full match. We will keep matched letters in a bitset which will later be used to highlight
+     * matched text.
+     */
+    void match_slow(Matches& matches, const std::vector<std::string>& parts,
+                    const SmallString& file_name, const std::string_view& file_path,
+                    const std::string& search_path, const FileInfo* file_info) const noexcept
+
+    {
+        assert(!matches.full());
+
+        std::bitset<match_max> match_bs;
+        sz offset = 0;
+
+        for (const std::string& part : parts) {
+            if (part.empty())
+                continue;
+
+            offset = file_name.find(part, offset);
+            if (offset == SmallString::npos)
+                return;
+
+            std::bitset<match_max> match_count{(sz(1) << part.size()) - 1};
+            sz shift = file_path.size() + offset;
+            match_bs |= match_count << shift;
+
+            offset += part.size();
+        }
+
+        for (sz i = 0; i < search_path.size(); ++i)
+            match_bs.set(i);
+
+        matches.insert(file_info, match_bs);
     }
 
     auto files_count() { return m_files.size(); }
