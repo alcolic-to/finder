@@ -294,8 +294,8 @@ public:
      * Slow file name match.
      * Similar to fast match, it iterates over all parts (strings in the original string separated
      * by *) and checks if file name constains them in order. If all checks passed, it inserts a
-     * full match. We will keep matched letters in a bitset which will later be used to highlight
-     * matched text.
+     * full match. Slow means additional tracking of a matched characters positions. We will keep
+     * matched letters in a bitset which will later be used to highlight matched text.
      */
     void match_slow(Matches& matches, const std::vector<std::string>& parts,
                     const SmallString& file_name, const std::string_view& file_path,
