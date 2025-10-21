@@ -271,8 +271,8 @@ public:
      * It iterates over all parts (strings in the original string separated by *) and checks if file
      * name constains them in order.
      */
-    bool match_name(const SmallString& file_name,
-                    const std::vector<std::string>& parts) const noexcept
+    [[clang::always_inline]] bool match_name(const SmallString& file_name,
+                                             const std::vector<std::string>& parts) const noexcept
 
     {
         sz offset = 0;
