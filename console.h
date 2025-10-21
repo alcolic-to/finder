@@ -246,7 +246,7 @@ public:
 
         std::string print = file->full_path();
         for (sz i = 0; i < print.size(); ++i)
-            if (bs.test(i))
+            if (i < bs.size() && bs.test(i))
                 write<green>(print[i]);
             else
                 write(print[i]);
