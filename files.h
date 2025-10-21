@@ -252,8 +252,11 @@ public:
             if (!on_path)
                 continue;
 
+            if (!match_name(file_name, parts))
+                continue;
+
             if (matches.full()) {
-                match_fast(matches, parts, file_name);
+                matches.insert();
                 continue;
             }
 
@@ -264,17 +267,14 @@ public:
     }
 
     /**
-     * Fast file name match.
+     * File name match.
      * It iterates over all parts (strings in the original string separated by *) and checks if file
-     * name constains them in order. If all checks passed, it inserts an empty match (just increases
-     * objects count in matches).
+     * name constains them in order.
      */
-    void match_fast(Matches& matches, const std::vector<std::string>& parts,
-                    const SmallString& file_name) const noexcept
+    bool match_name(const SmallString& file_name,
+                    const std::vector<std::string>& parts) const noexcept
 
     {
-        assert(matches.full());
-
         sz offset = 0;
         for (const std::string& part : parts) {
             if (part.empty())
@@ -282,12 +282,12 @@ public:
 
             offset = file_name.find(part, offset);
             if (offset == SmallString::npos)
-                return;
+                return false;
 
             offset += part.size();
         }
 
-        matches.insert();
+        return true;
     }
 
     /**
