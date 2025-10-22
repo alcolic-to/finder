@@ -6,6 +6,7 @@
 #include <cassert>
 #include <format>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -301,6 +302,15 @@ public:
         }
 
         return *this;
+    }
+
+    [[nodiscard]] const Files::Match& pick_result(const Files::Matches& results) const
+    {
+        sz idx = m_max_y - 2 - m_picker.m_y;
+        if (idx > results.size())
+            throw std::runtime_error{"Invalid index for pick result."};
+
+        return results[m_max_y - 2 - m_picker.m_y];
     }
 
     /**

@@ -75,6 +75,16 @@ bool is_ctrl_k(i32 input)
     return input == 11;
 }
 
+bool is_ctrl_h(i32 input)
+{
+    return input == 8;
+}
+
+bool is_ctrl_l(i32 input)
+{
+    return input == 12;
+}
+
 bool is_ctrl_f(i32 input)
 {
     return input == 6;
@@ -267,6 +277,16 @@ bool is_ctrl_j(i32 input)
 bool is_ctrl_k(i32 input)
 {
     return input == 11;
+}
+
+bool is_ctrl_h(i32 input)
+{
+    return input == 8;
+}
+
+bool is_ctrl_l(i32 input)
+{
+    return input == 12;
 }
 
 bool is_ctrl_f(i32 input)

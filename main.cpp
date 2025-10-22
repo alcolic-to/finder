@@ -15,9 +15,51 @@
 #include "files.h"
 #include "finder.h"
 #include "os.h"
+#include "small_string.h"
 #include "util.h"
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion)
+
+static bool level_down(std::string& query)
+{
+    if (query.empty())
+        return false;
+
+    query.pop_back();
+    while (!query.empty() && query.back() != os::path_sep)
+        query.pop_back();
+
+    return true;
+}
+
+static bool level_up(std::string& query, const Files::Match& match)
+{
+    const SmallString& name = match.m_file->name();
+    const std::string_view& path = match.m_file->path();
+    std::string full_path = match.m_file->full_path();
+
+    sz slash_pos = query.find_last_of(os::path_sep);
+
+    std::string query_name{slash_pos != std::string::npos ? query.substr(slash_pos + 1) : query};
+    std::string query_path{slash_pos != std::string::npos ? query.substr(0, slash_pos + 1) : ""};
+
+    if (path == query_path) {
+        if (query_name == name)
+            return false;
+
+        query = query_path + name.str();
+        return true;
+    }
+
+    for (auto it = full_path.begin() + query_path.size(); it != full_path.end(); ++it) {
+        query_path.append(1, *it);
+        if (*it == os::path_sep)
+            break;
+    }
+
+    query = query_path + query_name;
+    return true;
+}
 
 static bool scan_input(Console& console, std::string& query, const Files::Matches& results)
 {
@@ -40,6 +82,17 @@ static bool scan_input(Console& console, std::string& query, const Files::Matche
                 console.move_picker<up>(results);
                 console.flush();
             }
+        }
+        else if (os::is_ctrl_h(input_ch)) {
+            if (level_down(query))
+                break;
+        }
+        else if (os::is_ctrl_l(input_ch)) {
+            if (results.empty())
+                continue;
+
+            if (level_up(query, console.pick_result(results)))
+                break;
         }
         else if (os::is_ctrl_f(input_ch)) {
             if (!results.empty())

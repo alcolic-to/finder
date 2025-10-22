@@ -26,6 +26,8 @@ bool is_term(i32 input);
 bool is_backspace(i32 input);
 bool is_ctrl_j(i32 input);
 bool is_ctrl_k(i32 input);
+bool is_ctrl_h(i32 input);
+bool is_ctrl_l(i32 input);
 bool is_ctrl_f(i32 input);
 bool is_ctrl_p(i32 input);
 bool is_ctrl_y(i32 input);
