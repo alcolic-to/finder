@@ -315,12 +315,13 @@ public:
         write(" ");
 
         if (!results.empty()) {
-            m_picker.m_y = m_max_y - 2;
+            u32 offset = m_max_y - 1 >= results.size() ? m_max_y - 1 - results.size() : m_min_y;
+            m_picker.m_y = std::max(m_picker.m_y, offset);
 
             set_cursor_pos(m_picker);
             write<red>(">");
 
-            print_single_search_result<true>(results[0]);
+            print_single_search_result<true>(results[m_max_y - 2 - m_picker.m_y]);
         }
 
         pop_cursor_coord();
