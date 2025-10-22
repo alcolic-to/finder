@@ -15,7 +15,7 @@
 #include "os.h"
 #include "symbols.h"
 
-#define ESC "\x1b["
+constexpr std::string esc = "\x1b[";
 
 // Horizontal and vertical coordinate limit values.
 //
@@ -33,21 +33,35 @@ static constexpr Edge edge_bottom = Edge::bottom;
 static constexpr Edge edge_left = Edge::left;
 static constexpr Edge edge_right = Edge::right;
 
-enum class Color { green, red, term_default };
+enum class Color { black, green, red, white, gray, term_default };
 
+static constexpr Color black = Color::black;
 static constexpr Color green = Color::green;
 static constexpr Color red = Color::red;
+static constexpr Color white = Color::white;
+static constexpr Color gray = Color::gray;
 static constexpr Color term_default = Color::term_default;
 
+static constexpr u32 bg_color_offset = 10U; // Used only for setting default terminal bg color.
+
+/**
+ * Foreground and background color values with 256 color mode.
+ */
 template<Color c>
 static constexpr u32 color_value()
 {
-    if constexpr (c == green)
-        return 32;
-    else if constexpr (c == red)
-        return 31;
-    else if constexpr (c == term_default)
+    if constexpr (c == black)
         return 0;
+    else if constexpr (c == green)
+        return 2;
+    else if constexpr (c == red)
+        return 1;
+    else if constexpr (c == white)
+        return 7;
+    else if constexpr (c == gray)
+        return 236;
+    else if constexpr (c == term_default)
+        return 39;
     else
         static_assert(false, "Invalid color.");
 }
@@ -78,6 +92,7 @@ public:
 
     ~Console()
     {
+        clear();
         write<term_default>(""); // Reset color.
         flush();
         os::close_console(m_handle);
@@ -87,26 +102,42 @@ public:
     Console& operator>>(std::string& s);
     Console& operator>>(i32& input);
 
-    template<Color color = term_default, class... Args>
+    template<Color color_fg, Color color_bg>
+    void set_color()
+    {
+        if (color_fg != m_color_fg) {
+            if (color_fg == term_default)
+                command("{}m", color_value<term_default>());
+            else
+                command("38;5;{}m", color_value<color_fg>());
+
+            m_color_fg = color_fg;
+        }
+
+        if (color_bg != m_color_bg) {
+            if (color_bg == term_default)
+                command(";{}m", color_value<term_default>() + bg_color_offset);
+            else
+                command("48;5;{}m", color_value<color_bg>());
+
+            m_color_bg = color_bg;
+        }
+    }
+
+    template<Color color_fg = term_default, Color color_bg = term_default, class... Args>
     void write(std::format_string<Args...> str, Args&&... args)
     {
-        if (color != m_color) {
-            m_stream.append(std::format(ESC "{}m", color_value<color>()));
-            m_color = color;
-        }
+        set_color<color_fg, color_bg>();
 
         std::string fmt = std::format(str, std::forward<Args>(args)...);
         m_stream.append(fmt);
         m_x += fmt.size();
     }
 
-    template<Color color = term_default, class Arg>
+    template<Color color_fg = term_default, Color color_bg = term_default, class Arg>
     void write(Arg&& arg)
     {
-        if (color != m_color) {
-            m_stream.append(std::format(ESC "{}m", color_value<color>()));
-            m_color = color;
-        }
+        set_color<color_fg, color_bg>();
 
         std::string fmt{std::forward<Arg>(arg)}; // NOLINT
         m_stream.append(fmt);
@@ -116,18 +147,19 @@ public:
     template<class... Args>
     void command(std::format_string<Args...> str, Args&&... args)
     {
-        m_stream.append(std::format(str, std::forward<Args>(args)...));
+        m_stream.append(esc + std::format(str, std::forward<Args>(args)...));
     }
 
     template<class Arg>
     void command(Arg&& arg)
     {
-        m_stream.append(arg); // NOLINT
+        m_stream.append(esc + std::forward<Arg>(arg)); // NOLINT
     }
 
     Console& clear()
     {
-        command(ESC "2J" ESC "H");
+        command("2J");
+        command("H");
         set_cursor_pos(1, 1);
         return *this;
     }
@@ -143,13 +175,13 @@ public:
 
     Console& clear_rest_of_line()
     {
-        command(ESC "K");
+        command("K");
         return *this;
     };
 
     Console& apply_cursor_pos()
     {
-        command(ESC "{};{}H", m_y, m_x);
+        command("{};{}H", m_y, m_x);
         return *this;
     }
 
@@ -237,19 +269,28 @@ public:
     }
 
     /**
-     * Draws single search result on a current line.
+     * Prints single search result on a current line.
+     * If picked is provided, it means that we have a picker on that line, and we must color
+     * backround with different color.
      */
-    Console& draw_single_search_result(std::vector<Files::Match>::const_iterator it)
+    template<bool picked = false>
+    Console& print_single_search_result(const Files::Match& match)
     {
-        auto bs = it->m_match_bs;
-        const FileInfo* file = it->m_file;
+        const auto& bs = match.m_match_bs;
+        const FileInfo* file = match.m_file;
 
         std::string print = file->full_path();
-        for (sz i = 0; i < print.size(); ++i)
+        for (sz i = 0; i < print.size(); ++i) {
             if (i < bs.size() && bs.test(i))
-                write<green>(print[i]);
+                if constexpr (picked)
+                    write<green, gray>(print[i]);
+                else
+                    write<green>(print[i]);
+            else if constexpr (picked)
+                write<term_default, gray>(print[i]);
             else
                 write(print[i]);
+        }
 
         return *this;
     }
@@ -259,18 +300,20 @@ public:
      * It first deletes current picker from console, and, if search results exist, shows picker on
      * initial position.
      */
-    Console& init_picker(bool has_results)
+    Console& init_picker(const Files::Matches& results)
     {
         push_cursor_coord();
         set_cursor_pos(m_picker);
         write(" ");
 
-        if (has_results) {
+        if (!results.empty()) {
             m_picker.m_x = 0;
             m_picker.m_y = m_max_y - 2;
 
             set_cursor_pos(m_picker);
             write<red>(">");
+
+            print_single_search_result<true>(results[0]);
         }
 
         pop_cursor_coord();
@@ -282,7 +325,7 @@ public:
      * Moves picker in provided direction. Results size is used to limit movement scope.
      */
     template<Direction d>
-    Console& move_picker(u64 results_size)
+    Console& move_picker(const Files::Matches& results)
     {
         push_cursor_coord();
         set_cursor_pos(m_picker);
@@ -290,8 +333,9 @@ public:
 
         if constexpr (d == Direction::up) {
             u32 max1 = std::max(m_picker.m_y - 1U, m_min_y);
-            u32 max2 =
-                results_size > m_max_y - 1 ? m_min_y : m_max_y - 1 - static_cast<u32>(results_size);
+            u32 max2 = results.size() > m_max_y - 1 ?
+                           m_min_y :
+                           m_max_y - 1 - static_cast<u32>(results.size());
 
             m_picker.m_y = std::max(max1, max2);
         }
@@ -314,6 +358,7 @@ public:
     Console& copy_result_to_clipboard(const Files::Matches& results)
     {
         assert(!results.empty());
+
         u32 first = m_max_y - 2;
         sz idx = first - m_picker.m_y;
 
@@ -335,10 +380,10 @@ public:
     }
 
     /**
-     * Draws search results on the screen.
+     * Prints search results on the screen.
      * We are always on a bottom line when this funcion is called.
      */
-    Console& draw_search_results(const Files::Matches& matches)
+    Console& print_search_results(const Files::Matches& matches)
     {
         move_cursor<up>(2).move_cursor_to<edge_left>().move_cursor<right>();
 
@@ -347,7 +392,7 @@ public:
 
         while (y() >= min_y()) {
             if (it != it_end) {
-                draw_single_search_result(it);
+                print_single_search_result(*it);
                 ++it;
             }
 
@@ -420,7 +465,8 @@ private: // NOLINT
     std::array<Coord, coord_stack_size> m_coord_stack{};
     u32 m_stack_size = 0;
     Coord m_picker; // ">" - file picker.
-    Color m_color = term_default;
+    Color m_color_fg = term_default;
+    Color m_color_bg = term_default;
     std::string m_stream; // need to cache cout, because of horrible windows terminal performance.
 };
 

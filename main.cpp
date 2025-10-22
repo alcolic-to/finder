@@ -31,13 +31,13 @@ static bool scan_input(Console& console, std::string& query, const Files::Matche
             ; // -> Ignore escape.
         else if (os::is_ctrl_j(input_ch)) {
             if (!results.empty()) {
-                console.move_picker<down>(results.size());
+                console.move_picker<down>(results);
                 console.flush();
             }
         }
         else if (os::is_ctrl_k(input_ch)) {
             if (!results.empty()) {
-                console.move_picker<up>(results.size());
+                console.move_picker<up>(results);
                 console.flush();
             }
         }
@@ -79,7 +79,6 @@ static bool scan_input(Console& console, std::string& query, const Files::Matche
 int finder_main(const Options& opt) // NOLINT
 {
     Finder finder{opt};
-    // Symbol_finder finder{root, Options{ss.str()}};
 
     /* Query related info. */
     std::string query;
@@ -132,11 +131,11 @@ int finder_main(const Options& opt) // NOLINT
                       workers_count, tasks_count, objects_count, time);
         console.pop_cursor_coord();
 
-        console.draw_search_results(results);
+        console.print_search_results(results);
         console.pop_cursor_coord();
         // console.draw_symbol_search_results(finder.find_symbols(query));
 
-        console.init_picker(!results.empty());
+        console.init_picker(results);
         console.flush();
 
         if (!scan_input(console, query, results))
