@@ -130,8 +130,12 @@ public:
         set_color<color_fg, color_bg>();
 
         std::string fmt = std::format(str, std::forward<Args>(args)...);
-        m_stream.append(fmt);
-        m_x += fmt.size();
+
+        sz limit = std::min(fmt.size(), sz(m_max_x - m_x));
+        std::string_view limited{fmt.begin(), fmt.begin() + limit}; // NOLINT
+
+        m_stream.append(limited);
+        m_x += limit;
     }
 
     template<Color color_fg = term_default, Color color_bg = term_default, class Arg>
@@ -140,8 +144,12 @@ public:
         set_color<color_fg, color_bg>();
 
         std::string fmt{std::forward<Arg>(arg)}; // NOLINT
-        m_stream.append(fmt);
-        m_x += fmt.size();
+
+        sz limit = std::min(fmt.size(), sz(m_max_x - m_x));
+        std::string_view limited{fmt.begin(), fmt.begin() + limit}; // NOLINT
+
+        m_stream.append(limited);
+        m_x += limit;
     }
 
     template<class... Args>
@@ -307,7 +315,6 @@ public:
         write(" ");
 
         if (!results.empty()) {
-            m_picker.m_x = 0;
             m_picker.m_y = m_max_y - 2;
 
             set_cursor_pos(m_picker);
