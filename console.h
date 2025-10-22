@@ -328,8 +328,10 @@ public:
     Console& move_picker(const Files::Matches& results)
     {
         push_cursor_coord();
+
         set_cursor_pos(m_picker);
         write(" ");
+        print_single_search_result<false>(results[m_max_y - 2 - m_picker.m_y]);
 
         if constexpr (d == Direction::up) {
             u32 max1 = std::max(m_picker.m_y - 1U, m_min_y);
@@ -346,6 +348,8 @@ public:
 
         set_cursor_pos(m_picker);
         write<red>(">");
+        print_single_search_result<true>(results[m_max_y - 2 - m_picker.m_y]);
+
         pop_cursor_coord();
 
         return *this;
