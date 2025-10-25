@@ -5,7 +5,6 @@
 #include <array>
 #include <cassert>
 #include <format>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -14,6 +13,7 @@
 
 #include "files.h"
 #include "os.h"
+#include "query.h"
 #include "symbols.h"
 
 constexpr std::string esc = "\x1b[";
@@ -60,7 +60,7 @@ static constexpr u32 color_value()
     else if constexpr (c == white)
         return 7;
     else if constexpr (c == gray)
-        return 236;
+        return 237;
     else if constexpr (c == term_default)
         return 39;
     else
@@ -281,15 +281,17 @@ public:
      * Prints single search result on a current line.
      * If picked is provided, it means that we have a picker on that line, and we must color
      * backround with different color.
+     * Also, if user have pinned search path, we will not print it.
+     * Current limit for matched letters in a single word is 63.
      */
     template<bool picked = false>
-    Console& print_single_search_result(const Files::Match& match)
+    Console& print_single_search_result(const Files::Match& match, const Query& query)
     {
         const auto& bs = match.m_match_bs;
         const FileInfo* file = match.m_file;
 
         std::string print = file->full_path();
-        for (sz i = 0; i < print.size(); ++i) {
+        for (sz i = query.m_pinned.size(); i < print.size(); ++i) {
             if (i < bs.size() && bs.test(i))
                 if constexpr (picked)
                     write<green, gray>(print[i]);
@@ -318,7 +320,7 @@ public:
      * It first deletes current picker from console, and, if search results exist, shows picker on
      * initial position.
      */
-    Console& init_picker(const Files::Matches& results)
+    Console& init_picker(const Files::Matches& results, const Query& query)
     {
         push_cursor_coord();
         set_cursor_pos(m_picker);
@@ -331,7 +333,7 @@ public:
             set_cursor_pos(m_picker);
             write<red>(">");
 
-            print_single_search_result<true>(results[m_max_y - 2 - m_picker.m_y]);
+            print_single_search_result<true>(results[m_max_y - 2 - m_picker.m_y], query);
         }
 
         pop_cursor_coord();
@@ -343,13 +345,13 @@ public:
      * Moves picker in provided direction. Results size is used to limit movement scope.
      */
     template<Direction d>
-    Console& move_picker(const Files::Matches& results)
+    Console& move_picker(const Files::Matches& results, const Query& query)
     {
         push_cursor_coord();
 
         set_cursor_pos(m_picker);
         write(" ");
-        print_single_search_result<false>(results[m_max_y - 2 - m_picker.m_y]);
+        print_single_search_result<false>(results[m_max_y - 2 - m_picker.m_y], query);
 
         if constexpr (d == Direction::up) {
             u32 max1 = std::max(m_picker.m_y - 1U, m_min_y);
@@ -366,7 +368,7 @@ public:
 
         set_cursor_pos(m_picker);
         write<red>(">");
-        print_single_search_result<true>(results[m_max_y - 2 - m_picker.m_y]);
+        print_single_search_result<true>(results[m_max_y - 2 - m_picker.m_y], query);
 
         pop_cursor_coord();
 
@@ -405,7 +407,7 @@ public:
      * Prints search results on the screen.
      * We are always on a bottom line when this funcion is called.
      */
-    Console& print_search_results(const Files::Matches& matches)
+    Console& print_search_results(const Files::Matches& matches, const Query& query)
     {
         move_cursor<up>(2).move_cursor_to<edge_left>().move_cursor<right>();
 
@@ -414,7 +416,7 @@ public:
 
         while (y() >= min_y()) {
             if (it != it_end) {
-                print_single_search_result(*it);
+                print_single_search_result(*it, query);
                 ++it;
             }
 

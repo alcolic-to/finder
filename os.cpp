@@ -90,6 +90,11 @@ bool is_ctrl_f(i32 input)
     return input == 6;
 }
 
+bool is_ctrl_i(i32 input)
+{
+    return input == 9;
+}
+
 bool is_ctrl_p(i32 input)
 {
     return input == 16;
@@ -108,6 +113,16 @@ bool is_ctrl_u(i32 input)
 bool is_ctrl_d(i32 input)
 {
     return input == 4;
+}
+
+bool is_ctrl_g(i32 input)
+{
+    return input == 7;
+}
+
+bool is_ctrl_p(i32 input)
+{
+    return input == 16;
 }
 
 static DWORD initial_mode; // Used for settings restoration.
@@ -294,9 +309,9 @@ bool is_ctrl_f(i32 input)
     return input == 6;
 }
 
-bool is_ctrl_p(i32 input)
+bool is_ctrl_i(i32 input)
 {
-    return input == 16;
+    return input == 9;
 }
 
 bool is_ctrl_y(i32 input)
@@ -312,6 +327,16 @@ bool is_ctrl_u(i32 input)
 bool is_ctrl_d(i32 input)
 {
     return input == 4;
+}
+
+bool is_ctrl_g(i32 input)
+{
+    return input == 7;
+}
+
+bool is_ctrl_p(i32 input)
+{
+    return input == 16;
 }
 
 static termios initial_termios; // Used for settings restoration.

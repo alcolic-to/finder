@@ -1,8 +1,8 @@
 #include <cctype>
 #include <chrono>
 #include <cstddef>
-#include <exception>
 #include <memory>
+#include <string>
 #include <thread>
 
 #include "ast.h"
@@ -15,53 +15,91 @@
 #include "files.h"
 #include "finder.h"
 #include "os.h"
+#include "query.h"
 #include "small_string.h"
 #include "util.h"
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion)
 
-static bool level_down(std::string& query)
+static bool level_down(Query& query)
 {
-    if (query.empty())
+    std::string& path = query.m_pinned;
+
+    if (path.empty())
         return false;
 
-    query.pop_back();
-    while (!query.empty() && query.back() != os::path_sep)
-        query.pop_back();
+    path.pop_back();
+    while (!path.empty() && path.back() != os::path_sep)
+        path.pop_back();
+
+    if (path == os::path_sep_str)
+        path.clear();
 
     return true;
 }
 
-static bool level_up(std::string& query, const Files::Match& match)
+static bool level_up(Query& query, const Files::Match& match)
 {
-    const SmallString& name = match.m_file->name();
-    const std::string_view& path = match.m_file->path();
-    std::string full_path = match.m_file->full_path();
+    std::string& q_query = query.m_query;
+    std::string& q_path = query.m_pinned;
 
-    sz slash_pos = query.find_last_of(os::path_sep);
+    sz slash_pos = q_query.find_last_of(os::path_sep);
+    std::string query_name{slash_pos != std::string::npos ? q_query.substr(slash_pos + 1) :
+                                                            q_query};
+    std::string query_path{slash_pos != std::string::npos ? q_query.substr(0, slash_pos + 1) : ""};
 
-    std::string query_name{slash_pos != std::string::npos ? query.substr(slash_pos + 1) : query};
-    std::string query_path{slash_pos != std::string::npos ? query.substr(0, slash_pos + 1) : ""};
+    const FileInfo* file = match.m_file;
+    const SmallString& name = file->name();
+    const std::string_view path = file->path().substr();
+    const std::string full_path = file->full_path().substr();
 
-    if (path == query_path) {
-        if (query_name == name)
-            return false;
+    if (path == q_path) {
+        q_path = q_path + name.str();
+        if (!q_path.ends_with(os::path_sep))
+            q_path.append(1, os::path_sep);
 
-        query = query_path + name.str();
+        if (name.starts_with(query_name))
+            q_query.clear();
+
         return true;
     }
 
-    for (auto it = full_path.begin() + query_path.size(); it != full_path.end(); ++it) {
-        query_path.append(1, *it);
-        if (*it == os::path_sep)
+    for (auto it = full_path.begin() + q_path.size(); it != full_path.end(); ++it) {
+        q_path.append(1, *it);
+        if (*it == os::path_sep && q_path != os::path_sep_str)
             break;
     }
 
-    query = query_path + query_name;
+    if (!q_path.ends_with(os::path_sep))
+        q_path.append(1, os::path_sep);
+
+    slash_pos = query_path.find_first_of(os::path_sep);
+    if (slash_pos != std::string::npos)
+        query_path = query_path.substr(slash_pos + 1);
+
+    if (slash_pos == 0) {
+        slash_pos = query_path.find_first_of(os::path_sep);
+        if (slash_pos != std::string::npos)
+            query_path = query_path.substr(slash_pos + 1);
+    }
+
+    q_query = query_path + query_name;
     return true;
 }
 
-static bool scan_input(Console& console, std::string& query, const Files::Matches& results)
+/**
+ * Pins path from picker position and removes path from name.
+ */
+static void pin_path(Query& query, const Files::Match& match)
+{
+    query.m_pinned = match.m_file->full_path();
+    if (!query.m_pinned.ends_with(os::path_sep))
+        query.m_pinned.append(1, os::path_sep);
+
+    query.m_query.clear();
+}
+
+static bool scan_input(Console& console, Query& query, const Files::Matches& results) // NOLINT
 {
     i32 input_ch = 0;
     while (true) {
@@ -73,13 +111,13 @@ static bool scan_input(Console& console, std::string& query, const Files::Matche
             ; // -> Ignore escape.
         else if (os::is_ctrl_j(input_ch)) {
             if (!results.empty()) {
-                console.move_picker<down>(results);
+                console.move_picker<down>(results, query);
                 console.flush();
             }
         }
         else if (os::is_ctrl_k(input_ch)) {
             if (!results.empty()) {
-                console.move_picker<up>(results);
+                console.move_picker<up>(results, query);
                 console.flush();
             }
         }
@@ -98,7 +136,7 @@ static bool scan_input(Console& console, std::string& query, const Files::Matche
             if (!results.empty())
                 console.copy_result_to_clipboard<CopyOpt::file_name>(results);
         }
-        else if (os::is_ctrl_p(input_ch)) {
+        else if (os::is_ctrl_i(input_ch)) {
             if (!results.empty())
                 console.copy_result_to_clipboard<CopyOpt::file_path>(results);
         }
@@ -111,17 +149,27 @@ static bool scan_input(Console& console, std::string& query, const Files::Matche
                 console.copy_result_to_clipboard<CopyOpt::full_quoted>(results);
         }
         else if (os::is_ctrl_d(input_ch)) {
-            query.clear();
+            query.m_query.clear();
             break;
         }
+        else if (os::is_ctrl_g(input_ch)) {
+            query.m_pinned.clear();
+            break;
+        }
+        else if (os::is_ctrl_p(input_ch)) {
+            if (!results.empty()) {
+                pin_path(query, console.pick_result(results));
+                break;
+            }
+        }
         else if (os::is_backspace(input_ch)) {
-            if (!query.empty()) {
-                query.pop_back();
+            if (!query.m_query.empty()) {
+                query.m_query.pop_back();
                 break;
             }
         }
         else if (std::isprint(static_cast<u8>(input_ch))) {
-            query += static_cast<char>(input_ch);
+            query.m_query += static_cast<char>(input_ch);
             break;
         }
     }
@@ -134,7 +182,8 @@ int finder_main(const Options& opt) // NOLINT
     Finder finder{opt};
 
     /* Query related info. */
-    std::string query;
+    Query query;
+
     Files::Matches results;
     milliseconds time = 0ms;
     sz objects_count = 0;
@@ -159,7 +208,7 @@ int finder_main(const Options& opt) // NOLINT
 
             for (task_id = 0; task_id < tasks_count; ++task_id) {
                 tasks.emplace_back(ums::async([&, tasks_count, task_id] {
-                    return finder.find_files_partial(query, tasks_count, task_id);
+                    return finder.find_files_partial(query.full(), tasks_count, task_id);
                 }));
             }
 
@@ -172,9 +221,9 @@ int finder_main(const Options& opt) // NOLINT
             objects_count = results.objects_count();
         }
 
-        console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>().move_cursor<right>();
+        console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>();
 
-        console.write("Search: {}", query);
+        console.write("{}: {}", query.m_pinned, query.m_query);
         console.clear_rest_of_line();
         console.push_cursor_coord();
 
@@ -184,11 +233,11 @@ int finder_main(const Options& opt) // NOLINT
                       workers_count, tasks_count, objects_count, time);
         console.pop_cursor_coord();
 
-        console.print_search_results(results);
+        console.print_search_results(results, query);
         console.pop_cursor_coord();
         // console.draw_symbol_search_results(finder.find_symbols(query));
 
-        console.init_picker(results);
+        console.init_picker(results, query);
         console.flush();
 
         if (!scan_input(console, query, results))
