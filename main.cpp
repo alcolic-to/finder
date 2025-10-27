@@ -48,21 +48,10 @@ static bool level_up(Query& query, const Files::Match& match)
                                                             q_query};
     std::string query_path{slash_pos != std::string::npos ? q_query.substr(0, slash_pos + 1) : ""};
 
-    const FileInfo* file = match.m_file;
-    const SmallString& name = file->name();
-    const std::string_view path = file->path().substr();
-    const std::string full_path = file->full_path().substr();
+    const std::string full_path = match.m_file->full_path().substr();
 
-    if (path == q_path) {
-        q_path = q_path + name.str();
-        if (!q_path.ends_with(os::path_sep))
-            q_path.append(1, os::path_sep);
-
-        if (name.starts_with(query_name))
-            q_query.clear();
-
-        return true;
-    }
+    if (q_path == match.m_file->path())
+        query_name.clear();
 
     for (auto it = full_path.begin() + q_path.size(); it != full_path.end(); ++it) {
         q_path.append(1, *it);
@@ -73,15 +62,12 @@ static bool level_up(Query& query, const Files::Match& match)
     if (!q_path.ends_with(os::path_sep))
         q_path.append(1, os::path_sep);
 
+    if (query_path.starts_with(os::path_sep))
+        query_path = query_path.substr(1);
+
     slash_pos = query_path.find_first_of(os::path_sep);
     if (slash_pos != std::string::npos)
         query_path = query_path.substr(slash_pos + 1);
-
-    if (slash_pos == 0) {
-        slash_pos = query_path.find_first_of(os::path_sep);
-        if (slash_pos != std::string::npos)
-            query_path = query_path.substr(slash_pos + 1);
-    }
 
     q_query = query_path + query_name;
     return true;

@@ -35,7 +35,6 @@ bool is_ctrl_y(i32 input);
 bool is_ctrl_u(i32 input);
 bool is_ctrl_d(i32 input);
 bool is_ctrl_g(i32 input);
-bool is_ctrl_p(i32 input);
 
 void* init_console_handle();
 void close_console(void* handle);

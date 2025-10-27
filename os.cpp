@@ -120,11 +120,6 @@ bool is_ctrl_g(i32 input)
     return input == 7;
 }
 
-bool is_ctrl_p(i32 input)
-{
-    return input == 16;
-}
-
 static DWORD initial_mode; // Used for settings restoration.
 
 void* init_console_handle()
