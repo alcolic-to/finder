@@ -16,7 +16,7 @@
 #include "query.h"
 #include "symbols.h"
 
-constexpr std::string esc = "\x1b[";
+inline const std::string esc = "\x1b[";
 
 // Horizontal and vertical coordinate limit values.
 //
