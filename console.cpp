@@ -304,7 +304,7 @@ void Console::render_main(const Query& query, u32 cpus_count, u32 workers_count,
                           std::chrono::duration<long long, std::ratio<1, 1000>> time)
 {
     if (m_max_x < min_x_required || m_max_y < min_y_required) {
-        write("Unable to display results - window is too small.");
+        write("Window too small.");
         flush();
         return;
     }
@@ -324,7 +324,6 @@ void Console::render_main(const Query& query, u32 cpus_count, u32 workers_count,
 
     print_search_results(results, query);
     pop_cursor_coord();
-    // console.draw_symbol_search_results(finder.find_symbols(query));
 
     init_picker(results, query);
 

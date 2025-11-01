@@ -21,8 +21,14 @@
 #include "small_string.h"
 #include "util.h"
 
-// NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion)
+// NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion,
+// readability-function-cognitive-complexity)
 
+/**
+ * Moves pinned query path one level down.
+ * If pinned path is on the "seconds" level (/usr/), we will jump directly to the empty path,
+ * because there is no point in pinning root only (/).
+ */
 static bool level_down(Query& query)
 {
     std::string& path = query.m_pinned;
@@ -40,6 +46,11 @@ static bool level_down(Query& query)
     return true;
 }
 
+/**
+ * Moves pinned query path one level up.
+ * If pinned path is empty, we will jump directly to the "second" level, skipping root, because
+ * there is no point in pinning root only (/).
+ */
 static bool level_up(Query& query, const Files::Match& match)
 {
     std::string& q_query = query.m_query;
@@ -87,9 +98,9 @@ static void pin_path(Query& query, const Files::Match& match)
     query.m_query.clear();
 }
 
-enum class ScanRes { normal, consol_resize, exit }; // NOLINT
+enum class Command { normal, consol_resize, exit }; // NOLINT
 
-static ScanRes scan_input(Console& console, Query& query, const Files::Matches& results) // NOLINT
+static Command handle_command(Console& console, Query& query, const Files::Matches& results)
 {
     os::ConsoleInput input;
     i32 input_ch = 0;
@@ -99,13 +110,13 @@ static ScanRes scan_input(Console& console, Query& query, const Files::Matches& 
 
         if (std::holds_alternative<os::Coordinates>(input)) {
             console.resize(std::get<os::Coordinates>(input));
-            return ScanRes::consol_resize;
+            return Command::consol_resize;
         }
 
         input_ch = std::get<i32>(input);
 
         if (os::is_term(input_ch))
-            return ScanRes::exit; // Terminate.
+            return Command::exit; // Terminate.
         else if (os::is_esc(input_ch))
             ; // -> Ignore escape.
         else if (os::is_ctrl_j(input_ch)) {
@@ -173,16 +184,15 @@ static ScanRes scan_input(Console& console, Query& query, const Files::Matches& 
         }
     }
 
-    return ScanRes::normal;
+    return Command::normal;
 }
 
 int finder_main(const Options& opt) // NOLINT
 {
     Finder finder{opt};
 
-    /* Query related info. */
+    /* Search results related. */
     Query query;
-
     Files::Matches results;
     milliseconds time = 0ms;
     sz objects_count = 0;
@@ -223,13 +233,14 @@ int finder_main(const Options& opt) // NOLINT
         console.render_main(query, cpus_count, workers_count, tasks_count, objects_count, results,
                             time);
 
-        for (ScanRes r; (r = scan_input(console, query, results)) != ScanRes::normal;) { // NOLINT
-            switch (r) {
-            case ScanRes::consol_resize: // Console resize is already handled in scan_input.
+        Command c;
+        while ((c = handle_command(console, query, results)) != Command::normal) {
+            switch (c) {
+            case Command::consol_resize:
                 console.render_main(query, cpus_count, workers_count, tasks_count, objects_count,
                                     results, time);
                 break;
-            case ScanRes::exit:
+            case Command::exit:
                 return 0;
             default:
                 assert(!"Invalid scan result.");
@@ -282,4 +293,5 @@ int main(int argc, char* argv[])
     ums::init_ums([&] { finder_main(finder_opt); }, ums_opt);
 }
 
-// NOLINTEND(misc-use-anonymous-namespace, readability-implicit-bool-conversion)
+// NOLINTEND(misc-use-anonymous-namespace, readability-implicit-bool-conversion,
+// readability-function-cognitive-complexity)
