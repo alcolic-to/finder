@@ -240,11 +240,14 @@ public:
 
         sz chunk = std::max(sz(1), m_files.size() / slice_count);
         auto file = m_files.begin() + chunk * slice_number;
-        const auto& last = slice_count == slice_number + 1 ? m_files.end() : file + chunk;
+        if (file >= m_files.end())
+            return matches;
+
+        const auto& end = slice_count == slice_number + 1 ? m_files.end() : file + chunk;
 
         std::vector<std::string> parts{string_split(search_name, "*")};
 
-        for (; file < last; ++file) {
+        for (; file < end; ++file) {
             const SmallString& file_name = (*file)->name();
             const std::string_view& file_path = (*file)->path();
 

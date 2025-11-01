@@ -240,7 +240,7 @@ int finder_main(const Options& opt) // NOLINT
             case Command::consol_resize:
                 console.render_main(query, cpus_count, workers_count, tasks_count, objects_count,
                                     results, time);
-                break; // breaks from switch, not main while;
+                break; // breaks from switch;
             case Command::exit:
                 return 0;
             default:
