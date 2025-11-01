@@ -18,7 +18,6 @@
 #include "finder.h"
 #include "os.h"
 #include "query.h"
-#include "small_string.h"
 #include "util.h"
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion,
