@@ -1,7 +1,5 @@
 #include <cctype>
 #include <chrono>
-#include <csignal>
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <thread>
@@ -116,7 +114,7 @@ static Command handle_command(Console& console, Query& query, const Files::Match
 
         input_ch = std::get<i32>(input);
 
-        if (os::is_term(input_ch))
+        if (os::is_term(input_ch) || os::is_ctrl_q(input_ch))
             return Command::exit; // Terminate.
         else if (os::is_esc(input_ch))
             ; // -> Ignore escape.

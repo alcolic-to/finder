@@ -32,6 +32,7 @@ bool is_ctrl_f(i32 input);
 bool is_ctrl_i(i32 input);
 bool is_ctrl_p(i32 input);
 bool is_ctrl_y(i32 input);
+bool is_ctrl_q(i32 input);
 bool is_ctrl_u(i32 input);
 bool is_ctrl_d(i32 input);
 bool is_ctrl_g(i32 input);

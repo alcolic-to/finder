@@ -97,6 +97,11 @@ bool is_ctrl_y(i32 input)
     return input == 25;
 }
 
+bool is_ctrl_q(i32 input)
+{
+    return input == 17;
+}
+
 bool is_ctrl_u(i32 input)
 {
     return input == 21;
@@ -315,6 +320,11 @@ bool is_ctrl_i(i32 input)
 bool is_ctrl_y(i32 input)
 {
     return input == 25;
+}
+
+bool is_ctrl_q(i32 input)
+{
+    return input == 17;
 }
 
 bool is_ctrl_u(i32 input)
