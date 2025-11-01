@@ -50,6 +50,8 @@ static bool level_down(Query& query)
  * Moves pinned query path one level up.
  * If pinned path is empty, we will jump directly to the "second" level, skipping root, because
  * there is no point in pinning root only (/).
+ * We will try to go level up "smartly", meaning that we will remove part of path from user query
+ * that will be pinned.
  */
 static bool level_up(Query& query, const Files::Match& match)
 {
@@ -239,7 +241,7 @@ int finder_main(const Options& opt) // NOLINT
             case Command::consol_resize:
                 console.render_main(query, cpus_count, workers_count, tasks_count, objects_count,
                                     results, time);
-                break;
+                break; // breaks from switch, not main while;
             case Command::exit:
                 return 0;
             default:
