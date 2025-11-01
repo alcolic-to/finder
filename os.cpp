@@ -1,5 +1,7 @@
 #include "os.h"
 
+#include <cerrno>
+#include <csignal>
 #include <exception>
 #include <format>
 #include <iostream>
@@ -39,16 +41,6 @@ COORD to_win_coord(Coordinates coord)
 {
     return COORD{coord.x, coord.y};
 }
-
-i16 console_row_start()
-{
-    return 1;
-};
-
-i16 console_col_start()
-{
-    return 1;
-};
 
 bool is_esc(i32 input)
 {
@@ -144,6 +136,11 @@ void close_console(void* handle)
         throw std::exception{"Failed to restore console settings."};
 }
 
+void install_console_handlers([[maybe_unused]] void* handle)
+{
+    return;
+}
+
 Coordinates console_window_size(void* handle)
 {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -152,39 +149,6 @@ Coordinates console_window_size(void* handle)
         throw std::exception{"Could not get console screen buffer info."};
 
     return Coordinates{csbi.dwMaximumWindowSize.X, csbi.dwMaximumWindowSize.Y};
-}
-
-void set_console_cursor_position(void* handle, Coordinates coord)
-{
-    BOOL r = SetConsoleCursorPosition(handle, to_win_coord(coord));
-    if (r == 0)
-        throw std::exception{"Could not apply new cursor position."};
-}
-
-void fill_console_line(void* handle, Coordinates coord, char ch)
-{
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    GetConsoleScreenBufferInfo(handle, &csbi);
-    DWORD written = 0;
-
-    FillConsoleOutputCharacter(handle, ch, csbi.dwSize.X, to_win_coord(coord), &written);
-    if (written != csbi.dwSize.X)
-        throw std::exception{"Failed to fill console line"};
-
-    written = 0;
-    FillConsoleOutputAttribute(handle, csbi.wAttributes, csbi.dwSize.X, to_win_coord(coord),
-                               &written);
-    if (written != csbi.dwSize.X)
-        throw std::exception{"Failed to fill console line"};
-}
-
-void write_to_console(void* handle, const void* data, sz size)
-{
-    unsigned long written = 0;
-
-    WriteConsole(handle, data, size, &written, nullptr);
-    if (written != size)
-        throw std::exception{"Failed to write to console."};
 }
 
 void console_scan(i32& input)
@@ -250,19 +214,11 @@ i32 copy_to_clipboard(const std::string& str)
 
 // NOLINTBEGIN
 
+#include <signal.h>
 #include <sys/ioctl.h>
+#include <sys/poll.h>
 #include <termios.h>
 #include <unistd.h>
-
-i16 console_row_start()
-{
-    return 1;
-};
-
-i16 console_col_start()
-{
-    return 1;
-};
 
 bool is_esc(i32 input)
 {
@@ -334,6 +290,71 @@ bool is_ctrl_p(i32 input)
     return input == 16;
 }
 
+/**
+ * Poller class user for receiving user commands.
+ *
+ * Since console window resize raises SIGWINCH signal, we can't simply read user input, since read
+ * linux call is blocking on some systems (even when process receives a signal). Instead, we will
+ * use polling mechanism. Polling can wait for events on multiple file descriptors (fd), enabling us
+ * to handle both user input and signals.
+ * Each time any of fds receives I/O, our poll_events() call will unblock and we will query each
+ * pollfd to determine which one has a I/O ready.
+ * To handle inputs from stdin, we create a standard pollfd with STDIN_FILENO and store it in
+ * fds[0]. So each time user types command, our poll_events() call will unblock with I/O ready in
+ * fds[0].
+ * To handle signals, we use a unidirectional pipe which will be stored in fds[1].
+ * Signals are handled via signal handlers, and we will write data to our pipe in our signal
+ * handler, which will again unblock poll_events() call with with I/O ready in fds[1].
+
+ * pipe man: pipe() creates a pipe, a unidirectional data channel that can be used for interprocess
+ * communication. The array pipefd is used to return two file descriptors referring to the ends of
+ * the pipe. pipefd[0] refers to the read end of the pipe. pipefd[1] refers to the write end of the
+ * pipe. Data written to the write end of the pipe is buffered by the kernel until it is read from
+ * the read end of the pipe. For further details, see pipe(7).
+ */
+class Poller {
+public:
+    static constexpr i32 inf = -1;
+
+    Poller()
+    {
+        if (pipe(pipe_fd) == -1)
+            throw std::runtime_error{"Failed to initialize pipe."};
+
+        fds[0].fd = STDIN_FILENO; // keyboard input
+        fds[0].events = POLLIN;
+        fds[1].fd = pipe_fd[0]; // pipe reader signal notifications (SIGWINCH)
+        fds[1].events = POLLIN;
+    }
+
+    void poll_events() { poll(fds, 2, inf); }
+
+    bool stdin_received() { return fds[0].revents & POLLIN; }
+
+    bool signal_received() { return fds[1].revents & POLLIN; }
+
+    i32& stdin_reader() { return fds[0].fd; }
+
+    i32& signal_reader() { return pipe_fd[0]; }
+
+    i32& signal_writer() { return pipe_fd[1]; }
+
+    pollfd fds[2];
+    i32 pipe_fd[2];
+};
+
+static Poller poller;
+
+/**
+ * Signal handler for SIGWINCH.
+ * Writes new window coordinates into the pipe.
+ */
+void handle_resize(int)
+{
+    Coordinates c = console_window_size(nullptr);
+    write(poller.signal_writer(), &c, sizeof(c));
+}
+
 static termios initial_termios; // Used for settings restoration.
 
 void* init_console_handle()
@@ -343,9 +364,11 @@ void* init_console_handle()
 
     t->c_lflag &= ~(ICANON | ECHO); // NOLINT disable canonical mode and echo.
     t->c_cc[VMIN] = 1;              // min number of characters for read()
-    t->c_cc[VTIME] = 0;             // timeout (0 = no timeout)
+    t->c_cc[VTIME] = 0;             // no timeout
 
     tcsetattr(STDIN_FILENO, TCSANOW, t); // apply settings immediately
+
+    std::signal(SIGWINCH, handle_resize);
 
     return t;
 }
@@ -366,39 +389,30 @@ Coordinates console_window_size([[maybe_unused]] void* handle)
     return Coordinates{static_cast<i16>(w.ws_col), static_cast<i16>(w.ws_row)};
 }
 
-void set_console_cursor_position([[maybe_unused]] void* handle, Coordinates coord)
+void console_scan(ConsoleInput& input)
 {
-    std::cout << "\033[" << coord.y << ";" << coord.x << "H";
-    std::cout.flush();
-}
+    poller.poll_events();
 
-void fill_console_line(void* handle, Coordinates coord, char ch)
-{
-    Coordinates window_size = console_window_size(handle);
-    set_console_cursor_position(handle, {console_col_start(), coord.y});
+    if (poller.stdin_received()) {
+        i32 in = 0;
+        if (read(poller.stdin_reader(), &in, 1) == -1) {
+            std::cerr << "Failed to read input.\n";
+            std::terminate();
+        }
 
-    for (i16 i = 0; i < window_size.x; ++i)
-        std::cout << ch;
+        input = in;
+        return;
+    }
 
-    std::cout.flush();
+    if (poller.signal_received()) {
+        Coordinates c;
+        if (read(poller.signal_reader(), &c, sizeof(c)) == -1) {
+            std::cerr << "Failed to read input.\n";
+            std::terminate();
+        }
 
-    set_console_cursor_position(handle, {console_col_start(), coord.y});
-}
-
-void write_to_console([[maybe_unused]] void* handle, const void* data, sz data_size)
-{
-    for (sz i = 0; i < data_size; ++i)
-        std::cout << static_cast<const char*>(data)[i];
-
-    std::cout.flush();
-}
-
-void console_scan(i32& input)
-{
-    input = 0;
-    if (read(STDIN_FILENO, &input, 1) == -1) {
-        std::cerr << "Failed to read input.\n";
-        std::terminate();
+        input = c;
+        return;
     }
 }
 

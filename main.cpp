@@ -1,9 +1,11 @@
 #include <cctype>
 #include <chrono>
+#include <csignal>
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <thread>
+#include <variant>
 
 #include "ast.h"
 #include "cli11/CLI11.hpp"
@@ -85,14 +87,25 @@ static void pin_path(Query& query, const Files::Match& match)
     query.m_query.clear();
 }
 
-static bool scan_input(Console& console, Query& query, const Files::Matches& results) // NOLINT
+enum class ScanRes { normal, consol_resize, exit }; // NOLINT
+
+static ScanRes scan_input(Console& console, Query& query, const Files::Matches& results) // NOLINT
 {
+    os::ConsoleInput input;
     i32 input_ch = 0;
+
     while (true) {
-        console >> input_ch;
+        console >> input;
+
+        if (std::holds_alternative<os::Coordinates>(input)) {
+            console.resize(std::get<os::Coordinates>(input));
+            return ScanRes::consol_resize;
+        }
+
+        input_ch = std::get<i32>(input);
 
         if (os::is_term(input_ch))
-            return false; // Terminate.
+            return ScanRes::exit; // Terminate.
         else if (os::is_esc(input_ch))
             ; // -> Ignore escape.
         else if (os::is_ctrl_j(input_ch)) {
@@ -160,7 +173,7 @@ static bool scan_input(Console& console, Query& query, const Files::Matches& res
         }
     }
 
-    return true;
+    return ScanRes::normal;
 }
 
 int finder_main(const Options& opt) // NOLINT
@@ -207,31 +220,23 @@ int finder_main(const Options& opt) // NOLINT
             objects_count = results.objects_count();
         }
 
-        console.move_cursor_to<edge_bottom>().move_cursor_to<edge_left>();
+        console.render_main(query, cpus_count, workers_count, tasks_count, objects_count, results,
+                            time);
 
-        console.write("{}: {}", query.m_pinned, query.m_query);
-        console.clear_rest_of_line();
-        console.push_cursor_coord();
-
-        console.push_cursor_coord();
-        console.move_cursor_to<edge_right>().move_cursor<left>(70); // NOLINT
-        console.write("cpus: {}, workers: {}, tasks: {}, objects: {}, search time: {}", cpus_count,
-                      workers_count, tasks_count, objects_count, time);
-        console.pop_cursor_coord();
-
-        console.print_search_results(results, query);
-        console.pop_cursor_coord();
-        // console.draw_symbol_search_results(finder.find_symbols(query));
-
-        console.init_picker(results, query);
-        console.flush();
-
-        if (!scan_input(console, query, results))
-            break;
+        for (ScanRes r; (r = scan_input(console, query, results)) != ScanRes::normal;) { // NOLINT
+            switch (r) {
+            case ScanRes::consol_resize: // Console resize is already handled in scan_input.
+                console.render_main(query, cpus_count, workers_count, tasks_count, objects_count,
+                                    results, time);
+                break;
+            case ScanRes::exit:
+                return 0;
+            default:
+                assert(!"Invalid scan result.");
+                unreachable();
+            }
+        }
     }
-
-    console.write("\n");
-    return 0;
 }
 
 int main(int argc, char* argv[])

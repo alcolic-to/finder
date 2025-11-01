@@ -5,11 +5,9 @@
 #include <array>
 #include <cassert>
 #include <format>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include "files.h"
 #include "os.h"
@@ -76,7 +74,16 @@ enum class CopyOpt { file_name, file_path, full, full_quoted };
 //
 class Console {
 public:
-    static constexpr u32 coord_stack_size = 8;
+    static constexpr u32 coord_stack_size = 8U;
+
+    static constexpr u32 col_start_pos = 1U;
+    static constexpr u32 row_start_pos = 1U;
+
+    /**
+     * Minimum console size required.
+     */
+    static constexpr u32 min_x_required = 40U;
+    static constexpr u32 min_y_required = 3U;
 
     struct Coord {
         u32 m_x;
@@ -91,17 +98,12 @@ public:
     Console& operator=(const Console&) = delete;
     Console& operator=(Console&&) noexcept = delete;
 
-    ~Console()
-    {
-        clear();
-        write<term_default>(""); // Reset color.
-        flush();
-        os::close_console(m_handle);
-    }
+    ~Console();
+
+    void resize(os::Coordinates coord);
 
     Console& operator<<(const std::string& s);
-    Console& operator>>(std::string& s);
-    Console& operator>>(i32& input);
+    Console& operator>>(os::ConsoleInput& input);
 
     template<Color color_fg, Color color_bg>
     void set_color()
@@ -165,44 +167,12 @@ public:
         m_stream.append(esc + std::forward<Arg>(arg)); // NOLINT
     }
 
-    Console& clear()
-    {
-        command("2J");
-        command("H");
-        set_cursor_pos(1, 1);
-        return *this;
-    }
-
-    Console& flush()
-    {
-        std::cout << m_stream;
-        std::cout.flush();
-        m_stream.clear();
-
-        return *this;
-    }
-
-    Console& clear_rest_of_line()
-    {
-        command("K");
-        return *this;
-    };
-
-    Console& apply_cursor_pos()
-    {
-        command("{};{}H", m_y, m_x);
-        return *this;
-    }
-
-    Console& set_cursor_pos(Coord coord) { return set_cursor_pos(coord.m_x, coord.m_y); }
-
-    Console& set_cursor_pos(u32 x, u32 y)
-    {
-        m_x = x, m_y = y;
-        apply_cursor_pos();
-
-        return *this;
-    }
+    Console& clear();
+    Console& flush();
+    Console& clear_rest_of_line();
+    Console& apply_cursor_pos();
+    Console& set_cursor_pos(Coord coord);
+    Console& set_cursor_pos(u32 x, u32 y);
 
     template<Direction d>
     Console& move_cursor(u32 times = 1U)
@@ -240,231 +210,47 @@ public:
         return *this;
     }
 
-    Console& getline(std::string& line);
-
     [[nodiscard]] u32 x() const noexcept { return m_x; }
 
     [[nodiscard]] u32 y() const noexcept { return m_y; }
 
     [[nodiscard]] Coord coord() const noexcept { return Coord{.m_x = x(), .m_y = y()}; }
 
-    [[nodiscard]] u32 min_x() const noexcept { return 1; } // NOLINT
+    [[nodiscard]] u32 min_x() const noexcept { return m_min_x; }
 
-    [[nodiscard]] u32 min_y() const noexcept { return 1; } // NOLINT
+    [[nodiscard]] u32 min_y() const noexcept { return m_min_y; }
 
     [[nodiscard]] u32 max_x() const noexcept { return m_max_x; }
 
     [[nodiscard]] u32 max_y() const noexcept { return m_max_y; }
 
-    Console& push_cursor_coord()
-    {
-        if (m_stack_size > coord_stack_size)
-            throw std::runtime_error{"Stack is full."};
+    Console& push_cursor_coord();
+    Console& pop_cursor_coord();
 
-        m_coord_stack[m_stack_size++] = coord(); // NOLINT
-        return *this;
-    }
-
-    Console& pop_cursor_coord()
-    {
-        if (m_stack_size <= 0)
-            throw std::runtime_error{"Stack is empty."};
-
-        Coord c = m_coord_stack[--m_stack_size]; // NOLINT
-        m_x = c.m_x, m_y = c.m_y;
-
-        apply_cursor_pos();
-        return *this;
-    }
-
-    /**
-     * Prints single search result on a current line.
-     * If picked is provided, it means that we have a picker on that line, and we must color
-     * backround with different color.
-     * Also, if user have pinned search path, we will not print it.
-     * Current limit for matched letters in a single word is 63.
-     */
     template<bool picked = false>
-    Console& print_single_search_result(const Files::Match& match, const Query& query)
-    {
-        const auto& bs = match.m_match_bs;
-        const FileInfo* file = match.m_file;
+    Console& print_single_search_result(const Files::Match& match, const Query& query);
 
-        std::string print = file->full_path();
-        for (sz i = query.m_pinned.size(); i < print.size(); ++i) {
-            if (i < bs.size() && bs.test(i))
-                if constexpr (picked)
-                    write<green, gray>(print[i]);
-                else
-                    write<green>(print[i]);
-            else if constexpr (picked)
-                write<term_default, gray>(print[i]);
-            else
-                write(print[i]);
-        }
+    [[nodiscard]] const Files::Match& pick_result(const Files::Matches& results) const;
 
-        return *this;
-    }
+    Console& init_picker(const Files::Matches& results, const Query& query);
 
-    [[nodiscard]] const Files::Match& pick_result(const Files::Matches& results) const
-    {
-        sz idx = m_max_y - 2 - m_picker.m_y;
-        if (idx > results.size())
-            throw std::runtime_error{"Invalid index for pick result."};
-
-        return results[m_max_y - 2 - m_picker.m_y];
-    }
-
-    /**
-     * Initializes picker.
-     * It first deletes current picker from console, and, if search results exist, shows picker on
-     * initial position.
-     */
-    Console& init_picker(const Files::Matches& results, const Query& query)
-    {
-        push_cursor_coord();
-        set_cursor_pos(m_picker);
-        write(" ");
-
-        if (!results.empty()) {
-            u32 offset = m_max_y - 1 >= results.size() ? m_max_y - 1 - results.size() : m_min_y;
-            m_picker.m_y = std::max(m_picker.m_y, offset);
-
-            set_cursor_pos(m_picker);
-            write<red>(">");
-
-            print_single_search_result<true>(results[m_max_y - 2 - m_picker.m_y], query);
-        }
-
-        pop_cursor_coord();
-
-        return *this;
-    }
-
-    /**
-     * Moves picker in provided direction. Results size is used to limit movement scope.
-     */
     template<Direction d>
-    Console& move_picker(const Files::Matches& results, const Query& query)
-    {
-        push_cursor_coord();
+    Console& move_picker(const Files::Matches& results, const Query& query);
 
-        set_cursor_pos(m_picker);
-        write(" ");
-        print_single_search_result<false>(results[m_max_y - 2 - m_picker.m_y], query);
-
-        if constexpr (d == Direction::up) {
-            u32 max1 = std::max(m_picker.m_y - 1U, m_min_y);
-            u32 max2 = results.size() > m_max_y - 1 ?
-                           m_min_y :
-                           m_max_y - 1 - static_cast<u32>(results.size());
-
-            m_picker.m_y = std::max(max1, max2);
-        }
-        else if constexpr (d == Direction::down)
-            m_picker.m_y = std::min(m_picker.m_y + 1U, m_max_y - 2);
-        else
-            static_assert("Invalid direction.");
-
-        set_cursor_pos(m_picker);
-        write<red>(">");
-        print_single_search_result<true>(results[m_max_y - 2 - m_picker.m_y], query);
-
-        pop_cursor_coord();
-
-        return *this;
-    }
-
-    /**
-     * Copies result string from picker position into the clipboard.
-     */
     template<CopyOpt copy_opt>
-    Console& copy_result_to_clipboard(const Files::Matches& results)
-    {
-        assert(!results.empty());
+    Console& copy_result_to_clipboard(const Files::Matches& results);
 
-        u32 first = m_max_y - 2;
-        sz idx = first - m_picker.m_y;
+    Console& print_search_results(const Files::Matches& matches, const Query& query);
 
-        assert(idx >= 0 && idx < results.size());
-        idx = std::clamp(idx, sz(0), results.size());
+    Console& draw_symbol_search_results(const Symbol* symbol);
 
-        if constexpr (copy_opt == CopyOpt::file_name)
-            os::copy_to_clipboard<true>(std::string(results[idx].m_file->name()));
-        else if constexpr (copy_opt == CopyOpt::file_path)
-            os::copy_to_clipboard<true>(std::string(results[idx].m_file->path()));
-        else if constexpr (copy_opt == CopyOpt::full)
-            os::copy_to_clipboard<true>(results[idx].m_file->full_path());
-        else if constexpr (copy_opt == CopyOpt::full_quoted)
-            os::copy_to_clipboard<true>("\"" + results[idx].m_file->full_path() + "\"");
-        else
-            static_assert(false, "Invalid copy opt.");
-
-        return *this;
-    }
-
-    /**
-     * Prints search results on the screen.
-     * We are always on a bottom line when this funcion is called.
-     */
-    Console& print_search_results(const Files::Matches& matches, const Query& query)
-    {
-        move_cursor<up>(2).move_cursor_to<edge_left>().move_cursor<right>();
-
-        auto it = matches.data().begin();
-        const auto it_end = matches.data().end();
-
-        while (y() >= min_y()) {
-            if (it != it_end) {
-                print_single_search_result(*it, query);
-                ++it;
-            }
-
-            clear_rest_of_line();
-
-            if (y() == min_y())
-                break;
-
-            move_cursor<up>().move_cursor_to<edge_left>().move_cursor<right>();
-        }
-
-        return *this;
-    }
-
-    Console& draw_symbol_search_results(const Symbol* symbol)
-    {
-        move_cursor_to<edge_top>();
-        move_cursor_to<edge_left>();
-
-        if (symbol != nullptr) {
-            for (const auto& symref : symbol->refs()) {
-                for (const auto& line : symref.lines()) {
-                    clear_rest_of_line();
-
-                    *this << std::format("{}\\{} {}: {}\n", symref.file()->path(),
-                                         symref.file()->name().c_str(), line.number(),
-                                         std::string(line.preview()));
-
-                    move_cursor<down>();
-                    move_cursor_to<edge_left>();
-
-                    if (y() == max_y() - 1)
-                        return *this;
-                }
-            }
-        }
-
-        while (y() != max_y() - 1) {
-            clear_rest_of_line();
-            move_cursor<down>();
-            move_cursor_to<edge_left>();
-        }
-
-        return *this;
-    }
+    void render_main(const Query& query, u32 cpus_count, u32 workers_count, u32 tasks_count,
+                     u32 objects_count, const Files::Matches& results,
+                     std::chrono::duration<long long, std::ratio<1, 1000>> time);
 
 private:
     [[nodiscard]] i16 short_x() const
+
     {
         assert(m_x <= std::numeric_limits<i16>::max());
         return static_cast<i16>(m_x);
@@ -480,15 +266,15 @@ private:
 
 private: // NOLINT
     void* m_handle;
-    u32 m_x;
-    u32 m_y;
+    u32 m_x{col_start_pos};
+    u32 m_y{row_start_pos};
     u32 m_min_x = 1U;
     u32 m_min_y = 1U;
     u32 m_max_x;
     u32 m_max_y;
     std::array<Coord, coord_stack_size> m_coord_stack{};
     u32 m_stack_size = 0;
-    Coord m_picker; // ">" - file picker.
+    Coord m_picker{.m_x = col_start_pos, .m_y = row_start_pos}; // ">" - file picker.
     Color m_color_fg = term_default;
     Color m_color_bg = term_default;
     std::string m_stream; // need to cache cout, because of horrible windows terminal performance.
