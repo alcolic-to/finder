@@ -13,9 +13,11 @@
  * X - the horizontal coordinate or column value.
  * Y - the vertical coordinate or row value.
  */
-Console::Console() : m_handle{os::init_console_handle()}
+Console::Console()
+    : m_in_handle{os::init_console_in_handle()}
+    , m_out_handle{os::init_console_out_handle()}
 {
-    os::Coordinates coord = os::console_window_size(m_handle);
+    os::Coordinates coord = os::console_window_size(m_out_handle);
     m_max_x = std::max(i16(1), coord.x);
     m_max_y = std::max(i16(1), coord.y);
     m_picker.m_x = m_min_x;
@@ -31,7 +33,7 @@ Console::~Console()
     clear();
     write<term_default>(""); // Reset color.
     flush();
-    os::close_console(m_handle);
+    os::close_console(m_in_handle, m_out_handle);
 }
 
 void Console::resize(os::Coordinates coord)
@@ -47,7 +49,7 @@ void Console::resize(os::Coordinates coord)
 
 Console& Console::operator>>(os::ConsoleInput& input)
 {
-    os::console_scan(input);
+    os::console_scan(m_in_handle, input);
     return *this;
 }
 

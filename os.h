@@ -3,9 +3,9 @@
 #ifndef OS_H
 #define OS_H
 
-#include <cstddef>
 #include <filesystem>
 #include <format>
+#include <variant>
 
 #include "types.h"
 
@@ -36,10 +36,11 @@ bool is_ctrl_u(i32 input);
 bool is_ctrl_d(i32 input);
 bool is_ctrl_g(i32 input);
 
-void* init_console_handle();
-void close_console(void* handle);
-Coordinates console_window_size(void* handle);
-void console_scan(ConsoleInput& input);
+void* init_console_in_handle();
+void* init_console_out_handle();
+void close_console(void* in_handle, void* out_handle);
+Coordinates console_window_size(void* out_handle);
+void console_scan(void* in_handle, ConsoleInput& input);
 
 std::string root_dir();
 

@@ -54,7 +54,7 @@ bool is_term(i32 input)
 
 bool is_backspace(i32 input)
 {
-    return input == 8;
+    return input == 127;
 }
 
 bool is_ctrl_j(i32 input)
@@ -112,16 +112,35 @@ bool is_ctrl_g(i32 input)
     return input == 7;
 }
 
-static DWORD initial_mode; // Used for settings restoration.
+/**
+ * Used for settings restoration.
+ */
+static DWORD initial_in_mode;
+static DWORD initial_out_mode;
 
-void* init_console_handle()
+void* init_console_in_handle()
+{
+    HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
+    if (handle == INVALID_HANDLE_VALUE || handle == nullptr)
+        throw std::exception{"Failed to get console input handle."};
+
+    GetConsoleMode(handle, &initial_in_mode);
+    BOOL r = SetConsoleMode(handle, initial_in_mode | ENABLE_WINDOW_INPUT);
+    if (r == 0)
+        throw std::exception{"Failed to set new console mode."};
+
+    FlushConsoleInputBuffer(handle);
+    return handle;
+}
+
+void* init_console_out_handle()
 {
     HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
     if (handle == INVALID_HANDLE_VALUE || handle == nullptr)
         throw std::exception{"Failed to get console output handle."};
 
-    GetConsoleMode(handle, &initial_mode);
-    BOOL r = SetConsoleMode(handle, initial_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING |
+    GetConsoleMode(handle, &initial_out_mode);
+    BOOL r = SetConsoleMode(handle, initial_out_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING |
                                         ENABLE_PROCESSED_OUTPUT);
     if (r == 0)
         throw std::exception{"Failed to set new console mode."};
@@ -129,31 +148,59 @@ void* init_console_handle()
     return handle;
 }
 
-void close_console(void* handle)
+void close_console(void* in_handle, void* out_handle) // NOLINT
 {
-    BOOL r = SetConsoleMode(handle, initial_mode);
+    BOOL r = SetConsoleMode(in_handle, initial_in_mode);
+    if (r == 0)
+        throw std::exception{"Failed to restore console settings."};
+
+    r = SetConsoleMode(out_handle, initial_out_mode);
     if (r == 0)
         throw std::exception{"Failed to restore console settings."};
 }
 
-void install_console_handlers([[maybe_unused]] void* handle)
-{
-    return;
-}
-
-Coordinates console_window_size(void* handle)
+Coordinates console_window_size(void* out_handle)
 {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
-    BOOL r = GetConsoleScreenBufferInfo(handle, &csbi);
+    BOOL r = GetConsoleScreenBufferInfo(out_handle, &csbi);
     if (r == 0)
         throw std::exception{"Could not get console screen buffer info."};
 
     return Coordinates{csbi.dwMaximumWindowSize.X, csbi.dwMaximumWindowSize.Y};
 }
 
-void console_scan(i32& input)
+void console_scan(void* in_handle, ConsoleInput& input)
 {
-    input = _getch();
+    while (true) {
+        INPUT_RECORD record;
+        DWORD count = 0;
+
+        if (!ReadConsoleInput(in_handle, &record, 1, &count))
+            throw std::exception{"Failed to read input."};
+
+        switch (record.EventType) {
+        case KEY_EVENT: {
+            if (!record.Event.KeyEvent.bKeyDown)
+                continue;
+
+            if (record.Event.KeyEvent.wVirtualKeyCode == VK_BACK) {
+                input = 127;
+                return;
+            }
+
+            input = record.Event.KeyEvent.uChar.AsciiChar;
+            return;
+        }
+        case WINDOW_BUFFER_SIZE_EVENT: {
+            const auto& e = record.Event.WindowBufferSizeEvent;
+            input = Coordinates{e.dwSize.X, e.dwSize.Y};
+            return;
+        }
+        default: {
+            continue;
+        }
+        }
+    }
 }
 
 std::string root_dir()
@@ -357,7 +404,7 @@ void handle_resize(int)
 
 static termios initial_termios; // Used for settings restoration.
 
-void* init_console_handle()
+void* init_console_in_handle()
 {
     tcgetattr(STDIN_FILENO, &initial_termios);
     termios* t = new termios{initial_termios};
@@ -373,7 +420,9 @@ void* init_console_handle()
     return t;
 }
 
-void close_console(void* handle)
+void* init_console_out_handle() {};
+
+void close_console(void* in_handle, void* out_handle) // NOLINT
 {
     tcsetattr(STDIN_FILENO, TCSANOW, &initial_termios);
 }

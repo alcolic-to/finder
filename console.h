@@ -265,7 +265,8 @@ private:
     os::Coordinates os_coord() { return os::Coordinates{short_x(), short_y()}; }
 
 private: // NOLINT
-    void* m_handle;
+    void* m_in_handle;
+    void* m_out_handle;
     u32 m_x{col_start_pos};
     u32 m_y{row_start_pos};
     u32 m_min_x = 1U;
