@@ -38,6 +38,22 @@ TEST(array_map_tests, sanity_test)
     ASSERT_TRUE(arr[8] == 6);
     ASSERT_TRUE(arr[9] == 5);
 
+    sz r = 0;
+    for (auto v : arr)
+        r += v;
+    ASSERT_TRUE(r == 9 * 10 / 2);
+
+    r = 0;
+    for (const auto v : arr)
+        r += v;
+    ASSERT_TRUE(r == 9 * 10 / 2);
+
+    r = 0;
+    for (const auto& v : arr)
+        r += v;
+
+    ASSERT_TRUE(r == 9 * 10 / 2);
+
     ASSERT_TRUE(arr.contains(0));
     arr.erase(0);
     ASSERT_TRUE(!arr.contains(0));
@@ -124,6 +140,9 @@ TEST(array_map_tests, types_test)
     ASSERT_TRUE(!arr.contains(4));
 
     ASSERT_TRUE(arr.empty());
+
+    for (const auto& s : arr)
+        std::cout << s << "\n";
 }
 
 // NOLINTEND

@@ -59,12 +59,23 @@ public:
         return m_data[m_idxs[key]];
     }
 
-    [[nodiscard]] bool contains(const sz key) const
+    [[nodiscard]] bool contains(const sz key) const noexcept
     {
         return key < m_idxs.size() && m_idxs[key] != npos;
     }
 
-    [[nodiscard]] bool empty() const { return m_size == 0; }
+    [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
+
+    /**
+     * Iterators.
+     */
+    auto begin() noexcept { return m_data.begin(); }
+
+    auto end() noexcept { return m_data.end(); }
+
+    auto begin() const noexcept { return m_data.begin(); }
+
+    auto end() const noexcept { return m_data.end(); }
 
 private:
     std::vector<T> m_data;
