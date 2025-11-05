@@ -430,7 +430,10 @@ void* init_console_in_handle()
     return t;
 }
 
-void* init_console_out_handle() {};
+void* init_console_out_handle()
+{
+    return nullptr;
+};
 
 void close_console(void* in_handle, void* out_handle) // NOLINT
 {
@@ -448,7 +451,7 @@ Coordinates console_window_size([[maybe_unused]] void* handle)
     return Coordinates{static_cast<i16>(w.ws_col), static_cast<i16>(w.ws_row)};
 }
 
-void console_scan(ConsoleInput& input)
+void console_scan([[maybe_unused]] void* in_handle, ConsoleInput& input)
 {
     poller.poll_events();
 
