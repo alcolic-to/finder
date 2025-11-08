@@ -97,6 +97,84 @@ TEST(array_map_tests, sanity_test)
     ASSERT_TRUE(arr.empty());
 }
 
+TEST(array_map_tests, usual)
+{
+    ArrayMap<const char*> arr;
+
+    ASSERT_TRUE(arr.empty());
+
+    arr.insert(50, "I am 0 entry");
+    arr.insert(60, "I am 1 entry");
+    arr.insert(70, "I am 2 entry");
+    arr.insert(100, "I am 3 entry");
+
+    ASSERT_TRUE(std::string(arr[50]) == "I am 0 entry");
+    ASSERT_TRUE(std::string(arr[60]) == "I am 1 entry");
+    ASSERT_TRUE(std::string(arr[70]) == "I am 2 entry");
+    ASSERT_TRUE(std::string(arr[100]) == "I am 3 entry");
+    ASSERT_TRUE(arr.size() == 4);
+
+    arr.erase(70);
+
+    ASSERT_TRUE(std::string(arr[50]) == "I am 0 entry");
+    ASSERT_TRUE(std::string(arr[60]) == "I am 1 entry");
+    ASSERT_TRUE(!arr.contains(70));
+    ASSERT_TRUE(std::string(arr[100]) == "I am 3 entry");
+    ASSERT_TRUE(arr.size() == 3);
+
+    arr.insert(70, "I am 2 entry");
+
+    ASSERT_TRUE(std::string(arr[50]) == "I am 0 entry");
+    ASSERT_TRUE(std::string(arr[60]) == "I am 1 entry");
+    ASSERT_TRUE(std::string(arr[70]) == "I am 2 entry");
+    ASSERT_TRUE(std::string(arr[100]) == "I am 3 entry");
+    ASSERT_TRUE(arr.size() == 4);
+
+    arr.erase(70);
+
+    ASSERT_TRUE(std::string(arr[50]) == "I am 0 entry");
+    ASSERT_TRUE(std::string(arr[60]) == "I am 1 entry");
+    ASSERT_TRUE(!arr.contains(70));
+    ASSERT_TRUE(std::string(arr[100]) == "I am 3 entry");
+    ASSERT_TRUE(arr.size() == 3);
+
+    arr.insert(70, "I am 2 entry");
+
+    arr.erase(100);
+
+    ASSERT_TRUE(std::string(arr[50]) == "I am 0 entry");
+    ASSERT_TRUE(std::string(arr[60]) == "I am 1 entry");
+    ASSERT_TRUE(std::string(arr[70]) == "I am 2 entry");
+    ASSERT_TRUE(!arr.contains(100));
+    ASSERT_TRUE(arr.size() == 3);
+
+    arr.erase(50);
+
+    ASSERT_TRUE(!arr.contains(50));
+    ASSERT_TRUE(std::string(arr[60]) == "I am 1 entry");
+    ASSERT_TRUE(std::string(arr[70]) == "I am 2 entry");
+    ASSERT_TRUE(!arr.contains(100));
+    ASSERT_TRUE(arr.size() == 2);
+
+    arr.erase(60);
+
+    ASSERT_TRUE(!arr.contains(50));
+    ASSERT_TRUE(!arr.contains(60));
+    ASSERT_TRUE(std::string(arr[70]) == "I am 2 entry");
+    ASSERT_TRUE(!arr.contains(100));
+    ASSERT_TRUE(arr.size() == 1);
+
+    arr.erase(70);
+
+    ASSERT_TRUE(!arr.contains(50));
+    ASSERT_TRUE(!arr.contains(60));
+    ASSERT_TRUE(!arr.contains(70));
+    ASSERT_TRUE(!arr.contains(100));
+
+    ASSERT_TRUE(arr.size() == 0);
+    ASSERT_TRUE(arr.empty());
+}
+
 TEST(array_map_tests, types_test)
 {
     ArrayMap<std::string> arr;

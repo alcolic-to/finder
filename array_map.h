@@ -19,7 +19,7 @@ public:
     void emplace(sz key, Args&&... args)
     {
         if (key >= m_idxs.size()) {
-            const sz resize = std::max({m_idxs.size() * 2, key, sz(1)});
+            const sz resize = std::max({m_idxs.size() * 2, key + 1, sz(1)});
             m_idxs.resize(resize, npos);
         }
 
@@ -28,16 +28,32 @@ public:
             return;
         }
 
-        sz idx = m_data.size();
+        m_idxs[key] = m_data.size();
         m_data.emplace_back(std::forward<Args>(args)...);
+        m_back_idxs.emplace_back(key);
 
-        m_idxs[key] = idx;
         ++m_size;
     }
 
+    /**
+     * Removes item by taking value from last element and poping last.
+     */
     void erase(sz key)
     {
-        (*this)[key].~T();
+        if (!contains(key))
+            throw std::runtime_error{std::format("Invalid key {}", key)};
+
+        sz rm_idx = m_idxs[key];
+        T& rm_entry = m_data[rm_idx];
+
+        if (rm_idx < m_data.size() - 1) {
+            rm_entry = std::move(m_data[m_data.size() - 1]);
+            m_back_idxs[rm_idx] = m_back_idxs[m_back_idxs.size() - 1];
+            m_idxs[m_back_idxs[rm_idx]] = rm_idx;
+        }
+
+        m_data.pop_back();
+        m_back_idxs.pop_back();
         m_idxs[key] = npos;
 
         --m_size;
@@ -64,6 +80,8 @@ public:
         return key < m_idxs.size() && m_idxs[key] != npos;
     }
 
+    [[nodiscard]] sz size() const noexcept { return m_size; }
+
     [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
 
     /**
@@ -80,6 +98,7 @@ public:
 private:
     std::vector<T> m_data;
     std::vector<sz> m_idxs;
+    std::vector<sz> m_back_idxs;
 
     sz m_size = 0;
 };
