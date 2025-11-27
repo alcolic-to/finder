@@ -38,8 +38,8 @@ add_executable(finder ${CPP_FILES})
 
 include(cmake/stl.cmake)
 
-add_subdirectory(third_party/cos-cooperative-scheduling)
-target_link_libraries(finder PRIVATE ums_lib)
+add_subdirectory(third_party/ums)
+target_link_libraries(finder PRIVATE ums)
 target_include_directories(finder SYSTEM PUBLIC third_party)
 
 include(cmake/profilers.cmake)

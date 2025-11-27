@@ -7,14 +7,14 @@
 
 #include "cli11/CLI11.hpp"
 #include "console.h"
-#include "cos-cooperative-scheduling/async.h"
-#include "cos-cooperative-scheduling/options.h"
-#include "cos-cooperative-scheduling/scheduler.h"
-#include "cos-cooperative-scheduling/ums.h"
 #include "files.h"
 #include "finder.h"
 #include "os.h"
 #include "query.h"
+#include "ums/async.h"
+#include "ums/options.h"
+#include "ums/scheduler.h"
+#include "ums/ums.h"
 #include "util.h"
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion,

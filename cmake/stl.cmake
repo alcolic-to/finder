@@ -17,7 +17,7 @@ if (FINDER_STL_PATH STREQUAL "")
     message("FINDER_STL_PATH value: ${FINDER_STL_PATH}")
 else ()
     set(FINDER_STL_PATH ${FINDER_STL_PATH} CACHE STRING "Path to STL common lib." FORCE)
-    message("Using external STL lib ${FINDER_STL_PATH} for FINER.")
+    message("Using external STL lib ${FINDER_STL_PATH} for FINDER.")
 endif ()
 
 target_include_directories(finder SYSTEM PUBLIC ${FINDER_STL_PATH})
