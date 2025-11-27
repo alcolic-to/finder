@@ -13,10 +13,10 @@ if (FINDER_STL_PATH STREQUAL "")
     FetchContent_MakeAvailable(stl)
 
     message("Using internal STL lib ${stl_SOURCE_DIR} for FINDER.")
-    set(FINDER_STL_PATH ${stl_SOURCE_DIR})
+    set(FINDER_STL_PATH ${stl_SOURCE_DIR} CACHE STRING "Path to STL common lib." FORCE)
     message("FINDER_STL_PATH value: ${FINDER_STL_PATH}")
 else ()
-    set(FINDER_STL_PATH ${FINDER_STL_PATH})
+    set(FINDER_STL_PATH ${FINDER_STL_PATH} CACHE STRING "Path to STL common lib." FORCE)
     message("Using external STL lib ${FINDER_STL_PATH} for FINER.")
 endif ()
 
