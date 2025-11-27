@@ -31,10 +31,12 @@ include(cmake/sanitizers.cmake)
 include(cmake/compiler_options.cmake)
 
 set(CPP_FILES main.cpp console.cpp os.cpp)
-set(HPP_FILES art.h ast.h trie.h console.h os.h files.h finde.h ptr_tag.h small_string.h symbol_finder.h symbols.h tokens.h util.h array_map.h)
+set(HPP_FILES console.h os.h files.h finder.h symbol_finder.h symbols.h tokens.h)
 set(ALL_FILES ${CPP_FILES} ${HPP_FILES})
 
 add_executable(finder ${CPP_FILES})
+
+include(cmake/stl.cmake)
 
 add_subdirectory(third_party/cos-cooperative-scheduling)
 target_link_libraries(finder PRIVATE ums_lib)

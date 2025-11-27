@@ -10,9 +10,9 @@
 #include <string>
 #include <vector>
 
-#include "art.h"
+#include "art.hpp"
 #include "os.h"
-#include "small_string.h"
+#include "small_string.hpp"
 #include "types.h"
 #include "util.h"
 
@@ -35,7 +35,7 @@ public:
             throw std::runtime_error{"File path does not end with file name."};
     }
 
-    [[nodiscard]] constexpr const SmallString& name() const noexcept { return m_name; }
+    [[nodiscard]] constexpr const stl::SmallString& name() const noexcept { return m_name; }
 
     [[nodiscard]] const std::string_view& path() const noexcept { return m_path; }
 
@@ -47,7 +47,7 @@ public:
     void set_path(std::string_view path) { m_path = path; }
 
 private:
-    SmallString m_name;      // File name with extension.
+    stl::SmallString m_name; // File name with extension.
     std::string_view m_path; // Full file path.
 };
 
@@ -248,7 +248,7 @@ public:
         std::vector<std::string> parts{string_split(search_name, "*")};
 
         for (; file < end; ++file) {
-            const SmallString& file_name = (*file)->name();
+            const stl::SmallString& file_name = (*file)->name();
             const std::string_view& file_path = (*file)->path();
 
             const bool on_path = search_path.empty() || file_path.starts_with(search_path);
@@ -274,7 +274,7 @@ public:
      * It iterates over all parts (strings in the original string separated by *) and checks if file
      * name constains them in order.
      */
-    [[clang::always_inline]] bool match_name(const SmallString& file_name,
+    [[clang::always_inline]] bool match_name(const stl::SmallString& file_name,
                                              const std::vector<std::string>& parts) const noexcept
 
     {
@@ -284,7 +284,7 @@ public:
                 continue;
 
             offset = file_name.find(part, offset);
-            if (offset == SmallString::npos)
+            if (offset == stl::SmallString::npos)
                 return false;
 
             offset += part.size();
@@ -301,7 +301,7 @@ public:
      * matched letters in a bitset which will later be used to highlight matched text.
      */
     void match_slow(Matches& matches, const std::vector<std::string>& parts,
-                    const SmallString& file_name, const std::string_view& file_path,
+                    const stl::SmallString& file_name, const std::string_view& file_path,
                     const std::string& search_path, const FileInfo* file_info) const noexcept
 
     {
@@ -315,7 +315,7 @@ public:
                 continue;
 
             offset = file_name.find(part, offset);
-            if (offset == SmallString::npos)
+            if (offset == stl::SmallString::npos)
                 return;
 
             std::bitset<match_max> match_count{(sz(1) << part.size()) - 1};
@@ -419,7 +419,7 @@ private:
 
     // Trie that holds file info pointers, where key is the full file path.
     ///
-    art::ART<std::vector<FileInfo*>> m_file_paths;
+    stl::ART<std::vector<FileInfo*>> m_file_paths;
 };
 
 // NOLINTEND(readability-implicit-bool-conversion, readability-redundant-access-specifiers,

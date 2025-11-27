@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "files.h"
-#include "small_string.h"
+#include "small_string.hpp"
 #include "util.h"
 
 // NOLINTBEGIN
@@ -22,7 +22,7 @@ public:
 
 private:
     sz m_number;
-    SmallString m_preview; // Line preview which will be displayed with symbol in print.
+    stl::SmallString m_preview; // Line preview which will be displayed with symbol in print.
 };
 
 class Symbol_file_refs {
@@ -59,7 +59,7 @@ public:
     auto& refs() noexcept { return m_refs; }
 
 private:
-    SmallString m_name;
+    stl::SmallString m_name;
     std::vector<Symbol_file_refs> m_refs;
 };
 
@@ -208,7 +208,7 @@ public:
     // space.
     // TODO: Check memory usage with suffix trie of symbols.
     //
-    art::ART<Symbol*> m_symbol_finder;
+    stl::ART<Symbol*> m_symbol_finder;
 
     // suffix_trie::Suffix_trie<Symbol*> m_symbol_searcher;
 };

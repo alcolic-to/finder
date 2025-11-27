@@ -5,7 +5,6 @@
 #include <thread>
 #include <variant>
 
-#include "ast.h"
 #include "cli11/CLI11.hpp"
 #include "console.h"
 #include "cos-cooperative-scheduling/async.h"
