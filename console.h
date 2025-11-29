@@ -250,7 +250,6 @@ public:
 
 private:
     [[nodiscard]] i16 short_x() const
-
     {
         assert(m_x <= std::numeric_limits<i16>::max());
         return static_cast<i16>(m_x);

@@ -191,8 +191,13 @@ TEST(files_test, file_system_paths)
 {
     Files files;
 
-    std::ifstream in_file_stream{std::string(PROJECT_ROOT) +
-                                 "/test/input_files/windows_paths_vscode.txt"};
+    std::string file_name =
+#ifdef OS_WINDOWS
+        "windows_paths_vscode.txt";
+#else
+        "linux_paths.txt";
+#endif
+    std::ifstream in_file_stream{std::string(PROJECT_ROOT) + "/test/input_files/" + file_name};
     ASSERT_TRUE(in_file_stream.is_open());
 
     size_t cpp_files_count = 0;
@@ -207,7 +212,7 @@ TEST(files_test, file_system_paths)
         files.insert(path);
     }
 
-    ASSERT_TRUE(files.search("cpp").size() == cpp_files_count);
+    ASSERT_TRUE(files.search("cpp").objects_count() == cpp_files_count);
 }
 
 void test_fs_search(const std::string& file_name)

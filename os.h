@@ -9,6 +9,16 @@
 
 #include "types.h"
 
+// OS specific preprocessor definitions.
+//
+#if defined _WIN32
+#define OS_WINDOWS
+#elif defined __linux__
+#define OS_LINUX
+#else
+#define OS_UNKNOWN
+#endif
+
 namespace os {
 
 constexpr char path_sep = std::filesystem::path::preferred_separator;

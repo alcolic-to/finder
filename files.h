@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "array_map.hpp"
 #include "art.hpp"
 #include "os.h"
 #include "small_string.hpp"
@@ -77,6 +78,8 @@ public:
     struct Match {
         const FileInfo* m_file;
         std::bitset<match_max> m_match_bs;
+
+        const FileInfo* operator->() const { return m_file; }
     };
 
     /**
@@ -200,24 +203,10 @@ public:
         erase(path.filename().string(), parent_path(path).string());
     }
 
-    auto search(const std::string& regex)
-    {
-        std::vector<const FileInfo*> results;
-        results.reserve(1024 * 1024);
-
-        sz slash_pos = regex.find_last_of(os::path_sep);
-        std::string name{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) : regex};
-        std::string path{slash_pos != std::string::npos ? regex.substr(0, slash_pos) : ""};
-
-        if (!m_file_paths.search_prefix_node(path))
-            return results;
-
-        for (const auto& file : m_files)
-            if (file->path().starts_with(path) && std::strstr(file->name(), name.c_str()))
-                results.emplace_back(file.get());
-
-        return results;
-    }
+    /**
+     * Searches for files with provided regex.
+     */
+    Matches search(const std::string& regex) const noexcept { return partial_search(regex, 1, 0); }
 
     /**
      * Partial files search user for multithreaded search. User should provide number of slices
@@ -248,8 +237,8 @@ public:
         std::vector<std::string> parts{string_split(search_name, "*")};
 
         for (; file < end; ++file) {
-            const stl::SmallString& file_name = (*file)->name();
-            const std::string_view& file_path = (*file)->path();
+            const stl::SmallString& file_name = file->name();
+            const std::string_view& file_path = file->path();
 
             const bool on_path = search_path.empty() || file_path.starts_with(search_path);
             if (!on_path)
@@ -263,7 +252,7 @@ public:
                 continue;
             }
 
-            match_slow(matches, parts, file_name, file_path, search_path, (*file).get());
+            match_slow(matches, parts, file_name, file_path, search_path, &*file);
         }
 
         return matches;
@@ -276,7 +265,6 @@ public:
      */
     [[clang::always_inline]] bool match_name(const stl::SmallString& file_name,
                                              const std::vector<std::string>& parts) const noexcept
-
     {
         sz offset = 0;
         for (const std::string& part : parts) {
@@ -303,7 +291,6 @@ public:
     void match_slow(Matches& matches, const std::vector<std::string>& parts,
                     const stl::SmallString& file_name, const std::string_view& file_path,
                     const std::string& search_path, const FileInfo* file_info) const noexcept
-
     {
         assert(!matches.full());
 
@@ -358,15 +345,21 @@ public:
 private:
     result insert(std::string file_name, std::string file_path)
     {
-        if (FileInfo* res = search(file_name, file_path); res != nullptr) // File already exist.
+        if (FileInfo* res = find(file_name, file_path); res != nullptr) // File already exist.
             return {res, false};
 
-        m_files.push_back(std::make_unique<FileInfo>(file_name));
-        FileInfo* file = m_files.back().get();
+        static sz guid{0};
+        sz file_guid = guid++;
 
-        m_file_paths[file_path].push_back(file);
-        file->set_path(m_file_paths.leaf_from_value(m_file_paths[file_path])->key_to_string_view());
-        return {file, true};
+        m_files.emplace(file_guid, file_name);
+        FileInfo& file = m_files[file_guid];
+        assert(file.name() == file_name);
+
+        m_file_paths[file_path].push_back(file_guid);
+        file.set_path(m_file_paths.leaf_from_value(m_file_paths[file_path])->key_to_string_view());
+        assert(file.path() == file_path);
+
+        return {&file, true};
     }
 
     void erase(const std::string& file_name, const std::string& file_path)
@@ -375,51 +368,55 @@ private:
         if (res == nullptr)
             return;
 
-        std::vector<FileInfo*>& files_on_path = res->value();
+        std::vector<sz>& files_on_path = res->value();
         auto fpaths_it = std::ranges::find_if(
-            files_on_path, [&](const FileInfo* fop) { return fop->name() == file_name; });
+            files_on_path, [&](sz guid) { return m_files[guid].name() == file_name; });
 
         if (fpaths_it == files_on_path.end())
             return;
 
         files_on_path.erase(fpaths_it);
 
-        auto file_it = std::ranges::find_if(m_files, [&](const std::unique_ptr<FileInfo>& file) {
-            return file->name() == file_name && file->path() == file_path;
+        auto file_it = std::ranges::find_if(m_files, [&](const FileInfo& file) {
+            return file.name() == file_name && file.path() == file_path;
         });
 
         assert(file_it != m_files.end());
         m_files.erase(file_it);
 
-        /* This must be done after removing file from m_files, since file's path is in file
+        /**
+         * This must be done after removing file from m_files, since file's path is in file
          * paths, and we won't be able to match path when searching for file.
          */
         if (files_on_path.empty())
             m_file_paths.erase(file_path);
     }
 
-    FileInfo* search(const std::string& file_name, const std::string& file_path)
+    /**
+     * Finds single file with provided name and file path if it exists.
+     */
+    FileInfo* find(const std::string& file_name, const std::string& file_path)
     {
         auto res = m_file_paths.search(file_path);
         if (!res)
             return nullptr;
 
         const auto& files = res->value();
-        for (FileInfo* file : files)
-            if (file->name() == file_name)
-                return file;
+        for (sz guid : files) {
+            FileInfo& file = m_files[guid];
+            if (file.name() == file_name)
+                return &file;
+        }
 
         return nullptr;
     }
 
 private:
-    // Vector of files.
-    //
-    std::vector<std::unique_ptr<FileInfo>> m_files;
+    // Container with file infos.
+    stl::ArrayMap<FileInfo> m_files;
 
-    // Trie that holds file info pointers, where key is the full file path.
-    ///
-    stl::ART<std::vector<FileInfo*>> m_file_paths;
+    // Trie that holds file info indexes, where key is the full file path.
+    stl::ART<std::vector<sz>> m_file_paths;
 };
 
 // NOLINTEND(readability-implicit-bool-conversion, readability-redundant-access-specifiers,

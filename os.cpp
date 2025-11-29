@@ -13,16 +13,6 @@
 
 namespace os {
 
-// OS specific preprocessor definitions.
-//
-#if defined _WIN32
-#define OS_WINDOWS
-#elif defined __linux__
-#define OS_LINUX
-#else
-#define OS_UNKNOWN
-#endif
-
 // Windows implementations.
 //
 #if defined(OS_WINDOWS)
