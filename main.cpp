@@ -11,10 +11,10 @@
 #include "finder.h"
 #include "os.h"
 #include "query.h"
-#include "ums/async.h"
-#include "ums/options.h"
-#include "ums/scheduler.h"
-#include "ums/ums.h"
+#include "ums/async.hpp"
+#include "ums/options.hpp"
+#include "ums/scheduler.hpp"
+#include "ums/ums.hpp"
 #include "util.h"
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion,
