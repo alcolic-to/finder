@@ -172,8 +172,8 @@ public:
 
     [[nodiscard]] const fs::path& dir() const noexcept { return m_root; }
 
-    [[nodiscard]] Files::Matches find_files_partial(const std::string& regex, sz slice_count,
-                                                    sz slice_number) const noexcept
+    [[nodiscard]] Files::Matches find_files_partial(const std::string& regex, usize slice_count,
+                                                    usize slice_number) const noexcept
     {
         return m_files.partial_search(regex, slice_count, slice_number);
     }

@@ -20,7 +20,7 @@ using u64 = std::uint64_t;
 using f32 = std::float_t;
 using f64 = std::double_t;
 
-using sz = std::size_t;
+using usize = std::size_t;
 using iptr = std::intptr_t;
 using uptr = std::uintptr_t;
 

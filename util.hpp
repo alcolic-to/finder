@@ -33,7 +33,7 @@
 #endif // TRACY_ENABLE
 
 #ifdef __cpp_lib_hardware_interference_size
-constexpr sz cache_line_size = std::hardware_destructive_interference_size;
+constexpr usize cache_line_size = std::hardware_destructive_interference_size;
 #else
 constexpr sz cache_line_size = 64;
 #endif
@@ -202,7 +202,7 @@ inline std::vector<std::string> string_split(const std::string& str, const Delim
     if (str.empty())
         return {""};
 
-    sz delim_len = 0;
+    usize delim_len = 0;
     using DelimType = std::remove_cv_t<std::remove_reference_t<Delim>>;
     if constexpr (std::is_same_v<DelimType, char>)
         delim_len = 1;
@@ -217,15 +217,15 @@ inline std::vector<std::string> string_split(const std::string& str, const Delim
     if (delim_len == 0)
         return {str};
 
-    sz token_count = 1;
-    for (sz pos = 0; (pos = str.find(delim, pos)) != std::string::npos; pos += delim_len)
+    usize token_count = 1;
+    for (usize pos = 0; (pos = str.find(delim, pos)) != std::string::npos; pos += delim_len)
         ++token_count;
 
     std::vector<std::string> tokens;
     tokens.reserve(token_count);
 
-    sz start = 0;
-    sz end = str.find(delim);
+    usize start = 0;
+    usize end = str.find(delim);
 
     while (end != std::string::npos) {
         tokens.emplace_back(str, start, end - start);

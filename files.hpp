@@ -69,9 +69,9 @@ static fs::path parent_path(const fs::path& path)
  */
 class Files {
 public:
-    static constexpr sz usize_max = std::numeric_limits<sz>::max();
-    static constexpr sz objects_max = 80;
-    static constexpr sz match_max = 256;
+    static constexpr usize usize_max = std::numeric_limits<usize>::max();
+    static constexpr usize objects_max = 80;
+    static constexpr usize match_max = 256;
 
     /**
      * Struct that holds file info pointer and offset at which we matched file name. Offset is
@@ -91,7 +91,7 @@ public:
      */
     class Matches {
     public:
-        Matches(sz limit = objects_max) : m_limit(limit) { m_results.reserve(m_limit); }
+        Matches(usize limit = objects_max) : m_limit(limit) { m_results.reserve(m_limit); }
 
         /**
          * Inserts other matches into the final matches.
@@ -100,7 +100,7 @@ public:
         {
             if (m_results.size() < m_limit) {
                 const std::vector<Match>& other_res = other.m_results;
-                sz ins = std::min(m_limit - m_results.size(), other_res.size());
+                usize ins = std::min(m_limit - m_results.size(), other_res.size());
 
                 if (ins > 0)
                     m_results.insert(m_results.end(), other_res.begin(), other_res.begin() + ins);
@@ -116,7 +116,7 @@ public:
         {
             if (m_results.size() < m_limit) {
                 const std::vector<Match>& other_res = other.m_results;
-                sz ins = std::min(m_limit - m_results.size(), other_res.size());
+                usize ins = std::min(m_limit - m_results.size(), other_res.size());
 
                 if (ins > 0)
                     m_results.insert(m_results.end(), other_res.begin(), other_res.begin() + ins);
@@ -142,15 +142,15 @@ public:
 
         const std::vector<Match>& data() const noexcept { return m_results; }
 
-        sz objects_count() const noexcept { return m_objects; }
+        usize objects_count() const noexcept { return m_objects; }
 
-        sz size() const noexcept { return m_results.size(); }
+        usize size() const noexcept { return m_results.size(); }
 
         bool empty() const noexcept { return m_objects == 0; }
 
         bool full() const noexcept { return m_results.size() == m_limit; }
 
-        const Match& operator[](sz idx) const noexcept
+        const Match& operator[](usize idx) const noexcept
         {
             assert(idx < m_results.size());
             return m_results[idx];
@@ -158,8 +158,8 @@ public:
 
     private:
         std::vector<Match> m_results;
-        sz m_objects = 0;
-        sz m_limit;
+        usize m_objects = 0;
+        usize m_limit;
     };
 
     /**
@@ -215,12 +215,13 @@ public:
      * (threads) and a slice number (thread number) that is used for search.
      * Slice number is 0 based.
      */
-    Matches partial_search(const std::string& regex, sz slice_count, sz slice_number) const noexcept
+    Matches partial_search(const std::string& regex, usize slice_count,
+                           usize slice_number) const noexcept
     {
         assert(slice_count > slice_number);
 
         Matches matches;
-        sz slash_pos = regex.find_last_of(os::path_sep);
+        usize slash_pos = regex.find_last_of(os::path_sep);
 
         std::string search_name{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) :
                                                                  regex};
@@ -229,7 +230,7 @@ public:
         if (!search_path.empty() && !m_file_paths.search_prefix_node(search_path))
             return matches;
 
-        sz chunk = std::max(sz(1), m_files.size() / slice_count);
+        usize chunk = std::max(usize(1), m_files.size() / slice_count);
         auto file = m_files.begin() + chunk * slice_number;
         if (file >= m_files.end())
             return matches;
@@ -268,7 +269,7 @@ public:
     [[clang::always_inline]] bool match_name(const stl::SmallString& file_name,
                                              const std::vector<std::string>& parts) const noexcept
     {
-        sz offset = 0;
+        usize offset = 0;
         for (const std::string& part : parts) {
             if (part.empty())
                 continue;
@@ -297,7 +298,7 @@ public:
         assert(!matches.full());
 
         std::bitset<match_max> match_bs;
-        sz offset = 0;
+        usize offset = 0;
 
         for (const std::string& part : parts) {
             if (part.empty())
@@ -307,14 +308,14 @@ public:
             if (offset == stl::SmallString::npos)
                 return;
 
-            std::bitset<match_max> match_count{(sz(1) << part.size()) - 1};
-            sz shift = file_path.size() + offset;
+            std::bitset<match_max> match_count{(usize(1) << part.size()) - 1};
+            usize shift = file_path.size() + offset;
             match_bs |= match_count << shift;
 
             offset += part.size();
         }
 
-        for (sz i = 0; i < search_path.size(); ++i)
+        for (usize i = 0; i < search_path.size(); ++i)
             match_bs.set(i);
 
         matches.insert(file_info, match_bs);
@@ -350,8 +351,8 @@ private:
         if (FileInfo* res = find(file_name, file_path); res != nullptr) // File already exist.
             return {res, false};
 
-        static sz guid{0};
-        sz file_guid = guid++;
+        static usize guid{0};
+        usize file_guid = guid++;
 
         m_files.emplace(file_guid, file_name);
         FileInfo& file = m_files[file_guid];
@@ -370,9 +371,9 @@ private:
         if (res == nullptr)
             return;
 
-        std::vector<sz>& files_on_path = res->value();
+        std::vector<usize>& files_on_path = res->value();
         auto fpaths_it = std::ranges::find_if(
-            files_on_path, [&](sz guid) { return m_files[guid].name() == file_name; });
+            files_on_path, [&](usize guid) { return m_files[guid].name() == file_name; });
 
         if (fpaths_it == files_on_path.end())
             return;
@@ -404,7 +405,7 @@ private:
             return nullptr;
 
         const auto& files = res->value();
-        for (sz guid : files) {
+        for (usize guid : files) {
             FileInfo& file = m_files[guid];
             if (file.name() == file_name)
                 return &file;
@@ -418,7 +419,7 @@ private:
     stl::ArrayMap<FileInfo> m_files;
 
     // Trie that holds file info indexes, where key is the full file path.
-    stl::ART<std::vector<sz>> m_file_paths;
+    stl::ART<std::vector<usize>> m_file_paths;
 };
 
 // NOLINTEND(readability-implicit-bool-conversion, readability-redundant-access-specifiers,

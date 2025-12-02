@@ -22,7 +22,7 @@ Console::Console()
     m_max_y = std::max(i16(1), coord.y);
     m_picker.m_x = m_min_x;
     m_picker.m_y = m_max_y < 2 ? 1 : m_max_y - 2;
-    m_stream.reserve(sz(m_max_x) * m_max_y);
+    m_stream.reserve(usize(m_max_x) * m_max_y);
 
     clear();
     flush();
@@ -118,7 +118,7 @@ Console& Console::pop_cursor_coord()
 
 [[nodiscard]] const Files::Match& Console::pick_result(const Files::Matches& results) const
 {
-    sz idx = m_max_y - 2 - m_picker.m_y;
+    usize idx = m_max_y - 2 - m_picker.m_y;
     if (idx > results.size())
         throw std::runtime_error{"Invalid index for pick result."};
 
@@ -139,7 +139,7 @@ Console& Console::print_single_search_result(const Files::Match& match, const Qu
     const FileInfo* file = match.m_file;
 
     std::string print = file->full_path();
-    for (sz i = query.m_pinned.size(); i < print.size(); ++i) {
+    for (usize i = query.m_pinned.size(); i < print.size(); ++i) {
         if (i < bs.size() && bs.test(i))
             if constexpr (picked)
                 write<green, gray>(print[i]);
@@ -251,10 +251,10 @@ Console& Console::copy_result_to_clipboard(const Files::Matches& results)
     assert(!results.empty());
 
     u32 first = m_max_y - 2;
-    sz idx = first - m_picker.m_y;
+    usize idx = first - m_picker.m_y;
 
     assert(idx >= 0 && idx < results.size());
-    idx = std::clamp(idx, sz(0), results.size());
+    idx = std::clamp(idx, usize(0), results.size());
 
     if constexpr (copy_opt == CopyOpt::file_name)
         os::copy_to_clipboard<true>(std::string(results[idx].m_file->name()));

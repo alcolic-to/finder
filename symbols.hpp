@@ -16,20 +16,22 @@
 
 class Line {
 public:
-    Line(sz line_number, const std::string& preview) : m_number{line_number}, m_preview{preview} {}
+    Line(usize line_number, const std::string& preview) : m_number{line_number}, m_preview{preview}
+    {
+    }
 
-    sz number() const noexcept { return m_number; }
+    usize number() const noexcept { return m_number; }
 
     const char* preview() const noexcept { return m_preview; }
 
 private:
-    sz m_number;
+    usize m_number;
     stl::SmallString m_preview; // Line preview which will be displayed with symbol in print.
 };
 
 class Symbol_file_refs {
 public:
-    Symbol_file_refs(FileInfo* file, sz line, const std::string& preview)
+    Symbol_file_refs(FileInfo* file, usize line, const std::string& preview)
         : m_file{file}
         , m_lines{Line{line, preview}}
     {
@@ -48,7 +50,7 @@ private:
 
 class Symbol {
 public:
-    Symbol(const std::string& name, FileInfo* file, sz line_number, const std::string& preview)
+    Symbol(const std::string& name, FileInfo* file, usize line_number, const std::string& preview)
         : m_name{name}
         , m_refs{Symbol_file_refs{file, line_number, preview}}
     {
@@ -92,7 +94,7 @@ private:
 
 class Symbols {
 public:
-    result insert(const std::string& symbol_name, FileInfo* file, sz line_number,
+    result insert(const std::string& symbol_name, FileInfo* file, usize line_number,
                   const std::string& line_preview)
     {
         auto* r = m_symbol_finder.search(symbol_name);
@@ -120,7 +122,7 @@ public:
         return {symbol, false};
     }
 
-    result insert_non_existing(const std::string& symbol, FileInfo* file, sz line,
+    result insert_non_existing(const std::string& symbol, FileInfo* file, usize line,
                                const std::string& preview)
     {
         m_symbols.push_back(std::make_unique<Symbol>(symbol, file, line, preview));
@@ -132,7 +134,7 @@ public:
         return {new_symbol, true};
     }
 
-    void erase(const std::string& symbol_name, FileInfo* file, sz line_number)
+    void erase(const std::string& symbol_name, FileInfo* file, usize line_number)
     {
         auto* r = m_symbol_finder.search(symbol_name);
         if (r == nullptr)

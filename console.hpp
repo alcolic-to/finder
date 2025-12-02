@@ -136,7 +136,7 @@ public:
 
         std::string fmt = std::format(str, std::forward<Args>(args)...);
 
-        sz limit = std::min(fmt.size(), sz(m_max_x - m_x));
+        usize limit = std::min(fmt.size(), usize(m_max_x - m_x));
         std::string_view limited{fmt.begin(), fmt.begin() + limit}; // NOLINT
 
         m_stream.append(limited);
@@ -150,7 +150,7 @@ public:
 
         std::string fmt{std::forward<Arg>(arg)}; // NOLINT
 
-        sz limit = std::min(fmt.size(), sz(m_max_x - m_x));
+        usize limit = std::min(fmt.size(), usize(m_max_x - m_x));
         std::string_view limited{fmt.begin(), fmt.begin() + limit}; // NOLINT
 
         m_stream.append(limited);

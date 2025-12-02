@@ -54,7 +54,7 @@ static bool level_up(Query& query, const Files::Match& match)
     std::string& q_query = query.m_query;
     std::string& q_path = query.m_pinned;
 
-    sz slash_pos = q_query.find_last_of(os::path_sep);
+    usize slash_pos = q_query.find_last_of(os::path_sep);
     std::string query_name{slash_pos != std::string::npos ? q_query.substr(slash_pos + 1) :
                                                             q_query};
     std::string query_path{slash_pos != std::string::npos ? q_query.substr(0, slash_pos + 1) : ""};
@@ -193,7 +193,7 @@ int finder_main(const Options& opt) // NOLINT
     Query query;
     Files::Matches results;
     milliseconds time = 0ms;
-    sz objects_count = 0;
+    usize objects_count = 0;
 
     /* Console related. */
     Console console;
