@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef FINDER_TOKENS_HPP
 #define FINDER_TOKENS_HPP
 

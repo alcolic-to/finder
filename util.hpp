@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef FINDER_UTIL_HPP
 #define FINDER_UTIL_HPP
 

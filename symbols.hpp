@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef FINDER_SYMBOLS_HPP
 #define FINDER_SYMBOLS_HPP
 

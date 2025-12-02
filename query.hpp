@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 
 #ifndef FINDER_QUERY_HPP
