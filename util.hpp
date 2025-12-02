@@ -1,5 +1,5 @@
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef FINDER_UTIL_HPP
+#define FINDER_UTIL_HPP
 
 #include <chrono>
 #include <cstddef>
@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include "types.h"
+#include "types.hpp"
 
 // clang-format off
 #define NO_OP do {} while (0) // NOLINT
@@ -263,4 +263,4 @@ inline std::vector<char> file_to_vector(const std::string& path)
     return std::vector<char>{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
 }
 
-#endif // UTIL_H
+#endif // FINDER_UTIL_HPP

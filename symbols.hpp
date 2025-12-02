@@ -1,14 +1,14 @@
-#ifndef SYMBOLS_H
-#define SYMBOLS_H
+#ifndef FINDER_SYMBOLS_HPP
+#define FINDER_SYMBOLS_HPP
 
 #include <filesystem>
 #include <memory>
 #include <ranges>
 #include <vector>
 
-#include "files.h"
+#include "files.hpp"
 #include "small_string.hpp"
-#include "util.h"
+#include "util.hpp"
 
 // NOLINTBEGIN
 
@@ -215,4 +215,4 @@ public:
 
 // NOLINTEND
 
-#endif
+#endif // FINDER_SYMBOLS_HPP

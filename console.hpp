@@ -1,5 +1,5 @@
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#ifndef CONSOLE_HPP
+#define CONSOLE_HPP
 
 #include <algorithm>
 #include <array>
@@ -9,10 +9,10 @@
 #include <string_view>
 #include <utility>
 
-#include "files.h"
-#include "os.h"
-#include "query.h"
-#include "symbols.h"
+#include "files.hpp"
+#include "os.hpp"
+#include "query.hpp"
+#include "symbols.hpp"
 
 inline const std::string esc = "\x1b[";
 
@@ -280,4 +280,4 @@ private: // NOLINT
     std::string m_stream; // need to cache cout, because of horrible windows terminal performance.
 };
 
-#endif // CONSOLE_H
+#endif // CONSOLE_HPP

@@ -1,7 +1,7 @@
 #include <string>
 
-#ifndef QUERY_H
-#define QUERY_H
+#ifndef FINDER_QUERY_HPP
+#define FINDER_QUERY_HPP
 
 struct Query {
     std::string m_pinned;
@@ -10,4 +10,4 @@ struct Query {
     [[nodiscard]] std::string full() const { return m_pinned + m_query; }
 };
 
-#endif // QUERY_H
+#endif // FINDER_QUERY_HPP

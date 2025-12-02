@@ -1,5 +1,5 @@
-#ifndef FINDER_H
-#define FINDER_H
+#ifndef FINDER_HPP
+#define FINDER_HPP
 
 #include <algorithm>
 #include <filesystem>
@@ -12,10 +12,10 @@
 #include <utility>
 #include <vector>
 
-#include "files.h"
-#include "symbols.h"
-#include "tokens.h"
-#include "util.h"
+#include "files.hpp"
+#include "symbols.hpp"
+#include "tokens.hpp"
+#include "util.hpp"
 
 static const std::vector<std::string> cpp_keywords = {
     // Keywords
@@ -276,4 +276,4 @@ private: // NOLINT
     bool m_verbose;
 };
 
-#endif // FINDER_H
+#endif // FINDER_HPP

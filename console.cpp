@@ -1,10 +1,10 @@
-#include "console.h"
+#include "console.hpp"
 
 #include <cstddef>
 #include <iostream>
 #include <string>
 
-#include "os.h"
+#include "os.hpp"
 
 /**
  * We will map cursor coordinates as a windows console:

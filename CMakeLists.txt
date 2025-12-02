@@ -30,8 +30,8 @@ include(cmake/project_config.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/compiler_options.cmake)
 
-set(CPP_FILES main.cpp console.cpp os.cpp)
-set(HPP_FILES console.h os.h files.h finder.h symbol_finder.h symbols.h tokens.h)
+set(CPP_FILES console.cpp os.cpp main.cpp)
+set(HPP_FILES console.hpp os.hpp files.hpp finder.hpp symbol_finder.hpp symbols.hpp tokens.hpp)
 set(ALL_FILES ${CPP_FILES} ${HPP_FILES})
 
 add_executable(finder ${CPP_FILES})

@@ -1,4 +1,4 @@
-#include "os.h"
+#include "os.hpp"
 
 #include <cerrno>
 #include <csignal>
@@ -7,7 +7,7 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "util.h"
+#include "util.hpp"
 
 // NOLINTBEGIN(misc-include-cleaner)
 

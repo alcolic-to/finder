@@ -5,9 +5,9 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include "files.h"
-#include "os.h"
-#include "util.h"
+#include "files.hpp"
+#include "os.hpp"
+#include "util.hpp"
 
 // NOLINTBEGIN
 

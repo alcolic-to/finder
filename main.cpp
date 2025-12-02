@@ -6,16 +6,16 @@
 #include <variant>
 
 #include "cli11/CLI11.hpp"
-#include "console.h"
-#include "files.h"
-#include "finder.h"
-#include "os.h"
-#include "query.h"
+#include "console.hpp"
+#include "files.hpp"
+#include "finder.hpp"
+#include "os.hpp"
+#include "query.hpp"
 #include "ums/async.hpp"
 #include "ums/options.hpp"
 #include "ums/scheduler.hpp"
 #include "ums/ums.hpp"
-#include "util.h"
+#include "util.hpp"
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion,
 // readability-function-cognitive-complexity)

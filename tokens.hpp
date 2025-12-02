@@ -1,5 +1,5 @@
-#ifndef TOKENS_H
-#define TOKENS_H
+#ifndef FINDER_TOKENS_HPP
+#define FINDER_TOKENS_HPP
 
 #include <cassert>
 #include <cstdint>
@@ -247,4 +247,4 @@ private:
 
 // NOLINTEND
 
-#endif
+#endif // FINDER_TOKENS_HPP

@@ -1,5 +1,5 @@
-#ifndef FINDER_TYPES_H
-#define FINDER_TYPES_H
+#ifndef FINDER_TYPES_HPP
+#define FINDER_TYPES_HPP
 
 #include <cmath>
 #include <cstddef>
@@ -22,4 +22,4 @@ using sz = std::size_t;
 using iptr = std::intptr_t;
 using uptr = std::uintptr_t;
 
-#endif // FINDER_TYPES_H
+#endif // FINDER_TYPES_HPP

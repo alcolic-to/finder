@@ -1,5 +1,5 @@
-#ifndef FILES_H
-#define FILES_H
+#ifndef FINDER_FILES_HPP
+#define FINDER_FILES_HPP
 
 #include <bitset>
 #include <cstddef>
@@ -12,10 +12,10 @@
 
 #include "array_map.hpp"
 #include "art.hpp"
-#include "os.h"
+#include "os.hpp"
 #include "small_string.hpp"
-#include "types.h"
-#include "util.h"
+#include "types.hpp"
+#include "util.hpp"
 
 // NOLINTBEGIN(readability-implicit-bool-conversion, readability-redundant-access-specifiers,
 // hicpp-explicit-conversions)
@@ -422,4 +422,4 @@ private:
 // NOLINTEND(readability-implicit-bool-conversion, readability-redundant-access-specifiers,
 // hicpp-explicit-conversions)
 
-#endif // FILES_H
+#endif // FINDER_FILES_HPP

@@ -1,13 +1,13 @@
 #pragma once
 
-#ifndef OS_H
-#define OS_H
+#ifndef OS_HPP
+#define OS_HPP
 
 #include <filesystem>
 #include <format>
 #include <variant>
 
-#include "types.h"
+#include "types.hpp"
 
 // OS specific preprocessor definitions.
 //
@@ -70,4 +70,4 @@ i32 exec_cmd(const std::format_string<Args...>& str, Args&&... args)
 
 } // namespace os
 
-#endif // OS_H
+#endif // OS_HPP
