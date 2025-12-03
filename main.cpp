@@ -35,82 +35,6 @@
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion,
 // readability-function-cognitive-complexity)
 
-/**
- * Moves pinned query path one level down.
- * If pinned path is on the "seconds" level (/usr/), we will jump directly to the empty path,
- * because there is no point in pinning root only (/).
- */
-static bool level_down(Query& query)
-{
-    std::string& path = query.m_pinned;
-
-    if (path.empty())
-        return false;
-
-    path.pop_back();
-    while (!path.empty() && path.back() != os::path_sep)
-        path.pop_back();
-
-    if (path == os::path_sep_str)
-        path.clear();
-
-    return true;
-}
-
-/**
- * Moves pinned query path one level up.
- * If pinned path is empty, we will jump directly to the "second" level, skipping root, because
- * there is no point in pinning root only (/).
- * We will try to go level up "smartly", meaning that we will remove part of path from user query
- * that will be pinned.
- */
-static bool level_up(Query& query, const Files::Match& match)
-{
-    std::string& q_query = query.m_query;
-    std::string& q_path = query.m_pinned;
-
-    usize slash_pos = q_query.find_last_of(os::path_sep);
-    std::string query_name{slash_pos != std::string::npos ? q_query.substr(slash_pos + 1) :
-                                                            q_query};
-    std::string query_path{slash_pos != std::string::npos ? q_query.substr(0, slash_pos + 1) : ""};
-
-    const std::string full_path = match.m_file->full_path().substr();
-
-    if (q_path == match.m_file->path())
-        query_name.clear();
-
-    for (auto it = full_path.begin() + q_path.size(); it != full_path.end(); ++it) {
-        q_path.append(1, *it);
-        if (*it == os::path_sep && q_path != os::path_sep_str)
-            break;
-    }
-
-    if (!q_path.ends_with(os::path_sep))
-        q_path.append(1, os::path_sep);
-
-    if (query_path.starts_with(os::path_sep))
-        query_path = query_path.substr(1);
-
-    slash_pos = query_path.find_first_of(os::path_sep);
-    if (slash_pos != std::string::npos)
-        query_path = query_path.substr(slash_pos + 1);
-
-    q_query = query_path + query_name;
-    return true;
-}
-
-/**
- * Pins path from picker position and removes path from name.
- */
-static void pin_path(Query& query, const Files::Match& match)
-{
-    query.m_pinned = match.m_file->full_path();
-    if (!query.m_pinned.ends_with(os::path_sep))
-        query.m_pinned.append(1, os::path_sep);
-
-    query.m_query.clear();
-}
-
 enum class Command { normal, consol_resize, exit }; // NOLINT
 
 static Command handle_command(Console& console, Query& query, const Files::Matches& results)
@@ -145,14 +69,14 @@ static Command handle_command(Console& console, Query& query, const Files::Match
             }
         }
         else if (os::is_ctrl_h(input_ch)) {
-            if (level_down(query))
+            if (query.level_down())
                 break;
         }
         else if (os::is_ctrl_l(input_ch)) {
             if (results.empty())
                 continue;
 
-            if (level_up(query, console.pick_result(results)))
+            if (query.level_up(console.pick_result(results)))
                 break;
         }
         else if (os::is_ctrl_f(input_ch)) {
@@ -181,7 +105,7 @@ static Command handle_command(Console& console, Query& query, const Files::Match
         }
         else if (os::is_ctrl_p(input_ch)) {
             if (!results.empty()) {
-                pin_path(query, console.pick_result(results));
+                query.pin_path(console.pick_result(results));
                 break;
             }
         }
