@@ -33,8 +33,9 @@
 
 inline const std::string esc = "\x1b[";
 
-// Horizontal and vertical coordinate limit values.
-//
+/**
+ * Horizontal and vertical coordinate limit values.
+ */
 enum class Direction { up, down, left, right };
 
 static constexpr Direction up = Direction::up;
@@ -84,11 +85,12 @@ static constexpr u32 color_value()
 
 enum class CopyOpt { file_name, file_path, full, full_quoted };
 
-// Defines the coordinates of a character cell in a console screen buffer. The origin of the
-// coordinate system (0, 0) is at the top, left cell of the buffer.
-// X - the horizontal coordinate or column value.
-// Y - the vertical coordinate or row value.
-//
+/**
+ * Defines the coordinates of a character cell in a console screen buffer. The origin of the
+ * coordinate system (0, 0) is at the top, left cell of the buffer.
+ * X - the horizontal coordinate or column value.
+ * Y - the vertical coordinate or row value.
+ */
 class Console {
 public:
     static constexpr u32 coord_stack_size = 8U;

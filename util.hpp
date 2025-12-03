@@ -86,9 +86,11 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
  */
 [[noreturn]] inline void unreachable()
 {
-    // Uses compiler specific extensions if possible.
-    // Even if no extension is used, undefined behavior is still raised by
-    // an empty function body and the noreturn attribute.
+    /**
+     * Uses compiler specific extensions if possible.
+     * Even if no extension is used, undefined behavior is still raised by
+     * an empty function body and the noreturn attribute.
+     */
 #if defined(_MSC_VER) && !defined(__clang__) // MSVC
     __assume(false);
 #else // GCC, Clang
@@ -155,8 +157,7 @@ public:
     [[nodiscard]] auto elapsed_units() const noexcept { return duration_cast<Unit>(elapsed()); }
 
     [[nodiscard]] std::string unit_name() const noexcept
-    {
-        // clang-format off
+    { // clang-format off
         if      constexpr (std::is_same_v<Unit, hours>)        return "hour(s)";
         else if constexpr (std::is_same_v<Unit, minutes>)      return "minute(s)";
         else if constexpr (std::is_same_v<Unit, seconds>)      return "second(s)";
@@ -164,8 +165,7 @@ public:
         else if constexpr (std::is_same_v<Unit, microseconds>) return "microsecond(s)";
         else if constexpr (std::is_same_v<Unit, nanoseconds>)  return "nanosecond(s)";
         else                                                   return "unknown unit";
-        // clang-format on
-    }
+    } // clang-format on
 
 private:
     std::string m_name;

@@ -82,10 +82,11 @@ private:
     std::vector<Symbol_file_refs> m_refs;
 };
 
-// Class that wraps insert result.
-// It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
-// for more details).
-//
+/**
+ * Class that wraps insert result.
+ * It holds a pointer to Leaf and a bool flag representing whether insert succeeded (read insert
+ * for more details).
+ */
 class result {
 public:
     result(Symbol* value, bool ok) : m_value{value}, m_ok{ok} { assert(m_value != nullptr); }
@@ -218,15 +219,18 @@ public:
 public:
     std::vector<std::unique_ptr<Symbol>> m_symbols;
 
-    // Trie that holds all suffixes of all symbols, which enables symbol search by symbol name.
-    // Symbol name is not unique, so we must hold vector of symbol pointers.
-    //
-    // suffix_trie::Suffix_trie<std::vector<Symbol*>> m_symbol_finder;
+    /**
+     * Trie that holds all suffixes of all symbols, which enables symbol search by symbol name.
+     * Symbol name is not unique, so we must hold vector of symbol pointers.
+     *
+     * suffix_trie::Suffix_trie<std::vector<Symbol*>> m_symbol_finder;
+     */
 
-    // Using art for now, because we don't want to allow symbol search by prefix in order to save
-    // space.
-    // TODO: Check memory usage with suffix trie of symbols.
-    //
+    /**
+     * Using art for now, because we don't want to allow symbol search by prefix in order to save
+     * space.
+     * TODO: Check memory usage with suffix trie of symbols.
+     */
     stl::ART<Symbol*> m_symbol_finder;
 
     // suffix_trie::Suffix_trie<Symbol*> m_symbol_searcher;

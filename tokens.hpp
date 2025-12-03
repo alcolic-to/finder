@@ -62,8 +62,9 @@ private:
     size_t m_pos = 0;
 };
 
-// Not even close to real tokenizer, but it returns some kind of tokens.
-//
+/**
+ * Not even close to real tokenizer, but it returns some kind of tokens.
+ */
 class NECTR_Tokenizer {
 public:
     NECTR_Tokenizer() = default;
@@ -76,10 +77,8 @@ public:
         return *this;
     }
 
-    // clang-format off
-    //
     bool operator>>(Token& t)
-    {
+    { // clang-format off
         t.reset();
 
         if (!skip_spaces())
@@ -97,9 +96,7 @@ public:
 
         assert(!"Unreachable!");
         return false;
-    }
-    //
-    // clang-format on
+    } // clang-format on
 
 private:
     [[nodiscard]] size_t pos() const noexcept { return c - m_src; }
@@ -123,7 +120,6 @@ private:
             return false;
 
         // Take just one token if we are the bracket to avoid taking ); or }; or (" etc.
-        //
         bool non_bracket = *c != '(' && *c != ')' && *c != '[' && *c != ']' && *c != '{' &&
                            *c != '}' && *c != '<' && *c != '>';
 
@@ -179,9 +175,8 @@ private:
         return true;
     }
 
-    // TODO: Make multicomment /**/ extract this too, because this will take
-    // line even if it is multiplication.
-    //
+    // TODO: Make multicomment /**/ extract this too, because this will take line even if it is
+    // multiplication.
     bool ext_part_comment(Token& t)
     {
         if (*c != '*')

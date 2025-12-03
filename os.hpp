@@ -25,7 +25,6 @@
 #include "types.hpp"
 
 // OS specific preprocessor definitions.
-//
 #if defined _WIN32
 #define OS_WINDOWS
 #elif defined __linux__

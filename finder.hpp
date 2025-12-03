@@ -152,7 +152,6 @@ public:
                 continue;
 
             // TODO: Use file_to_string for quick file read.
-            //
             std::ifstream ifs{it->path()};
             if (!ifs.is_open()) {
                 std::cout << std::format("Problem with openning file {}.\n", it->path().string());
@@ -160,7 +159,6 @@ public:
             }
 
             // Parse each line from file and save tokens.
-            //
             NECTR_Tokenizer tokenizer;
             Token token;
 
@@ -207,7 +205,6 @@ private:
     }
 
     // For symbol finder, we only support cpp files.
-    //
     static constexpr bool supported_file(const auto& dir_entry)
     {
         std::string ext{dir_entry->path().extension().string()};
