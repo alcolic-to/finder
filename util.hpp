@@ -50,7 +50,7 @@
 #ifdef __cpp_lib_hardware_interference_size
 constexpr usize cache_line_size = std::hardware_destructive_interference_size;
 #else
-constexpr sz cache_line_size = 64;
+constexpr usize cache_line_size = 64;
 #endif
 
 #define stringify2(x) #x           // NOLINT
