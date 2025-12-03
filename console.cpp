@@ -154,7 +154,7 @@ Console& Console::print_single_search_result(const Files::Match& match, const Qu
     const FileInfo* file = match.m_file;
 
     std::string print = file->full_path();
-    for (usize i = query.m_pinned.size(); i < print.size(); ++i) {
+    for (usize i = query.pinned().size(); i < print.size(); ++i) {
         if (i < bs.size() && bs.test(i))
             if constexpr (picked)
                 write<green, gray>(print[i]);
@@ -328,7 +328,7 @@ void Console::render_main(const Query& query, u32 cpus_count, u32 workers_count,
 
     move_cursor_to<edge_bottom>().move_cursor_to<edge_left>();
 
-    write("{}: {}", query.m_pinned, query.m_query);
+    write("{}: {}", query.pinned(), query.query());
     clear_rest_of_line();
 
     push_cursor_coord();

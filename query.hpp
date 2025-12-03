@@ -23,7 +23,13 @@
 #ifndef FINDER_QUERY_HPP
 #define FINDER_QUERY_HPP
 
-struct Query {
+/**
+ * User provided query.
+ * It contains of pinned and query part. Pinned part is used as a pinned path which filters only
+ * files on that path. Query part is query regex which we will use for search on a pinned path.
+ */
+class Query {
+public:
     /**
      * Moves pinned query path one level down.
      * If pinned path is on the "seconds" level (/usr/), we will jump directly to the empty path,
@@ -96,8 +102,17 @@ struct Query {
         m_query.clear();
     }
 
+    [[nodiscard]] std::string& pinned() { return m_pinned; }
+
+    [[nodiscard]] const std::string& pinned() const { return m_pinned; }
+
+    [[nodiscard]] std::string& query() { return m_query; }
+
+    [[nodiscard]] const std::string& query() const { return m_query; }
+
     [[nodiscard]] std::string full() const { return m_pinned + m_query; }
 
+private:
     std::string m_pinned;
     std::string m_query;
 };

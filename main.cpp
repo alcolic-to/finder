@@ -96,11 +96,11 @@ static Command handle_command(Console& console, Query& query, const Files::Match
                 console.copy_result_to_clipboard<CopyOpt::full_quoted>(results);
         }
         else if (os::is_ctrl_d(input_ch)) {
-            query.m_query.clear();
+            query.query().clear();
             break;
         }
         else if (os::is_ctrl_g(input_ch)) {
-            query.m_pinned.clear();
+            query.pinned().clear();
             break;
         }
         else if (os::is_ctrl_p(input_ch)) {
@@ -110,13 +110,13 @@ static Command handle_command(Console& console, Query& query, const Files::Match
             }
         }
         else if (os::is_backspace(input_ch)) {
-            if (!query.m_query.empty()) {
-                query.m_query.pop_back();
+            if (!query.query().empty()) {
+                query.query().pop_back();
                 break;
             }
         }
         else if (std::isprint(static_cast<u8>(input_ch))) {
-            query.m_query += static_cast<char>(input_ch);
+            query.query() += static_cast<char>(input_ch);
             break;
         }
     }
@@ -203,22 +203,18 @@ int main(int argc, char* argv[])
     u32 cpus = std::thread::hardware_concurrency();
     u32 tasks_count = cpus;
 
-    app.add_option("-r,--root", root,
-                   "Root directory for files/symbols. Default is OS root directory.");
-    app.add_option("-i,--ignore", ignore_list,
-                   "Ignores provided paths. Paths should be separated by space.");
-    app.add_option(
-        "-n,--include", include_list,
-        "Includes provided paths even if they are ignored. Paths should be separated by space.");
-    app.add_flag("-f,--files", files, "Files search. Default is true.");
-    app.add_flag("-s,--symbols", symbols, "Symbols search. Default is false.");
-    app.add_flag("-o,--stat-only", stats_only, "Prints stats and quit. Default is false.");
-    app.add_flag("-v,--verbose", verbose, "Enables verbose output. Default is false.");
-
-    app.add_option("-w,--workers", wps, "Number of workers per scheduler.");
-    app.add_option("-c,--cpus", cpus, "Number of CPUs to be used. Default is all available CPUs.");
-    app.add_option("-t,--tasks-count", tasks_count,
-                   "Number of search tasks. Default is number of CPUs.");
+    // clang-format off
+    app.add_option("-r,--root",        root,         "Root directory for files/symbols. Default is OS root directory.");
+    app.add_option("-i,--ignore",      ignore_list,  "Ignores provided paths. Paths should be separated by space.");
+    app.add_option("-n,--include",     include_list, "Includes provided paths even if they are ignored. Paths should be separated by space.");
+    app.add_flag  ("-f,--files",       files,        "Files search. Default is true.");
+    app.add_flag  ("-s,--symbols",     symbols,      "Symbols search. Default is false.");
+    app.add_flag  ("-o,--stat-only",   stats_only,   "Prints stats and quit. Default is false.");
+    app.add_flag  ("-v,--verbose",     verbose,      "Enables verbose output. Default is false.");
+    app.add_option("-w,--workers",     wps,          "Number of workers per scheduler.");
+    app.add_option("-c,--cpus",        cpus,         "Number of CPUs to be used. Default is all available CPUs.");
+    app.add_option("-t,--tasks-count", tasks_count,  "Number of search tasks. Default is number of CPUs.");
+    // clang-format on
 
     CLI11_PARSE(app, argc, argv);
 
