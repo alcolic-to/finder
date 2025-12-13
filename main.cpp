@@ -138,8 +138,8 @@ int finder_main(const Options& opt) // NOLINT
     Console console;
 
     /* Tasks related. */
-    u32 cpus_count = ums::schedulers->cpus_count();
-    u32 workers_count = ums::schedulers->workers_count();
+    u32 cpus_count = ums::sch::cpus_count();
+    u32 workers_count = ums::sch::workers_count();
     u32 task_id = 0;
     u32 tasks_count = opt.tasks_count();
     std::vector<ums::Task<Files::Matches>> tasks;

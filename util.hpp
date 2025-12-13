@@ -39,22 +39,56 @@
  * Please define all other macros that you wish to use and are not defined here.
  */
 #ifdef TRACY_ENABLE
+/* first tracy inlcude. */
 #include "tracy/Tracy.hpp"
+/* other tracy includes. */
+#include <common/TracyColor.hpp>
+#include <common/TracySystem.hpp>
+
 #define TZoneScoped ZoneScoped
+#define TZoneScopedC(x) ZoneScopedC(x)
 #define TTracyMessageL(x) TracyMessageL(x)
+#define TTracyMessageLC(x, y) TracyMessageLC(x, y)
 #else
 #define TZoneScoped NO_OP
+#define TZoneScopedC(x) NO_OP
 #define TTracyMessageL(x) NO_OP
-#endif // TRACY_ENABLE
+#define TTracyMessageLC(x, y) NO_OP
+#endif
+
+#ifdef TRACY_ENABLE
+
+/**
+ * Formats message for tracy.
+ * Tracy requires that messages lasts for the entire program execution. For that purpose, we will
+ * allocate message on a heap and return c string.
+ */
+template<class... Args>
+const char* tracy_msg(const std::format_string<Args...>& str, Args&&... args)
+{
+    return (new std::string{std::format(str, std::forward<Args>(args)...)})->c_str();
+}
+
+inline void set_tracy_worker(u64 worker_id, u64 scheduler_id)
+{
+    tracy::SetThreadNameWithHint(tracy_msg("S{:>3} W{:>3}", scheduler_id, worker_id),
+                                 static_cast<i32>(scheduler_id));
+}
+
+#else
+
+// NOLINTBEGIN
+inline void set_tracy_worker(u64 worker_id, u64 scheduler_id) {}
+
+// NOLINTEND
+
+#endif
 
 #ifdef __cpp_lib_hardware_interference_size
 constexpr usize cache_line_size = std::hardware_destructive_interference_size;
 #else
 constexpr usize cache_line_size = 64;
 #endif
-
-#define stringify2(x) #x           // NOLINT
-#define stringify(x) stringify2(x) // NOLINT
 
 /**
  * Taken from google benchmark.

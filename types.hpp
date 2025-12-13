@@ -36,7 +36,10 @@ using f32 = std::float_t;
 using f64 = std::double_t;
 
 using usize = std::size_t;
+using byte = std::byte;
+
 using iptr = std::intptr_t;
 using uptr = std::uintptr_t;
+using ptrdiff = std::ptrdiff_t;
 
 #endif // FINDER_TYPES_HPP
