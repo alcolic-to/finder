@@ -19,11 +19,12 @@
 #define FINDER_UTIL_HPP
 
 #include <chrono>
-#include <cstddef>
+#include <exception>
 #include <fstream>
 #include <iostream>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "types.hpp"
@@ -106,7 +107,7 @@ constexpr usize cache_line_size = 64;
  * Taken from google benchmark.
  */
 template<class Tp>
-inline ALWAYS_INLINE void dont_optimize(Tp&& value)
+inline ALWAYS_INLINE void dont_optimize(Tp&& value) // NOLINT
 {
 #if defined(__clang__)
     asm volatile("" : "+r,m"(value) : : "memory"); // NOLINT
@@ -120,11 +121,9 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
  */
 [[noreturn]] inline void unreachable()
 {
-    /**
-     * Uses compiler specific extensions if possible.
-     * Even if no extension is used, undefined behavior is still raised by
-     * an empty function body and the noreturn attribute.
-     */
+    // Uses compiler specific extensions if possible.
+    // Even if no extension is used, undefined behavior is still raised by
+    // an empty function body and the noreturn attribute.
 #if defined(_MSC_VER) && !defined(__clang__) // MSVC
     __assume(false);
 #else // GCC, Clang
@@ -132,9 +131,6 @@ inline ALWAYS_INLINE void dont_optimize(Tp&& value)
 #endif
 }
 
-/**
- * Time utilities.
- */
 using namespace std::chrono;
 using namespace std::chrono_literals;
 using Clock = steady_clock;
@@ -148,9 +144,8 @@ inline Time_point now() noexcept
 /**
  * Stopwatch that uses steady_clock for time measurement.
  * You can pass time Unit for default formatting if print is specified. Default is milliseconds.
- * To measure specific part of code, just put it in a scope and create Stopwatch at the beggining.
- *
- * For example:
+ * To measure specific part of code, just put it in a scope and create Stopwatch
+ * at the beggining. For example:
  *
  * ... Code not measured ...
  *
@@ -160,6 +155,7 @@ inline Time_point now() noexcept
  *
  *     ... Measurement stops here.
  * }
+ *
  * ... Code not measured ...
  */
 template<bool print = true, typename Unit = milliseconds>
@@ -191,7 +187,8 @@ public:
     [[nodiscard]] auto elapsed_units() const noexcept { return duration_cast<Unit>(elapsed()); }
 
     [[nodiscard]] std::string unit_name() const noexcept
-    { // clang-format off
+    {
+        // clang-format off
         if      constexpr (std::is_same_v<Unit, hours>)        return "hour(s)";
         else if constexpr (std::is_same_v<Unit, minutes>)      return "minute(s)";
         else if constexpr (std::is_same_v<Unit, seconds>)      return "second(s)";
@@ -199,7 +196,8 @@ public:
         else if constexpr (std::is_same_v<Unit, microseconds>) return "microsecond(s)";
         else if constexpr (std::is_same_v<Unit, nanoseconds>)  return "nanosecond(s)";
         else                                                   return "unknown unit";
-    } // clang-format on
+        // clang-format on
+    }
 
 private:
     std::string m_name;
@@ -207,7 +205,8 @@ private:
 };
 
 /**
- * Random numbers utilities.
+ * Random number generator.
+ * Taken from stockfish.
  */
 class PRNG {
 public:
@@ -216,7 +215,7 @@ public:
     template<typename T>
     T rand() noexcept
     {
-        return static_cast<T>(rand64());
+        return T(rand64());
     }
 
 private:
@@ -229,6 +228,9 @@ private:
     u64 m_seed;
 };
 
+/**
+ * Random number generator.
+ */
 template<typename T = u64>
 T random() noexcept
 {
@@ -236,12 +238,7 @@ T random() noexcept
 }
 
 /**
- * String utilities.
- */
-
-/**
  * Splits string on provided delimiter.
- *
  * In first pass we determine how many entries would resulting vector have, and in second, we
  * emplace results.
  */
@@ -286,12 +283,18 @@ inline std::vector<std::string> string_split(const std::string& str, const Delim
     return tokens;
 }
 
+/**
+ * Trims all left spaces from string.
+ */
 inline void trim_left(std::string& s)
 {
     s.erase(s.begin(),
             std::ranges::find_if_not(s.begin(), s.end(), [](u8 ch) { return std::isspace(ch); }));
 }
 
+/**
+ * Trims all right spaces from string.
+ */
 inline void trim_right(std::string& s)
 {
     s.erase(std::ranges::find_if_not(s.rbegin(), s.rend(), [](u8 ch) { return std::isspace(ch); })
@@ -300,7 +303,7 @@ inline void trim_right(std::string& s)
 }
 
 /**
- * File read utilities.
+ * Reads file from provided path to string.
  */
 inline std::string file_to_string(const std::string& path)
 {
@@ -308,10 +311,56 @@ inline std::string file_to_string(const std::string& path)
     return std::string{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
 }
 
+/**
+ * Reads file from provided path to vector of chars.
+ */
 inline std::vector<char> file_to_vector(const std::string& path)
 {
     std::ifstream f{path, std::ios_base::binary};
     return std::vector<char>{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
+}
+
+/**
+ * Invokes function with arguments inside try/catch block.
+ * Return type is std::optional with derived type from calling function, so user
+ * can check return value for nullopt (or with implicit bool operator).
+ * If function return type is void, std::optional will hold std::monostate.
+ *
+ * Example usage:
+ * std::vector<int> my_fn(int first, int second);
+ *
+ * auto r = invoke_noexcept(my_fn, arg1, arg2);
+ * if (!r)
+ *  ... failed - handle error ....
+ *
+ * or keep going if successful:
+ * std::vector<int>& output = *r;
+ * ...
+ *
+ * Also, you can invoke it with lambda:
+ * auto r = invoke_noexcept([&] { return my_fn(arg1, arg2); });
+ */
+template<class Fn, class... Args, class ReturnType = std::invoke_result_t<Fn, Args...>>
+std::optional<std::conditional_t<std::is_same_v<ReturnType, void>, std::monostate, ReturnType>>
+invoke_noexcept(Fn&& fn, Args&&... args) noexcept
+{
+    try {
+        if constexpr (std::is_same_v<ReturnType, void>) {
+            std::invoke(std::forward<Fn>(fn), std::forward<Args>(args)...);
+            return std::optional{std::monostate{}};
+        }
+        else {
+            return std::optional{std::invoke(std::forward<Fn>(fn), std::forward<Args>(args)...)};
+        }
+    }
+    catch (const std::exception& ex) {
+        std::cout << std::format("Exception: {}\n", ex.what());
+    }
+    catch (...) {
+        std::cout << "Unknown exception.\n";
+    }
+
+    return std::nullopt;
 }
 
 #endif // FINDER_UTIL_HPP
