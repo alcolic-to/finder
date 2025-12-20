@@ -159,7 +159,7 @@ int finder_main(const Options& opt) // NOLINT
             }
 
             for (auto& task : tasks) {
-                const Files::Matches matches = task->get();
+                const Files::Matches matches = task.get();
                 results.insert(matches);
             }
 
