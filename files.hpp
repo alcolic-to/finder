@@ -217,6 +217,8 @@ public:
     Matches partial_search(const std::string& regex, usize slice_count,
                            usize slice_number) const noexcept
     {
+        TZoneScopedC(tracy::Color::Green1);
+
         assert(slice_count > slice_number);
 
         Matches matches;
