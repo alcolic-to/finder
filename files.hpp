@@ -111,22 +111,6 @@ public:
         /**
          * Inserts other matches into the final matches.
          */
-        void insert(Matches& other)
-        {
-            if (m_results.size() < m_limit) {
-                const std::vector<Match>& other_res = other.m_results;
-                usize ins = std::min(m_limit - m_results.size(), other_res.size());
-
-                if (ins > 0)
-                    m_results.insert(m_results.end(), other_res.begin(), other_res.begin() + ins);
-            }
-
-            m_objects += other.m_objects;
-        }
-
-        /**
-         * Inserts other matches into the final matches.
-         */
         void insert(const Matches& other)
         {
             if (m_results.size() < m_limit) {
