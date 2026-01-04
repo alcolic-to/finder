@@ -89,12 +89,36 @@ public:
     static constexpr usize match_max = 256;
 
     /**
+     * Match rank.
+     */
+    class Rank {
+    public:
+        constexpr Rank(usize rank = 3) : m_rank{rank} {}
+
+        constexpr operator bool() const noexcept { return m_rank < 3; }
+
+        constexpr operator usize() const noexcept { return m_rank; }
+
+        constexpr bool first() const noexcept { return m_rank == 0; }
+
+        constexpr bool second() const noexcept { return m_rank == 1; }
+
+        constexpr bool third() const noexcept { return m_rank == 2; }
+
+    private:
+        usize m_rank;
+    };
+
+    inline static const Rank RankLast{3};
+
+    /**
      * Struct that holds file info pointer and offset at which we matched file name. Offset is
      * used to highlight matched string with different color for easy visualization on console.
      */
     struct Match {
         const FileInfo* m_file;
         std::bitset<match_max> m_match_bs;
+        u32 m_rank = 2;
 
         const FileInfo* operator->() const { return m_file; }
     };
@@ -124,13 +148,32 @@ public:
             m_objects += other.m_objects;
         }
 
-        template<class... Args>
-        void insert(Args&&... args)
-        {
-            if (m_objects < m_limit)
-                m_results.emplace_back(std::forward<Args>(args)...);
+        void inc_objects() noexcept { ++m_objects; }
 
-            ++m_objects;
+        template<class... Args>
+        void insert(Rank rank, Args&&... args)
+        {
+            if (full()) {
+                assert(rank.first() || rank.second());
+                m_results.pop_back();
+            }
+
+            auto insert_it = m_results.begin();
+
+            if (rank.first()) {
+                ++m_first_ranks;
+            }
+            else if (rank.second()) {
+                insert_it += m_first_ranks;
+                ++m_second_ranks;
+            }
+            else {
+                assert(rank.third());
+                insert_it = m_results.end();
+            }
+
+            m_results.emplace(insert_it, std::forward<Args>(args)...);
+            inc_objects();
         }
 
         void clear() noexcept
@@ -158,6 +201,8 @@ public:
     private:
         std::vector<Match> m_results;
         usize m_objects = 0;
+        usize m_first_ranks = 0;
+        usize m_second_ranks = 0;
         usize m_limit;
     };
 
@@ -205,6 +250,26 @@ public:
     }
 
     /**
+     * Match result.
+     */
+    // struct matchr {
+    //     matchr(bool valid) : offset{stl::SmallString::npos - valid} {}
+
+    //     matchr(usize off) : offset{off} {}
+
+    //     operator bool() { return offset != stl::SmallString::npos; }
+
+    //     operator usize() { return offset; }
+
+    //     bool strong() { return offset == 0; }
+
+    //     u32 offset;
+    //     u8 rank;
+
+    //     usize offset;
+    // };
+
+    /**
      * Searches for files with provided regex.
      */
     Matches search(const std::string& regex) const noexcept { return partial_search(regex, 1, 0); }
@@ -248,15 +313,16 @@ public:
             if (!on_path)
                 continue;
 
-            if (!match_name(file_name, parts))
+            Rank r = match_name(file_name, parts);
+            if (!r)
                 continue;
 
-            if (matches.full()) {
-                matches.insert();
+            if (matches.full() && r.third()) {
+                matches.inc_objects();
                 continue;
             }
 
-            match_slow(matches, parts, file_name, file_path, search_path, &*file);
+            match_slow(matches, r, parts, file_name, file_path, search_path, &*file);
         }
 
         return matches;
@@ -267,9 +333,10 @@ public:
      * It iterates over all parts (strings in the original string separated by *) and checks if file
      * name constains them in order.
      */
-    [[clang::always_inline]] bool match_name(const stl::SmallString& file_name,
+    [[clang::always_inline]] Rank match_name(const stl::SmallString& file_name,
                                              const std::vector<std::string>& parts) const noexcept
     {
+        Rank rank{2}; // Default rank.
         usize offset = 0;
         for (const std::string& part : parts) {
             if (part.empty())
@@ -277,12 +344,17 @@ public:
 
             offset = file_name.find(part, offset);
             if (offset == stl::SmallString::npos)
-                return false;
+                return RankLast;
+
+            if (offset == 0)
+                // TODO: Check whether this is performant, because we are calling strlen for
+                // file_name.size()
+                rank = part.size() == file_name.size() ? 0 : 1;
 
             offset += part.size();
         }
 
-        return true;
+        return rank;
     }
 
     /**
@@ -292,22 +364,18 @@ public:
      * full match. Slow means additional tracking of a matched characters positions. We will keep
      * matched letters in a bitset which will later be used to highlight matched text.
      */
-    void match_slow(Matches& matches, const std::vector<std::string>& parts,
+    void match_slow(Matches& matches, Rank rank, const std::vector<std::string>& parts,
                     const stl::SmallString& file_name, const std::string_view& file_path,
                     const std::string& search_path, const FileInfo* file_info) const noexcept
     {
-        assert(!matches.full());
-
         std::bitset<match_max> match_bs;
         usize offset = 0;
-
         for (const std::string& part : parts) {
             if (part.empty())
                 continue;
 
             offset = file_name.find(part, offset);
-            if (offset == stl::SmallString::npos)
-                return;
+            assert(offset != stl::SmallString::npos);
 
             std::bitset<match_max> match_count{(usize(1) << part.size()) - 1};
             usize shift = file_path.size() + offset;
@@ -319,7 +387,7 @@ public:
         for (usize i = 0; i < search_path.size(); ++i)
             match_bs.set(i);
 
-        matches.insert(file_info, match_bs);
+        matches.insert(rank, file_info, match_bs);
     }
 
     auto files_count() { return m_files.size(); }
