@@ -118,7 +118,6 @@ public:
     struct Match {
         const FileInfo* m_file;
         std::bitset<match_max> m_match_bs;
-        u32 m_rank = 2;
 
         const FileInfo* operator->() const { return m_file; }
     };
@@ -137,12 +136,52 @@ public:
          */
         void insert(const Matches& other)
         {
-            if (m_results.size() < m_limit) {
-                const std::vector<Match>& other_res = other.m_results;
-                usize ins = std::min(m_limit - m_results.size(), other_res.size());
+            // if (m_results.size() < m_limit) {
+            //     const std::vector<Match>& other_res = other.m_results;
+            //     usize ins = std::min(m_limit - m_results.size(), other_res.size());
 
-                if (ins > 0)
-                    m_results.insert(m_results.end(), other_res.begin(), other_res.begin() + ins);
+            //     if (ins > 0)
+            //         m_results.insert(m_results.end(), other_res.begin(), other_res.begin() +
+            //         ins);
+            // }
+
+            // m_objects += other.m_objects;
+
+            const std::vector<Match>& other_res = other.m_results;
+            if (m_first_ranks < m_limit) {
+                usize c = std::min(other.m_first_ranks, m_limit - m_first_ranks);
+                if (c > 0) {
+                    m_results.insert(m_results.begin() + m_first_ranks, other_res.begin(),
+                                     other_res.begin() + c);
+
+                    m_first_ranks += c;
+                }
+
+                if (m_results.size() > m_limit)
+                    m_results.resize(m_limit);
+            }
+
+            if (m_first_ranks + m_second_ranks < m_limit) {
+                usize c = std::min(other.m_second_ranks, m_limit - m_first_ranks - m_second_ranks);
+                if (c > 0) {
+                    m_results.insert(m_results.begin() + m_first_ranks,
+                                     other_res.begin() + other.m_first_ranks,
+                                     other_res.begin() + other.m_first_ranks + c);
+
+                    m_second_ranks += c;
+                }
+
+                if (m_results.size() > m_limit)
+                    m_results.resize(m_limit);
+            }
+
+            if (m_results.size() < m_limit) {
+                usize c = std::min(m_limit - m_results.size(), other_res.size());
+                if (c > 0)
+                    m_results.insert(m_results.end(),
+                                     other_res.begin() + other.m_first_ranks + other.m_second_ranks,
+                                     other_res.begin() + other.m_first_ranks +
+                                         other.m_second_ranks + c);
             }
 
             m_objects += other.m_objects;
@@ -179,6 +218,8 @@ public:
         void clear() noexcept
         {
             m_results.clear();
+            m_first_ranks = 0;
+            m_second_ranks = 0;
             m_objects = 0;
         }
 
@@ -304,6 +345,13 @@ public:
         const auto& end = slice_count == slice_number + 1 ? m_files.end() : file + chunk;
 
         std::vector<std::string> parts{string_split(search_name, "*")};
+        usize ps = parts.size();
+        if (ps) {
+            std::string s = parts[0];
+            auto ss = s.size();
+            const char* c = s.c_str();
+            const char* zz = c;
+        }
 
         for (; file < end; ++file) {
             const stl::SmallString& file_name = file->name();
