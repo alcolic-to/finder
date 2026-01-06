@@ -188,98 +188,19 @@ public:
             return m_results[idx];
         }
 
-        void insert_r1(const Matches& other)
+        /**
+         * Merges other matches into the final matches.
+         * Note that merge does not respect limit, since I am too dump to implement it.
+         */
+        void merge(const Matches& other)
         {
-            // usize count = std::min(other.r1_count(), m_limit - r1_count());
-
-            // m_results.insert(r1_end_it(), other.r1_start_it(), other.r1_start_it() + count);
-            // m_r1 += count;
-
-            // if (m_results.size() > m_limit) {
-            //     m_results.resize(m_limit);
-
-            //     m_r2
-            //     // TODO: Handle m_r2 and m_r3;
-            // }
-
             m_results.insert(r1_end_it(), other.r1_start_it(), other.r1_end_it());
             m_r1 += other.r1_count();
-        }
-
-        void insert_r2(const Matches& other)
-        {
-            // usize count = std::min(other.r2_count(), m_limit - r1_count() - r2_count());
-
-            // m_results.insert(r2_end_it(), other.r2_start_it(), other.r2_start_it() + count);
-            // m_r2 += count;
-
-            // if (m_results.size() > m_limit)
-            //     m_results.resize(m_limit);
 
             m_results.insert(r2_end_it(), other.r2_start_it(), other.r2_end_it());
             m_r2 += other.r2_count();
-        }
 
-        void insert_r3(const Matches& other)
-        {
             m_results.insert(r3_end_it(), other.r3_start_it(), other.r3_end_it());
-        }
-
-        /**
-         * Inserts other matches into the final matches.
-         * We first take the first, then the second, then the third ranks.
-         */
-        void insert(const Matches& other)
-        {
-            // if (m_results.size() < m_limit) {
-            //     const std::vector<Match>& other_res = other.m_results;
-            //     usize ins = std::min(m_limit - m_results.size(), other_res.size());
-
-            //     if (ins > 0)
-            //         m_results.insert(m_results.end(), other_res.begin(), other_res.begin() +
-            //         ins);
-            // }
-
-            // m_objects += other.m_objects;
-
-            // const std::vector<Match>& other_res = other.m_results;
-            // if (r1_end() < m_limit) {
-            //     usize c = std::min(other.r1_end(), m_limit - r1_end());
-            //     if (c > 0) {
-            //         m_results.insert(r1_end_it(), other_res.begin(), other_res.begin() + c);
-            //         m_r1 += c;
-            //     }
-
-            //     if (m_results.size() > m_limit)
-            //         m_results.resize(m_limit);
-            // }
-
-            // if (r2_end() < m_limit) {
-            //     usize c = std::min(other.m_r2, m_limit - m_r1 - m_r2);
-            //     if (c > 0) {
-            //         m_results.insert(m_results.begin() + m_r1, other_res.begin() + other.m_r1,
-            //                          other_res.begin() + other.m_r1 + c);
-
-            //         m_r2 += c;
-            //     }
-
-            //     if (m_results.size() > m_limit)
-            //         m_results.resize(m_limit);
-            // }
-
-            // if (m_results.size() < m_limit) {
-            //     usize c = std::min(m_limit - m_results.size(), other_res.size());
-            //     if (c > 0)
-            //         m_results.insert(m_results.end(), other_res.begin() + other.m_r1 +
-            //         other.m_r2,
-            //                          other_res.begin() + other.m_r1 + other.m_r2 + c);
-            // }
-
-            // m_objects += other.m_objects;
-
-            insert_r1(other);
-            insert_r2(other);
-            insert_r3(other);
 
             m_objects += other.m_objects;
         }

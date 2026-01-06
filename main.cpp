@@ -160,7 +160,7 @@ int finder_main(const Options& opt) // NOLINT
 
             for (auto& task : tasks) {
                 const Files::Matches matches = task.get();
-                results.insert(matches);
+                results.merge(matches);
             }
 
             time = sw.elapsed_units();
