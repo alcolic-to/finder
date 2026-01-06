@@ -26,6 +26,7 @@
 #include <string_view>
 #include <utility>
 
+#include "config.hpp"
 #include "files.hpp"
 #include "os.hpp"
 #include "query.hpp"
@@ -249,22 +250,22 @@ public:
     template<bool picked = false>
     Console& print_single_search_result(const Files::Match& match, const Query& query);
 
-    [[nodiscard]] const Files::Match& pick_result(const Files::Matches& results) const;
+    [[nodiscard]] const Files::Match& pick_result(const Matches& results) const;
 
-    Console& init_picker(const Files::Matches& results, const Query& query);
+    Console& init_picker(const Matches& results, const Query& query);
 
     template<Direction d>
-    Console& move_picker(const Files::Matches& results, const Query& query);
+    Console& move_picker(const Matches& results, const Query& query);
 
     template<CopyOpt copy_opt>
-    Console& copy_result_to_clipboard(const Files::Matches& results);
+    Console& copy_result_to_clipboard(const Matches& results);
 
-    Console& print_search_results(const Files::Matches& matches, const Query& query);
+    Console& print_search_results(const Matches& matches, const Query& query);
 
     Console& draw_symbol_search_results(const Symbol* symbol);
 
     void render_main(const Query& query, u32 cpus_count, u32 workers_count, u32 tasks_count,
-                     u32 objects_count, const Files::Matches& results,
+                     u32 objects_count, const Matches& results,
                      std::chrono::duration<long long, std::ratio<1, 1000>> time);
 
 private:

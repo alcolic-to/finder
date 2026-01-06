@@ -85,7 +85,7 @@ static fs::path parent_path(const fs::path& path)
 class Files {
 public:
     static constexpr usize usize_max = std::numeric_limits<usize>::max();
-    static constexpr usize objects_max = 80;
+    static constexpr usize matches_limit = 80;
     static constexpr usize match_max = 256;
 
     /**
@@ -100,44 +100,40 @@ public:
     };
 
     /**
+     * Match rank.
+     * R1 means that we have an exact match.
+     * R2 that the filename starts with search regex.
+     * R3 that the filename contains regex.
+     */
+    class Rank {
+    public:
+        constexpr Rank(usize rank = 3) : m_rank{rank} {}
+
+        constexpr operator bool() const noexcept { return m_rank < 3; }
+
+        constexpr operator usize() const noexcept { return m_rank; }
+
+        constexpr bool r1() const noexcept { return m_rank == 0; }
+
+        constexpr bool r2() const noexcept { return m_rank == 1; }
+
+        constexpr bool r3() const noexcept { return m_rank == 2; }
+
+    private:
+        usize m_rank;
+    };
+
+    inline static const Rank RankLast{3};
+
+    /**
      * Struct that holds vector of matches and total number of objects matched. Since number of
      * matches can be limited (no need to put all objects in a results if user limits it), we need
      * to separate results from number of objects matched.
      */
+    template<usize Limit = matches_limit>
     class Matches {
     public:
-        Matches(usize limit = objects_max) : m_limit(limit) { m_results.reserve(m_limit); }
-
-        /**
-         * Inserts other matches into the final matches.
-         */
-        void insert(const Matches& other)
-        {
-            if (m_results.size() < m_limit) {
-                const std::vector<Match>& other_res = other.m_results;
-                usize ins = std::min(m_limit - m_results.size(), other_res.size());
-
-                if (ins > 0)
-                    m_results.insert(m_results.end(), other_res.begin(), other_res.begin() + ins);
-            }
-
-            m_objects += other.m_objects;
-        }
-
-        template<class... Args>
-        void insert(Args&&... args)
-        {
-            if (m_objects < m_limit)
-                m_results.emplace_back(std::forward<Args>(args)...);
-
-            ++m_objects;
-        }
-
-        void clear() noexcept
-        {
-            m_results.clear();
-            m_objects = 0;
-        }
+        Matches() { m_results.reserve(Limit); }
 
         const std::vector<Match>& data() const noexcept { return m_results; }
 
@@ -147,7 +143,7 @@ public:
 
         bool empty() const noexcept { return m_objects == 0; }
 
-        bool full() const noexcept { return m_results.size() == m_limit; }
+        bool full() const noexcept { return m_results.size() == Limit; }
 
         const Match& operator[](usize idx) const noexcept
         {
@@ -155,10 +151,113 @@ public:
             return m_results[idx];
         }
 
+        /**
+         * Merges other matches into the final matches.
+         * Note that merge does not respect limit, since I am too dump to implement it.
+         */
+        void merge(const Matches& other)
+        {
+            m_results.insert(r1_end_it(), other.r1_start_it(), other.r1_end_it());
+            m_r1 += other.r1_count();
+
+            m_results.insert(r2_end_it(), other.r2_start_it(), other.r2_end_it());
+            m_r2 += other.r2_count();
+
+            m_results.insert(r3_end_it(), other.r3_start_it(), other.r3_end_it());
+            m_r3 += other.r3_count();
+
+            m_objects += other.m_objects;
+        }
+
+        void clear() noexcept
+        {
+            m_results.clear();
+            m_r1 = 0;
+            m_r2 = 0;
+            m_r3 = 0;
+            m_objects = 0;
+        }
+
+        usize r1_count() const noexcept { return m_r1; }
+
+        usize r2_count() const noexcept { return m_r2; }
+
+        usize r3_count() const noexcept { return m_r3; }
+
+        usize r1_start() const noexcept { return 0; }
+
+        usize r2_start() const noexcept { return m_r1; }
+
+        usize r3_start() const noexcept { return m_r1 + m_r2; }
+
+        usize r1_end() const noexcept { return r2_start(); }
+
+        usize r2_end() const noexcept { return r3_start(); }
+
+        usize r3_end() const noexcept { return m_results.size(); }
+
+        auto r1_start_it() const noexcept { return m_results.begin() + r1_start(); }
+
+        auto r2_start_it() const noexcept { return m_results.begin() + r2_start(); }
+
+        auto r3_start_it() const noexcept { return m_results.begin() + r3_start(); }
+
+        auto r1_end_it() const noexcept { return m_results.begin() + r1_end(); }
+
+        auto r2_end_it() const noexcept { return m_results.begin() + r2_end(); }
+
+        auto r3_end_it() const noexcept { return m_results.begin() + r3_end(); }
+
+        bool can_insert(Rank r) const noexcept
+        {
+            if (r.r1())
+                return r1_end() < Limit;
+
+            if (r.r2())
+                return r2_end() < Limit;
+
+            if (r.r3())
+                return r3_end() < Limit;
+
+            return false;
+        }
+
+        void inc_objects() noexcept { ++m_objects; }
+
+        template<class... Args>
+        void insert(Rank rank, Args&&... args)
+        {
+            if (full()) {
+                assert(rank.r1() || rank.r2());
+                m_results.pop_back();
+
+                if (r1_end() >= Limit)
+                    --m_r1;
+                else if (r2_end() >= Limit)
+                    --m_r2;
+            }
+
+            auto it = r1_end_it();
+
+            if (rank.r1())
+                it = r1_end_it(), ++m_r1;
+            else if (rank.r2())
+                it = r2_end_it(), ++m_r2;
+            else if (rank.r3())
+                it = r3_end_it(), ++m_r3;
+            else
+                assert(false);
+
+            m_results.emplace(it, std::forward<Args>(args)...);
+            inc_objects();
+        }
+
     private:
         std::vector<Match> m_results;
         usize m_objects = 0;
-        usize m_limit;
+        usize m_r1 = 0;
+        usize m_r2 = 0;
+        usize m_r3 = 0;
     };
 
     /**
@@ -207,21 +306,26 @@ public:
     /**
      * Searches for files with provided regex.
      */
-    Matches search(const std::string& regex) const noexcept { return partial_search(regex, 1, 0); }
+    template<usize Limit = matches_limit>
+    Matches<Limit> search(const std::string& regex) const noexcept
+    {
+        return partial_search<Limit>(regex, 1, 0);
+    }
 
     /**
      * Partial files search user for multithreaded search. User should provide number of slices
      * (threads) and a slice number (thread number) that is used for search.
      * Slice number is 0 based.
      */
-    Matches partial_search(const std::string& regex, usize slice_count,
-                           usize slice_number) const noexcept
+    template<usize Limit = matches_limit>
+    Matches<Limit> partial_search(const std::string& regex, usize slice_count,
+                                  usize slice_number) const noexcept
     {
         TZoneScopedC(tracy::Color::Green1);
 
         assert(slice_count > slice_number);
 
-        Matches matches;
+        Matches<Limit> matches;
         usize slash_pos = regex.find_last_of(os::path_sep);
 
         std::string search_name{slash_pos != std::string::npos ? regex.substr(slash_pos + 1) :
@@ -248,15 +352,16 @@ public:
             if (!on_path)
                 continue;
 
-            if (!match_name(file_name, parts))
+            Rank r = match_name(file_name, parts);
+            if (!r)
                 continue;
 
-            if (matches.full()) {
-                matches.insert();
+            if (!matches.can_insert(r)) {
+                matches.inc_objects();
                 continue;
             }
 
-            match_slow(matches, parts, file_name, file_path, search_path, &*file);
+            match_slow(matches, r, parts, file_name, file_path, search_path, &*file);
         }
 
         return matches;
@@ -267,9 +372,10 @@ public:
      * It iterates over all parts (strings in the original string separated by *) and checks if file
      * name constains them in order.
      */
-    [[clang::always_inline]] bool match_name(const stl::SmallString& file_name,
+    [[clang::always_inline]] Rank match_name(const stl::SmallString& file_name,
                                              const std::vector<std::string>& parts) const noexcept
     {
+        Rank rank{2}; // Default rank.
         usize offset = 0;
         for (const std::string& part : parts) {
             if (part.empty())
@@ -277,12 +383,15 @@ public:
 
             offset = file_name.find(part, offset);
             if (offset == stl::SmallString::npos)
-                return false;
+                return RankLast;
+
+            if (offset == 0)
+                rank = part.size() == file_name.size() ? 0 : 1;
 
             offset += part.size();
         }
 
-        return true;
+        return rank;
     }
 
     /**
@@ -292,22 +401,19 @@ public:
      * full match. Slow means additional tracking of a matched characters positions. We will keep
      * matched letters in a bitset which will later be used to highlight matched text.
      */
-    void match_slow(Matches& matches, const std::vector<std::string>& parts,
+    template<usize Limit>
+    void match_slow(Matches<Limit>& matches, Rank rank, const std::vector<std::string>& parts,
                     const stl::SmallString& file_name, const std::string_view& file_path,
                     const std::string& search_path, const FileInfo* file_info) const noexcept
     {
-        assert(!matches.full());
-
         std::bitset<match_max> match_bs;
         usize offset = 0;
-
         for (const std::string& part : parts) {
             if (part.empty())
                 continue;
 
             offset = file_name.find(part, offset);
-            if (offset == stl::SmallString::npos)
-                return;
+            assert(offset != stl::SmallString::npos);
 
             std::bitset<match_max> match_count{(usize(1) << part.size()) - 1};
             usize shift = file_path.size() + offset;
@@ -319,7 +425,7 @@ public:
         for (usize i = 0; i < search_path.size(); ++i)
             match_bs.set(i);
 
-        matches.insert(file_info, match_bs);
+        matches.insert(rank, file_info, match_bs);
     }
 
     auto files_count() { return m_files.size(); }

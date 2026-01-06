@@ -21,6 +21,7 @@
 #include <variant>
 
 #include "cli11/CLI11.hpp"
+#include "config.hpp"
 #include "console.hpp"
 #include "files.hpp"
 #include "finder.hpp"
@@ -35,9 +36,12 @@
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion,
 // readability-function-cognitive-complexity)
 
+/**
+ * Handling commands.
+ */
 enum class Command { normal, consol_resize, exit }; // NOLINT
 
-static Command handle_command(Console& console, Query& query, const Files::Matches& results)
+static Command handle_command(Console& console, Query& query, const Matches& results)
 {
     os::ConsoleInput input;
     i32 input_ch = 0;
@@ -130,7 +134,7 @@ int finder_main(const Options& opt) // NOLINT
 
     /* Search results related. */
     Query query;
-    Files::Matches results;
+    Matches results;
     milliseconds time = 0ms;
     usize objects_count = 0;
 
@@ -142,7 +146,7 @@ int finder_main(const Options& opt) // NOLINT
     u32 workers_count = ums::sch::workers_count();
     u32 task_id = 0;
     u32 tasks_count = opt.tasks_count();
-    std::vector<ums::Task<Files::Matches>> tasks;
+    std::vector<ums::Task<Matches>> tasks;
     tasks.reserve(tasks_count);
 
     while (true) {
@@ -154,13 +158,13 @@ int finder_main(const Options& opt) // NOLINT
 
             for (task_id = 0; task_id < tasks_count; ++task_id) {
                 tasks.emplace_back(ums::async([&, tasks_count, task_id] {
-                    return finder.find_files_partial(query.full(), tasks_count, task_id);
+                    return finder.find_files_partial<80>(query.full(), tasks_count, task_id);
                 }));
             }
 
             for (auto& task : tasks) {
                 const Files::Matches matches = task.get();
-                results.insert(matches);
+                results.merge(matches);
             }
 
             time = sw.elapsed_units();

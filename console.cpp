@@ -19,6 +19,7 @@
 #include <iostream>
 #include <string>
 
+#include "config.hpp"
 #include "os.hpp"
 
 /**
@@ -131,7 +132,7 @@ Console& Console::pop_cursor_coord()
     return *this;
 }
 
-[[nodiscard]] const Files::Match& Console::pick_result(const Files::Matches& results) const
+[[nodiscard]] const Files::Match& Console::pick_result(const Matches& results) const
 {
     usize idx = m_max_y - 2 - m_picker.m_y;
     if (idx > results.size())
@@ -174,7 +175,7 @@ Console& Console::print_single_search_result(const Files::Match& match, const Qu
  * Prints search results on the screen.
  * We are always on a bottom line when this funcion is called.
  */
-Console& Console::print_search_results(const Files::Matches& matches, const Query& query)
+Console& Console::print_search_results(const Matches& matches, const Query& query)
 {
     move_cursor<up>(2).move_cursor_to<edge_left>().move_cursor<right>();
 
@@ -203,7 +204,7 @@ Console& Console::print_search_results(const Files::Matches& matches, const Quer
  * It first deletes current picker from console, and, if search results exist, shows picker on
  * initial position.
  */
-Console& Console::init_picker(const Files::Matches& results, const Query& query)
+Console& Console::init_picker(const Matches& results, const Query& query)
 {
     push_cursor_coord();
     set_cursor_pos(m_picker);
@@ -228,7 +229,7 @@ Console& Console::init_picker(const Files::Matches& results, const Query& query)
  * Moves picker in provided direction. Results size is used to limit movement scope.
  */
 template<Direction d>
-Console& Console::move_picker(const Files::Matches& results, const Query& query)
+Console& Console::move_picker(const Matches& results, const Query& query)
 {
     push_cursor_coord();
 
@@ -261,7 +262,7 @@ Console& Console::move_picker(const Files::Matches& results, const Query& query)
  * Copies result string from picker position into the clipboard.
  */
 template<CopyOpt copy_opt>
-Console& Console::copy_result_to_clipboard(const Files::Matches& results)
+Console& Console::copy_result_to_clipboard(const Matches& results)
 {
     assert(!results.empty());
 
@@ -317,7 +318,7 @@ Console& Console::draw_symbol_search_results(const Symbol* symbol)
 }
 
 void Console::render_main(const Query& query, u32 cpus_count, u32 workers_count, u32 tasks_count,
-                          u32 objects_count, const Files::Matches& results,
+                          u32 objects_count, const Matches& results,
                           std::chrono::duration<long long, std::ratio<1, 1000>> time)
 {
     if (m_max_x < min_x_required || m_max_y < min_y_required) {
@@ -347,9 +348,9 @@ void Console::render_main(const Query& query, u32 cpus_count, u32 workers_count,
     flush();
 }
 
-template Console& Console::move_picker<Direction::up>(const Files::Matches&, const Query&);
-template Console& Console::move_picker<Direction::down>(const Files::Matches&, const Query&);
-template Console& Console::copy_result_to_clipboard<CopyOpt::file_name>(const Files::Matches&);
-template Console& Console::copy_result_to_clipboard<CopyOpt::file_path>(const Files::Matches&);
-template Console& Console::copy_result_to_clipboard<CopyOpt::full>(const Files::Matches&);
-template Console& Console::copy_result_to_clipboard<CopyOpt::full_quoted>(const Files::Matches&);
+template Console& Console::move_picker<Direction::up>(const Matches&, const Query&);
+template Console& Console::move_picker<Direction::down>(const Matches&, const Query&);
+template Console& Console::copy_result_to_clipboard<CopyOpt::file_name>(const Matches&);
+template Console& Console::copy_result_to_clipboard<CopyOpt::file_path>(const Matches&);
+template Console& Console::copy_result_to_clipboard<CopyOpt::full>(const Matches&);
+template Console& Console::copy_result_to_clipboard<CopyOpt::full_quoted>(const Matches&);

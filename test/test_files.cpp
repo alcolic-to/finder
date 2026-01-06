@@ -11,6 +11,8 @@
 
 // NOLINTBEGIN
 
+constexpr usize files_limit = 80;
+
 TEST(files_test, sanity_test_1)
 {
     Files files;
@@ -28,7 +30,7 @@ TEST(files_test, sanity_test_1)
     files.insert(file);
     ASSERT_TRUE(!files.insert(file));
 
-    auto r = files.search("my_file_1");
+    auto r = files.search<files_limit>("my_file_1");
     ASSERT_TRUE(r.size() == 1);
     ASSERT_TRUE(r[0]->name() == file_name);
     ASSERT_TRUE(r[0]->path() == file_path);
@@ -187,6 +189,54 @@ TEST(files_test, sanity_test_3)
     ASSERT_TRUE(r[0]->name() == file_name_2);
 }
 
+TEST(files_test, sanity_test_4)
+{
+    Files files;
+
+    std::string file_path =
+#if defined _WIN32
+        R"(C:\)";
+#elif defined __linux__
+        R"(/)";
+#endif
+
+    const std::string file_1 = file_path + "some_file_1";
+    const std::string file_2 = file_path + "some_file_2";
+
+    files.insert(file_path + "some_file");
+    files.insert(file_path + "some_file_1");
+    files.insert(file_path + "some_file_2");
+    files.insert(file_path + "some_file_3");
+    files.insert(file_path + "some_file_4");
+    files.insert(file_path + "some_file_5");
+
+    files.insert(file_path + "other_file_1");
+    files.insert(file_path + "other_file_2");
+    files.insert(file_path + "other_file_3");
+    files.insert(file_path + "other_file_4");
+    files.insert(file_path + "other_file_5");
+
+    auto r = files.search("some_file");
+    ASSERT_EQ(r.r1_count(), 1);
+    ASSERT_EQ(r.r2_count(), 5);
+    ASSERT_EQ(r.r3_count(), 0);
+
+    r = files.search("some_file_1");
+    ASSERT_EQ(r.r1_count(), 1);
+    ASSERT_EQ(r.r2_count(), 0);
+    ASSERT_EQ(r.r3_count(), 0);
+
+    r = files.search("o");
+    ASSERT_EQ(r.r1_count(), 0);
+    ASSERT_EQ(r.r2_count(), 5);
+    ASSERT_EQ(r.r3_count(), 6);
+
+    r = files.search("5");
+    ASSERT_EQ(r.r1_count(), 0);
+    ASSERT_EQ(r.r2_count(), 0);
+    ASSERT_EQ(r.r3_count(), 2);
+}
+
 TEST(files_test, file_system_paths)
 {
     Files files;
@@ -313,11 +363,11 @@ TEST(files_test, partial_files_search_test)
 
     r = files.partial_search("my_file", 2, 0);
     ASSERT_TRUE(r.objects_count() == 2);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 2, 1);
     ASSERT_TRUE(r.objects_count() == 3);
-    res.insert(r);
+    res.merge(r);
 
     ASSERT_TRUE(res.objects_count() == 5);
 
@@ -328,15 +378,15 @@ TEST(files_test, partial_files_search_test)
 
     r = files.partial_search("my_file", 3, 0);
     ASSERT_TRUE(r.objects_count() == 1);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 3, 1);
     ASSERT_TRUE(r.objects_count() == 1);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 3, 2);
     ASSERT_TRUE(r.objects_count() == 3);
-    res.insert(r);
+    res.merge(r);
 
     ASSERT_TRUE(res.objects_count() == 5);
 
@@ -347,19 +397,19 @@ TEST(files_test, partial_files_search_test)
 
     r = files.partial_search("my_file", 4, 0);
     ASSERT_TRUE(r.objects_count() == 1);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 4, 1);
     ASSERT_TRUE(r.objects_count() == 1);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 4, 2);
     ASSERT_TRUE(r.objects_count() == 1);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 4, 3);
     ASSERT_TRUE(r.objects_count() == 2);
-    res.insert(r);
+    res.merge(r);
 
     ASSERT_TRUE(res.objects_count() == 5);
 
@@ -372,31 +422,31 @@ TEST(files_test, partial_files_search_test)
     ASSERT_TRUE(r.objects_count() == 1);
     ASSERT_TRUE(r[0].m_file->path() == file_path);
     ASSERT_TRUE(r[0].m_file->name() == file_name_1);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 5, 1);
     ASSERT_TRUE(r.objects_count() == 1);
     ASSERT_TRUE(r[0].m_file->path() == file_path);
     ASSERT_TRUE(r[0].m_file->name() == file_name_2);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 5, 2);
     ASSERT_TRUE(r.objects_count() == 1);
     ASSERT_TRUE(r[0].m_file->path() == file_path);
     ASSERT_TRUE(r[0].m_file->name() == file_name_3);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 5, 3);
     ASSERT_TRUE(r.objects_count() == 1);
     ASSERT_TRUE(r[0].m_file->path() == file_path);
     ASSERT_TRUE(r[0].m_file->name() == file_name_4);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 5, 4);
     ASSERT_TRUE(r.objects_count() == 1);
     ASSERT_TRUE(r[0].m_file->path() == file_path);
     ASSERT_TRUE(r[0].m_file->name() == file_name_5);
-    res.insert(r);
+    res.merge(r);
 
     ASSERT_TRUE(res.objects_count() == 5);
 }
@@ -430,11 +480,11 @@ TEST(files_test, partial_files_search_test_2)
 
     r = files.partial_search("my_file", 2, 0);
     ASSERT_TRUE(r.objects_count() == 500);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 2, 1);
     ASSERT_TRUE(r.objects_count() == 500);
-    res.insert(r);
+    res.merge(r);
 
     ASSERT_TRUE(res.objects_count() == 1000);
 
@@ -445,15 +495,15 @@ TEST(files_test, partial_files_search_test_2)
 
     r = files.partial_search("my_file", 3, 0);
     ASSERT_TRUE(r.objects_count() == 333);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 3, 1);
     ASSERT_TRUE(r.objects_count() == 333);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 3, 2);
     ASSERT_TRUE(r.objects_count() == 334);
-    res.insert(r);
+    res.merge(r);
 
     ASSERT_TRUE(res.objects_count() == 1000);
 
@@ -464,19 +514,19 @@ TEST(files_test, partial_files_search_test_2)
 
     r = files.partial_search("my_file", 4, 0);
     ASSERT_TRUE(r.objects_count() == 250);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 4, 1);
     ASSERT_TRUE(r.objects_count() == 250);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 4, 2);
     ASSERT_TRUE(r.objects_count() == 250);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 4, 3);
     ASSERT_TRUE(r.objects_count() == 250);
-    res.insert(r);
+    res.merge(r);
 
     ASSERT_TRUE(res.objects_count() == 1000);
 
@@ -487,23 +537,23 @@ TEST(files_test, partial_files_search_test_2)
 
     r = files.partial_search("my_file", 5, 0);
     ASSERT_TRUE(r.objects_count() == 200);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 5, 1);
     ASSERT_TRUE(r.objects_count() == 200);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 5, 2);
     ASSERT_TRUE(r.objects_count() == 200);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 5, 3);
     ASSERT_TRUE(r.objects_count() == 200);
-    res.insert(r);
+    res.merge(r);
 
     r = files.partial_search("my_file", 5, 4);
     ASSERT_TRUE(r.objects_count() == 200);
-    res.insert(r);
+    res.merge(r);
 
     ASSERT_TRUE(res.objects_count() == 1000);
 }
