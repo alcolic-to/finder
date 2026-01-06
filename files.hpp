@@ -99,11 +99,11 @@ public:
 
         constexpr operator usize() const noexcept { return m_rank; }
 
-        constexpr bool first() const noexcept { return m_rank == 0; }
+        constexpr bool r1() const noexcept { return m_rank == 0; }
 
-        constexpr bool second() const noexcept { return m_rank == 1; }
+        constexpr bool r2() const noexcept { return m_rank == 1; }
 
-        constexpr bool third() const noexcept { return m_rank == 2; }
+        constexpr bool r3() const noexcept { return m_rank == 2; }
 
     private:
         usize m_rank;
@@ -131,6 +131,57 @@ public:
     public:
         Matches(usize limit = objects_max) : m_limit(limit) { m_results.reserve(m_limit); }
 
+        const std::vector<Match>& data() const noexcept { return m_results; }
+
+        usize objects_count() const noexcept { return m_objects; }
+
+        usize size() const noexcept { return m_results.size(); }
+
+        bool empty() const noexcept { return m_objects == 0; }
+
+        bool full() const noexcept { return m_results.size() == m_limit; }
+
+        usize r1_start() const noexcept { return 0; }
+
+        usize r2_start() const noexcept { return m_r1; }
+
+        usize r3_start() const noexcept { return m_r1 + m_r2; }
+
+        usize r1_end() const noexcept { return r2_start(); }
+
+        usize r2_end() const noexcept { return r3_start(); }
+
+        usize r3_end() const noexcept { return m_results.size(); }
+
+        auto r1_start_it() const noexcept { return m_results.begin() + r1_start(); }
+
+        auto r2_start_it() const noexcept { return m_results.begin() + r2_start(); }
+
+        auto r3_start_it() const noexcept { return m_results.begin() + r3_start(); }
+
+        auto r1_end_it() const noexcept { return m_results.begin() + r1_end(); }
+
+        auto r2_end_it() const noexcept { return m_results.begin() + r1_end(); }
+
+        auto r3_end_it() const noexcept { return m_results.begin() + r1_end(); }
+
+        bool can_insert(Rank r) const noexcept
+        {
+            if (r.r1())
+                return r1_end() < m_limit;
+
+            if (r.r2())
+                return r2_end() < m_limit;
+
+            return r3_end() < m_limit;
+        }
+
+        const Match& operator[](usize idx) const noexcept
+        {
+            assert(idx < m_results.size());
+            return m_results[idx];
+        }
+
         /**
          * Inserts other matches into the final matches.
          */
@@ -148,27 +199,26 @@ public:
             // m_objects += other.m_objects;
 
             const std::vector<Match>& other_res = other.m_results;
-            if (m_first_ranks < m_limit) {
-                usize c = std::min(other.m_first_ranks, m_limit - m_first_ranks);
+            if (m_r1 < m_limit) {
+                usize c = std::min(other.m_r1, m_limit - m_r1);
                 if (c > 0) {
-                    m_results.insert(m_results.begin() + m_first_ranks, other_res.begin(),
+                    m_results.insert(m_results.begin() + m_r1, other_res.begin(),
                                      other_res.begin() + c);
 
-                    m_first_ranks += c;
+                    m_r1 += c;
                 }
 
                 if (m_results.size() > m_limit)
                     m_results.resize(m_limit);
             }
 
-            if (m_first_ranks + m_second_ranks < m_limit) {
-                usize c = std::min(other.m_second_ranks, m_limit - m_first_ranks - m_second_ranks);
+            if (m_r1 + m_r2 < m_limit) {
+                usize c = std::min(other.m_r2, m_limit - m_r1 - m_r2);
                 if (c > 0) {
-                    m_results.insert(m_results.begin() + m_first_ranks,
-                                     other_res.begin() + other.m_first_ranks,
-                                     other_res.begin() + other.m_first_ranks + c);
+                    m_results.insert(m_results.begin() + m_r1, other_res.begin() + other.m_r1,
+                                     other_res.begin() + other.m_r1 + c);
 
-                    m_second_ranks += c;
+                    m_r2 += c;
                 }
 
                 if (m_results.size() > m_limit)
@@ -178,10 +228,8 @@ public:
             if (m_results.size() < m_limit) {
                 usize c = std::min(m_limit - m_results.size(), other_res.size());
                 if (c > 0)
-                    m_results.insert(m_results.end(),
-                                     other_res.begin() + other.m_first_ranks + other.m_second_ranks,
-                                     other_res.begin() + other.m_first_ranks +
-                                         other.m_second_ranks + c);
+                    m_results.insert(m_results.end(), other_res.begin() + other.m_r1 + other.m_r2,
+                                     other_res.begin() + other.m_r1 + other.m_r2 + c);
             }
 
             m_objects += other.m_objects;
@@ -195,55 +243,45 @@ public:
             if (full()) {
                 assert(rank.first() || rank.second());
                 m_results.pop_back();
+
+                if (r1_end() >= m_limit)
+                    --m_r1;
+                else if (r2_end() >= m_limit)
+                    --m_r2;
             }
 
-            auto insert_it = m_results.begin();
+            auto it = r1_end_it();
 
-            if (rank.first()) {
-                ++m_first_ranks;
+            if (rank.r1()) {
+                it = r1_end_it();
+                ++m_r1;
             }
-            else if (rank.second()) {
-                insert_it += m_first_ranks;
-                ++m_second_ranks;
+            else if (rank.r2()) {
+                it = r2_end_it();
+                ++m_r2;
             }
             else {
                 assert(rank.third());
-                insert_it = m_results.end();
+                it = r3_end_it();
             }
 
-            m_results.emplace(insert_it, std::forward<Args>(args)...);
+            m_results.emplace(it, std::forward<Args>(args)...);
             inc_objects();
         }
 
         void clear() noexcept
         {
             m_results.clear();
-            m_first_ranks = 0;
-            m_second_ranks = 0;
+            m_r1 = 0;
+            m_r2 = 0;
             m_objects = 0;
-        }
-
-        const std::vector<Match>& data() const noexcept { return m_results; }
-
-        usize objects_count() const noexcept { return m_objects; }
-
-        usize size() const noexcept { return m_results.size(); }
-
-        bool empty() const noexcept { return m_objects == 0; }
-
-        bool full() const noexcept { return m_results.size() == m_limit; }
-
-        const Match& operator[](usize idx) const noexcept
-        {
-            assert(idx < m_results.size());
-            return m_results[idx];
         }
 
     private:
         std::vector<Match> m_results;
         usize m_objects = 0;
-        usize m_first_ranks = 0;
-        usize m_second_ranks = 0;
+        usize m_r1 = 0;
+        usize m_r2 = 0;
         usize m_limit;
     };
 
@@ -291,26 +329,6 @@ public:
     }
 
     /**
-     * Match result.
-     */
-    // struct matchr {
-    //     matchr(bool valid) : offset{stl::SmallString::npos - valid} {}
-
-    //     matchr(usize off) : offset{off} {}
-
-    //     operator bool() { return offset != stl::SmallString::npos; }
-
-    //     operator usize() { return offset; }
-
-    //     bool strong() { return offset == 0; }
-
-    //     u32 offset;
-    //     u8 rank;
-
-    //     usize offset;
-    // };
-
-    /**
      * Searches for files with provided regex.
      */
     Matches search(const std::string& regex) const noexcept { return partial_search(regex, 1, 0); }
@@ -345,13 +363,6 @@ public:
         const auto& end = slice_count == slice_number + 1 ? m_files.end() : file + chunk;
 
         std::vector<std::string> parts{string_split(search_name, "*")};
-        usize ps = parts.size();
-        if (ps) {
-            std::string s = parts[0];
-            auto ss = s.size();
-            const char* c = s.c_str();
-            const char* zz = c;
-        }
 
         for (; file < end; ++file) {
             const stl::SmallString& file_name = file->name();
@@ -365,7 +376,7 @@ public:
             if (!r)
                 continue;
 
-            if (matches.full() && r.third()) {
+            if (!matches.can_insert(r)) {
                 matches.inc_objects();
                 continue;
             }
