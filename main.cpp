@@ -145,9 +145,8 @@ int finder_main(const Options& opt) // NOLINT
     u32 cpus_count = ums::sch::cpus_count();
     u32 workers_count = ums::sch::workers_count();
     u32 task_id = 0;
-    u32 tasks_count = opt.tasks_count();
     std::vector<ums::Task<Matches>> tasks;
-    tasks.reserve(tasks_count);
+    tasks.reserve(cpus_count);
 
     while (true) {
         results.clear();
@@ -156,9 +155,9 @@ int finder_main(const Options& opt) // NOLINT
         {
             Stopwatch<false, milliseconds> sw;
 
-            for (task_id = 0; task_id < tasks_count; ++task_id) {
-                tasks.emplace_back(ums::async([&, tasks_count, task_id] {
-                    return finder.find_files_partial<80>(query.full(), tasks_count, task_id);
+            for (task_id = 0; task_id < cpus_count; ++task_id) {
+                tasks.emplace_back(ums::async([&, cpus_count, task_id] {
+                    return finder.find_files_partial<80>(query.full(), cpus_count, task_id);
                 }));
             }
 
@@ -171,14 +170,14 @@ int finder_main(const Options& opt) // NOLINT
             objects_count = results.objects_count();
         }
 
-        console.render_main(query, cpus_count, workers_count, tasks_count, objects_count, results,
+        console.render_main(query, cpus_count, workers_count, cpus_count, objects_count, results,
                             time);
 
         Command c;
         while ((c = handle_command(console, query, results)) != Command::normal) {
             switch (c) {
             case Command::consol_resize:
-                console.render_main(query, cpus_count, workers_count, tasks_count, objects_count,
+                console.render_main(query, cpus_count, workers_count, cpus_count, objects_count,
                                     results, time);
                 break; // breaks from switch;
             case Command::exit:
@@ -205,7 +204,6 @@ int main(int argc, char* argv[])
     bool verbose = false;
     u32 wps = 2;
     u32 cpus = std::thread::hardware_concurrency();
-    u32 tasks_count = cpus;
 
     // clang-format off
     app.add_option("-r,--root",        root,         "Root directory for files/symbols. Default is OS root directory.");
@@ -215,17 +213,15 @@ int main(int argc, char* argv[])
     app.add_flag  ("-s,--symbols",     symbols,      "Symbols search. Default is false.");
     app.add_flag  ("-o,--stat-only",   stats_only,   "Prints stats and quit. Default is false.");
     app.add_flag  ("-v,--verbose",     verbose,      "Enables verbose output. Default is false.");
+    app.add_option("-c,--cpus",        cpus,         "Number of CPUs (schedulers) to be used. Default is all available CPUs.");
     app.add_option("-w,--workers",     wps,          "Number of workers per scheduler.");
-    app.add_option("-c,--cpus",        cpus,         "Number of CPUs to be used. Default is all available CPUs.");
-    app.add_option("-t,--tasks-count", tasks_count,  "Number of search tasks. Default is number of CPUs.");
     // clang-format on
 
     CLI11_PARSE(app, argc, argv);
 
     ums::Options ums_opt{ums::Options::Schedulers_count{cpus},
                          ums::Options::Workers_per_scheduler{wps}};
-    Options finder_opt{root,    ignore_list, include_list, files,
-                       symbols, stats_only,  verbose,      tasks_count};
+    Options finder_opt{root, ignore_list, include_list, files, symbols, stats_only, verbose};
 
     ums::init_ums([&] { finder_main(finder_opt); }, ums_opt);
 }
