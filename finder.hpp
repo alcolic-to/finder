@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "config.hpp"
 #include "files.hpp"
 #include "symbols.hpp"
 #include "tokens.hpp"
@@ -181,19 +182,13 @@ public:
 
     [[nodiscard]] const fs::path& dir() const noexcept { return m_root; }
 
-    template<usize Limit>
-    [[nodiscard]] Files::Matches<Limit> find_files_partial(const std::string& regex,
-                                                           usize slice_count,
-                                                           usize slice_number) const noexcept
+    [[nodiscard]] Matches find_files_partial(const std::string& regex, usize slice_count,
+                                             usize slice_number) const noexcept
     {
-        return m_files.partial_search<Limit>(regex, slice_count, slice_number);
+        return m_files.partial_search(regex, slice_count, slice_number);
     }
 
-    template<usize Limit>
-    Files::Matches<Limit> find_files(const std::string& regex)
-    {
-        return m_files.search<Limit>(regex);
-    }
+    Matches find_files(const std::string& regex) { return m_files.search(regex); }
 
     Symbol* find_symbols(const std::string& symbol_name) { return m_symbols.search(symbol_name); }
 

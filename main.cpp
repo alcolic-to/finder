@@ -157,7 +157,7 @@ int finder_main(const Options& opt) // NOLINT
 
             for (task_id = 0; task_id < cpus_count; ++task_id) {
                 tasks.emplace_back(ums::async([&, cpus_count, task_id] {
-                    return finder.find_files_partial<80>(query.full(), cpus_count, task_id);
+                    return finder.find_files_partial(query.full(), cpus_count, task_id);
                 }));
             }
 
