@@ -15,7 +15,6 @@
  */
 #include <cctype>
 #include <chrono>
-#include <memory>
 #include <string>
 #include <thread>
 #include <variant>
@@ -35,6 +34,8 @@
 
 // NOLINTBEGIN(misc-use-anonymous-namespace, readability-implicit-bool-conversion,
 // readability-function-cognitive-complexity)
+
+constexpr std::string version = "0.1.0";
 
 /**
  * Handling commands.
@@ -170,14 +171,14 @@ int finder_main(const Options& opt) // NOLINT
             objects_count = results.objects_count();
         }
 
-        console.render_main(query, cpus_count, workers_count, cpus_count, objects_count, results,
+        console.render_main(version, query, cpus_count, workers_count, objects_count, results,
                             time);
 
         Command c;
         while ((c = handle_command(console, query, results)) != Command::normal) {
             switch (c) {
             case Command::consol_resize:
-                console.render_main(query, cpus_count, workers_count, cpus_count, objects_count,
+                console.render_main(version, query, cpus_count, workers_count, objects_count,
                                     results, time);
                 break; // breaks from switch;
             case Command::exit:
@@ -206,15 +207,16 @@ int main(int argc, char* argv[])
     u32 cpus = std::thread::hardware_concurrency();
 
     // clang-format off
-    app.add_option("-r,--root",        root,         "Root directory for files/symbols. Default is OS root directory.");
-    app.add_option("-i,--ignore",      ignore_list,  "Ignores provided paths. Paths should be separated by space.");
-    app.add_option("-n,--include",     include_list, "Includes provided paths even if they are ignored. Paths should be separated by space.");
-    app.add_flag  ("-f,--files",       files,        "Files search. Default is true.");
-    app.add_flag  ("-s,--symbols",     symbols,      "Symbols search. Default is false.");
-    app.add_flag  ("-o,--stat-only",   stats_only,   "Prints stats and quit. Default is false.");
-    app.add_flag  ("-v,--verbose",     verbose,      "Enables verbose output. Default is false.");
-    app.add_option("-c,--cpus",        cpus,         "Number of CPUs (schedulers) to be used. Default is all available CPUs.");
-    app.add_option("-w,--workers",     wps,          "Number of workers per scheduler.");
+    app.set_version_flag("-v,--version",   version,      "Finder version.");
+    app.add_option      ("-r,--root",      root,         "Root directory for files/symbols. Default is OS root directory.");
+    app.add_option      ("-i,--ignore",    ignore_list,  "Ignores provided paths. Paths should be separated by space.");
+    app.add_option      ("-n,--include",   include_list, "Includes provided paths even if they are ignored. Paths should be separated by space.");
+    app.add_flag        ("-f,--files",     files,        "Files search. Default is true.");
+    app.add_flag        ("-s,--symbols",   symbols,      "Symbols search. Default is false.");
+    app.add_flag        ("-o,--stat-only", stats_only,   "Prints stats and quit. Default is false.");
+    app.add_flag        ("-b,--verbose",   verbose,      "Enables verbose output. Default is false.");
+    app.add_option      ("-c,--cpus",      cpus,         "Number of CPUs (schedulers) to be used. Default is all available CPUs.");
+    app.add_option      ("-w,--workers",   wps,          "Number of workers per scheduler.");
     // clang-format on
 
     CLI11_PARSE(app, argc, argv);

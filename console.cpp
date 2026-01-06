@@ -317,8 +317,8 @@ Console& Console::draw_symbol_search_results(const Symbol* symbol)
     return *this;
 }
 
-void Console::render_main(const Query& query, u32 cpus_count, u32 workers_count, u32 tasks_count,
-                          u32 objects_count, const Matches& results,
+void Console::render_main(const std::string& version, const Query& query, u32 cpus_count,
+                          u32 workers_count, u32 objects_count, const Matches& results,
                           std::chrono::duration<long long, std::ratio<1, 1000>> time)
 {
     if (m_max_x < min_x_required || m_max_y < min_y_required) {
@@ -336,8 +336,8 @@ void Console::render_main(const Query& query, u32 cpus_count, u32 workers_count,
 
     push_cursor_coord();
     move_cursor_to<edge_right>().move_cursor<left>(70); // NOLINT
-    write("cpus: {}, workers: {}, tasks: {}, objects: {}, search time: {}", cpus_count,
-          workers_count, tasks_count, objects_count, time);
+    write("v: {}, cpus: {}, workers: {}, objects: {}, search time: {}", version, cpus_count,
+          workers_count, objects_count, time);
     pop_cursor_coord();
 
     print_search_results(results, query);

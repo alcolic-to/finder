@@ -264,8 +264,8 @@ public:
 
     Console& draw_symbol_search_results(const Symbol* symbol);
 
-    void render_main(const Query& query, u32 cpus_count, u32 workers_count, u32 tasks_count,
-                     u32 objects_count, const Matches& results,
+    void render_main(const std::string& version, const Query& query, u32 cpus_count,
+                     u32 workers_count, u32 objects_count, const Matches& results,
                      std::chrono::duration<long long, std::ratio<1, 1000>> time);
 
 private:
